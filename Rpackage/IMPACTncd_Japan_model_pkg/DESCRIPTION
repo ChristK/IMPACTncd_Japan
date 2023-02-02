@@ -1,0 +1,35 @@
+Package: IMPACTncdJapan
+Type: Package
+Title: Utility Functions for IMPACTncdJapan Model
+Version: 0.0.1
+Date: 2023-01-20
+Author: Chris Kypridemos
+Maintainer: Chris Kypridemos <christodoulosk@gmail.com>
+Description: This package contains the functions that are necessary for IMPACTncdJapan model. 
+License: GPL (>=3)
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: yes
+Byte-Compile: yes
+Imports: Rcpp (>= 1.0.2),
+         data.table (>= 1.14.0),
+         fst (>= 0.9.0),
+         dqrng,
+         CKutils, 
+         gamlss,
+         cowplot,
+         mc2d,
+         digest,
+         R6,
+         yaml,
+         shinythemes,
+         foreach,
+         BH,
+         igraph
+Suggests: roxygen2
+LinkingTo: Rcpp, 
+           dqrng,
+           sitmo,
+           BH,
+           data.table
+RoxygenNote: 7.2.3

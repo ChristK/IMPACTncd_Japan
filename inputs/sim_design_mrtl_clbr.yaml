@@ -1,0 +1,129 @@
+iteration_n: 15
+iteration_n_final: 100
+clusternumber: 35 # explicit parallelisation
+clusternumber_export: 15 # NEW: number of clusters for export_summaries
+n_cpus: 1 # implicit parallelisation
+logs: yes
+export_xps: yes
+keep_lifecourse: yes
+export_PARF: no
+'n': 100000
+n_synthpop_aggregation: 8 # number of synthpops to aggregate together
+# n_primers: 10 # better be some multiple of n_synthpop_aggregation
+init_year_long: 2013 # 2008 to 2020 but be careful with max lags
+sim_horizon_max: 2043 # population projections do not support longer horizon
+ageL: 30
+ageH: 90
+apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incidence? NOTE it affects nonmodelled as well
+model_trends_in_redidual_incd: no # Model trends in non attributable incidence? (NOTE implementation needs further refinement)
+init_ftlt_calibration: yes # NEW: Indicator whether case fatality is calibrated at all
+mortality_calibration: no # NEW: Activate or deactivate mortality calibration to FDM forecast. Conditional on CF calibration
+diseases:
+- name: obesity
+  friendly_name: Obesity
+  meta:
+    incidence:
+      type: 1 # deterministically depend on exposure(s)
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: yes # cure depends on the relevant exposure(s)
+    diagnosis:
+      type: 1
+      probability: 1
+      mm_wt: 0.0
+    mortality:
+      type: ~ # NULL
+  notes: .na
+- name: chd
+  friendly_name: CHD
+  meta:
+    incidence:
+      type: 3 # incidence depends on disease
+      influenced_by_disease_name: t2dm
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      duration_distr: NBI
+      mm_wt: 0.49
+    mortality:
+      type: 3
+      influenced_by_disease_name: t2dm
+      code: 2
+  notes: .na
+- name: stroke
+  friendly_name: Stroke
+  meta:
+    incidence:
+      type: 3
+      influenced_by_disease_name: t2dm
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      duration_distr: PIG
+      mm_wt: 0.8
+    mortality:
+      type: 3
+      influenced_by_disease_name: t2dm
+      code: 3
+  notes: .na
+- name: t2dm
+  friendly_name: T2DM
+  meta:
+    incidence:
+      type: 2
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      duration_distr: GPO
+      mm_wt: 0.0
+    mortality:
+      type: 1
+      code: 4
+  notes: .na
+- name: nonmodelled
+  friendly_name: nonmodelled
+  meta:
+    incidence:
+      type: Universal
+    diagnosis:
+      type: ~ # NULL
+    mortality:
+      type: 3 # influenced by
+      influenced_by_disease_name: t2dm
+      code: 1
+  notes: .na
+maxlag: 10
+jumpiness: 1.0 # increase for more erratic jumps in trajectories
+decision_aid: 0.8
+stochastic: yes
+kismet: yes
+validation: no # or yes. Note, no yes/no
+max_prvl_for_outputs: 2 # duration 1 is incidence and 2 is prevalence
+iteration_n_max: 1000
+output_dir: ./outputs
+synthpop_dir: ./inputs/synthpop
+scenarios: ''
+cols_for_output:
+- pid # NEED TO be 1st (perhaps not anymore)
+- year
+- mc
+- age
+- sex
+- wt
+- bmi_curr_xps
+- ssb_curr_xps
+- juice_curr_xps
+strata_for_output:
+- scenario
+- year
+- agegrp
+- sex
+exposures:
+- age
+- sex
+- bmi
+- ssb
+- juice
+

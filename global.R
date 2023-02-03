@@ -1,10 +1,10 @@
-## IMPACTncd_Engl is an implementation of the IMPACTncd framework, developed by Chris
+## IMPACTncd_Japan is an implementation of the IMPACTncd framework, developed by Chris
 ## Kypridemos with contributions from Peter Crowther (Melandra Ltd), Maria
 ## Guzman-Castillo, Amandine Robert, and Piotr Bandosz.
 ##
 ## Copyright (C) 2018-2020 University of Liverpool, Chris Kypridemos
 ##
-## IMPACTncd_Engl is free software; you can redistribute it and/or modify it under
+## IMPACTncd_Japan is free software; you can redistribute it and/or modify it under
 ## the terms of the GNU General Public License as published by the Free Software
 ## Foundation; either version 3 of the License, or (at your option) any later
 ## version. This program is distributed in the hope that it will be useful, but
@@ -16,12 +16,12 @@
 ## Boston, MA 02110-1301 USA.
 
 # file.remove(list.files("./output/", full.names = TRUE, recursive = TRUE))
-# file.remove(list.files("./Rpackage/IMPACTncd_Engl_model_pkg/src", full.names = TRUE, recursive = TRUE, pattern = "\\.o$|\\.so$"))
+# file.remove(list.files("./Rpackage/IMPACTncd_Japan_model_pkg/src", full.names = TRUE, recursive = TRUE, pattern = "\\.o$|\\.so$"))
 
 # If segfault from C stack overflow see
 # https://github.com/Rdatatable/data.table/issues/1967
 
-cat("Initialising IMPACTncd_Engl model...\n\n")
+cat("Initialising IMPACTncd_Japan model...\n\n")
 if (interactive() && !nzchar(system.file(package = "CKutils"))) {
   if (!nzchar(system.file(package = "remotes"))) install.packages("remotes")
   remotes::install_github("ChristK/CKutils", force = TRUE, upgrade = "never")
@@ -37,18 +37,18 @@ options(datatable.showProgress = FALSE)
 dependencies(yaml::read_yaml("./dependencies.yaml"))
 
 if (interactive()) {
-  snfile <- "./Rpackage/.IMPACTncd_Engl_model_pkg_snapshot.qs"
+  snfile <- "./Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs"
   if (file.exists(snfile)) snapshot <- changedFiles(qread(snfile))
 
 
-  if (!nzchar(system.file(package = "IMPACTncdEngl")) ||
+  if (!nzchar(system.file(package = "IMPACTncdJapan")) ||
       !file.exists(snfile) || any(nzchar(snapshot$added),
         nzchar(snapshot$deleted),
         nzchar(snapshot$changed))) {
     if (!nzchar(system.file(package = "remotes")))
       install.packages("remotes")
     if (nzchar(system.file(package = "roxygen2")))
-      roxygen2::roxygenise("./Rpackage/IMPACTncd_Engl_model_pkg/", clean = TRUE)
+      roxygen2::roxygenise("./Rpackage/IMPACTncd_Japan_model_pkg/", clean = TRUE)
     detach_package <- function(pkg, character.only = FALSE)
     {
       if(!character.only)
@@ -61,15 +61,15 @@ if (interactive()) {
         detach(search_item, unload = TRUE, character.only = TRUE)
       }
     }
-    detach_package(IMPACTncdEngl)
-    remotes::install_local("./Rpackage/IMPACTncd_Engl_model_pkg/",
+    detach_package(IMPACTncdJapan)
+    remotes::install_local("./Rpackage/IMPACTncd_Japan_model_pkg/",
       force = TRUE,
       upgrade = "never")
 
     if (file.exists(snfile)) file.remove(snfile)
     qsave(
       fileSnapshot(
-        "./Rpackage/IMPACTncd_Engl_model_pkg/",
+        "./Rpackage/IMPACTncd_Japan_model_pkg/",
         timestamp = NULL,
         md5sum = TRUE,
         recursive = TRUE
@@ -78,7 +78,7 @@ if (interactive()) {
     )
   }
 }
-library(IMPACTncdEngl)
+library(IMPACTncdJapan)
 
 
 # registerDoFuture()
@@ -126,7 +126,7 @@ library(IMPACTncdEngl)
 #     "gamlss.dist",
 #     "dqrng",
 #     "CKutils",
-#     "IMPACTncdEngl",
+#     "IMPACTncdJapan",
 #     "fst",
 #     "data.table"
 #   ),

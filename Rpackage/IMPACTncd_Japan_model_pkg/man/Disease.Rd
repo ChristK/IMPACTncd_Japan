@@ -91,7 +91,7 @@ Generates PARF and stores it to disk if one doesn not
 \if{html}{\out{<div class="r">}}\preformatted{Disease$gen_parf_files(
   design_ = design,
   diseases_ = diseases,
-  popsize = 100,
+  popsize = 10000,
   check = design_$sim_prm$logs,
   keep_intermediate_file = TRUE
 )}\if{html}{\out{</div>}}
@@ -127,7 +127,9 @@ Read PARF file from disk. If missing, generates PARF and
   sp = sp,
   design_ = design,
   diseases_ = diseases,
-  popsize = 100,
+  scenario_p_zero = 1,
+  perc_change_m0 = 1,
+  popsize = 10000,
   check = design_$sim_prm$logs,
   keep_intermediate_file = TRUE
 )}\if{html}{\out{</div>}}
@@ -158,7 +160,7 @@ The invisible self for chaining.
 \if{html}{\out{<a id="method-Disease-set_init_prvl"></a>}}
 \if{latex}{\out{\hypertarget{method-Disease-set_init_prvl}{}}}
 \subsection{Method \code{set_init_prvl()}}{
-Set disease prevalence & diagnosisin a new col in sp$pop.
+Set disease prevalence & diagnosis in a new col in sp$pop.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Disease$set_init_prvl(sp, design_ = design)}\if{html}{\out{</div>}}
 }
@@ -304,7 +306,7 @@ The invisible self for chaining.
 \subsection{Method \code{get_incd()}}{
 Get disease incident probability.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Disease$get_incd(year_)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Disease$get_incd(year_, mc_ = sp$mc_aggr)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -325,7 +327,7 @@ A data.table with disease incident probabilities unless
 \subsection{Method \code{get_dur()}}{
 Get disease duration distribution parameters.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Disease$get_dur()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Disease$get_dur(mc_ = sp$mc_aggr)}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{
@@ -339,7 +341,7 @@ A data.table with duration distribution parameters. unless
 \subsection{Method \code{get_prvl()}}{
 Get disease prevalent probability.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Disease$get_prvl(year_)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Disease$get_prvl(year_, mc_ = sp$mc_aggr)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -360,7 +362,7 @@ A data.table with disease prevalent probabilities unless
 \subsection{Method \code{get_ftlt()}}{
 Get disease case fatality probability.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Disease$get_ftlt(year_)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Disease$get_ftlt(year_, mc_ = sp$mc_aggr)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

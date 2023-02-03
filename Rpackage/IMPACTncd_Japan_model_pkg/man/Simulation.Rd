@@ -25,10 +25,13 @@ To be completed...
 \itemize{
 \item \href{#method-Simulation-new}{\code{Simulation$new()}}
 \item \href{#method-Simulation-run}{\code{Simulation$run()}}
+\item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
 \item \href{#method-Simulation-get_causal_structure}{\code{Simulation$get_causal_structure()}}
 \item \href{#method-Simulation-update_design}{\code{Simulation$update_design()}}
 \item \href{#method-Simulation-del_outputs}{\code{Simulation$del_outputs()}}
 \item \href{#method-Simulation-del_logs}{\code{Simulation$del_logs()}}
+\item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
+\item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
 \item \href{#method-Simulation-print}{\code{Simulation$print()}}
 \item \href{#method-Simulation-clone}{\code{Simulation$clone()}}
 }
@@ -59,15 +62,46 @@ A new `Simulation` object.
 \subsection{Method \code{run()}}{
 Runs a simulation
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$run(mc_, multicore = TRUE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$run(
+  mc,
+  multicore = TRUE,
+  scenario_nam,
+  p_zero_trend = -0.03,
+  m_zero_trend = 0
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{mc_}}{An integer vector with the Monte Carlo iterations of
-synthetic population to simulate.}
+\item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
+iterations of synthetic population to simulate.}
 
+\item{\code{multicore}}{If TRUE run the simulation in parallel.}
+
+\item{\code{scenario_nam}}{A string for the scenario name (i.e. sc1)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-export_summaries"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-export_summaries}{}}}
+\subsection{Method \code{export_summaries()}}{
+Process the lifecourse files
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$export_summaries(
+  multicore = TRUE,
+  type = c("le", "ly", "prvl", "incd", "mrtl", "dis_mrtl", "cea")
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
 \item{\code{multicore}}{If TRUE run the simulation in parallel.}
 }
 \if{html}{\out{</div>}}
@@ -144,6 +178,32 @@ Delete log files.
 
 \subsection{Returns}{
 The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-get_esp"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-get_esp}{}}}
+\subsection{Method \code{get_esp()}}{
+Get the European Standardised Population 2013 by sex and dimd.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_esp()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+A data.table with the European Standardised Population 2013.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-get_mm_weights"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-get_mm_weights}{}}}
+\subsection{Method \code{get_mm_weights()}}{
+Get the disease multimorbidity weifgts (i.e. Cambridge Morbidity Score weights).
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_mm_weights()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+A named vector with disease weights.
 }
 }
 \if{html}{\out{<hr>}}

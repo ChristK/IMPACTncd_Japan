@@ -1522,9 +1522,17 @@ SynthPop <-
 
 			# ????? 20230206  # all exposure names  we do not need rank_ rankstat_
             xps_tolag <- c(
-              "bmi",
-              "ssb",
-              "juice"
+              "Smoking_number",
+              "Smoking",
+              "SBP",
+              "PA_days",
+              "Med_HT",
+              "Med_DM",
+              "Med_HL",
+              "LDLc",
+              "HbA1c",
+              "Fruit_vege",
+              "BMI"
             )
             xps_nam <-  paste0(xps_tolag, "_curr_xps")
             setnames(dt, xps_tolag, xps_nam)

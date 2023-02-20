@@ -193,37 +193,37 @@ SynthPop <-
       #' Updates the wt_immrtl to account for mortality in baseline scenario.
       #' @return The invisible self for chaining.
       update_pop_weights = function(scenario_nam = "sc0") {
-        
+
         if (scenario_nam == "sc0" && !"wt" %in% names(self$pop)) { # baseline
           self$pop[, tmp := sum(wt_immrtl), keyby = .(year, age, sex)]
           set(self$pop, NULL, "wt", 0)
           self$pop[!is.na(all_cause_mrtl), wt := wt_immrtl * tmp / sum(wt_immrtl),
                    by = .(year, age, sex)]
-          
+
           self$pop[, tmp := NULL]
         } else if (scenario_nam != "sc0" && !"wt" %in% names(self$pop)) {
           # For policy scenarios.
           x <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
-          
+
           t0 <- fread(x, select = list(integer = c("pid", "year"), character = "scenario", numeric = "wt"),
                       key = c("scenario", "pid", "year"))[scenario == "sc0", ] # wt for sc0
-          
+
           # For some reason pid and year get read incorrectly as character sometimes
           t0[, pid := as.integer(pid)]
           self$pop[, pid := as.integer(pid)]
           t0[, year := as.integer(year)]
           self$pop[, year := as.integer(year)]
-          
+
           self$pop[t0, on = c("pid", "year"), wt := i.wt]
           self$pop[is.na(all_cause_mrtl), wt := 0]
           self$pop[is.na(wt), wt := wt_immrtl]
         } else {
           stop("The baseline scenario need to be named 'sc0' and simulated first, before any policy scenarios.") # TODO more informative message
         }
-        
+
         invisible(self)
       },
-      
+
       #' @description
       #' Delete (all) synthpop files in the synthpop directory.
       #' @param mc_ If `mc_ = NULL`, delete all files in the synthpop directory.
@@ -502,10 +502,10 @@ SynthPop <-
           dt_meta <- metadata_fst(file)
           stopifnot("Population size file need to be keyed by year" =
                       identical("year", dt_meta$keys[1]))
-          
+
 		  file_indx <- read_fst(file, as.data.table = TRUE, columns = "year"
-          )[, .(from = min(.I), to = max(.I)), keyby = "year"][year == design_$sim_prm$init_year]
-		  	  
+          )[, .(from = min(.I), to = max(.I)), keyby = "year"][year == 2000L + design_$sim_prm$init_year]
+
           dt <-
             read_fst(file, from = file_indx$from, to = file_indx$to,
                      as.data.table = TRUE)
@@ -845,14 +845,14 @@ SynthPop <-
 
 
 			# ??generate_corr_unifs(new_n, cm_mean)
-			# Change-for-IMPACT-NCD-Japan  
+			# Change-for-IMPACT-NCD-Japan
             rank_mtx <- generate_corr_unifs(new_n, cm_mean)
             if (design_$sim_prm$logs) message("generate correlated uniforms")
 
             # Restrict the range of some RNs to avoid unrealistic exposures
             # This scaling does not affect correlations
             # /0.999 because I multiplied all the columns below
-			
+
 			## Change-for-IMPACT-NCD-Japan
             #rank_mtx <- data.table(rank_mtx)
 			#rank_mtx[, colnames(rank_mtx) := lapply(.SD, function(x){x * 0.999 * 0.95 / 0.999}), .SDcols = colnames(rank_mtx)]
@@ -868,7 +868,7 @@ SynthPop <-
             #rank_mtx[, "HbA1c_r"] <- rank_mtx[, "HbA1c_r"] * 0.95 / 0.999
             #rank_mtx[, "LDLc_r"] <- rank_mtx[, "LDLc_r"] * 0.95 / 0.999
             #rank_mtx[, "SBP_r"] <- rank_mtx[, "SBP_r"] * 0.95 / 0.999
-            
+
 			rank_mtx <- data.table(rank_mtx)
 
 
@@ -885,9 +885,9 @@ SynthPop <-
               "rank_Fruit_vege"
 			  , "rank_PA_days"
 			  , "rank_BMI"
-			  , "rank_HbA1c"         
+			  , "rank_HbA1c"
 			  , "rank_LDLc"
-			  , "rank_SBP" 			  
+			  , "rank_SBP"
             ) := rank_mtx[, list(Fruit_vege_r, PA_days_r, BMI_r, HbA1c_r, LDLc_r, SBP_r), ] ]
 
             rm(rank_mtx)
@@ -895,13 +895,13 @@ SynthPop <-
 
 			# ????? 20230206 NOT RW variables to change the variable name for rankstat
             # add non-correlated RNs
-			# Change-for-IMPACT-NCD-Japan 
+			# Change-for-IMPACT-NCD-Japan
             rank_cols <- c(
 			  "rankstat_Smoking"
-              , "rankstat_Smoking_number"
+			  , "rankstat_Smoking_number"
 			  , "rankstat_Med_HT"
 			  , "rankstat_Med_HL"
-			  , "rankstat_Med_DM" 			  
+			  , "rankstat_Med_DM"
 			)
 
 
@@ -936,7 +936,7 @@ SynthPop <-
             )
 
             dt[, `:=` (.id = NULL)]
-			
+
 			# Change-for-IMPACT-NCD-Japan
             if (max(dt$age) >= 100L) {
               dt[, age100 := age]
@@ -979,22 +979,22 @@ SynthPop <-
 
 			# Change-for-IMPACT-NCD-Japan
 			# Set limit age ranges
-			Temp <- read_fst("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/HSE_ts.fst", as.data.table = TRUE)[between(Age, 20L, max(dt$age))]
-			limit_age <- Temp[, .(min = min(Age), max = max(Age))]
-			rm(Temp)
-			limit_age
-			
-			
-			
-			
-            # Generate Fruit_vege 
+			# Temp <- read_fst("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/HSE_ts.fst", as.data.table = TRUE)[between(Age, 20L, max(dt$age))]
+			# limit_age <- Temp[, .(min = min(Age), max = max(Age))]
+			# rm(Temp)
+			limit_age <- data.table(min = min(dt$age), max = max(dt$age))
+
+
+
+
+            # Generate Fruit_vege
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Fruit_vege", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate Fruit_vege")
 
             tbl <-
@@ -1004,8 +1004,8 @@ SynthPop <-
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1013,7 +1013,7 @@ SynthPop <-
             #} else {
               dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
@@ -1027,27 +1027,27 @@ SynthPop <-
 
 
 
-            # Generate Smoking 
+            # Generate Smoking
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Smoking", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate Smoking")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Smoking.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1055,41 +1055,41 @@ SynthPop <-
             #} else {
               dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Smoking := qMN3(rank_Smoking, mu, sigma), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, Smoking := qMN3(rankstat_Smoking, mu, sigma), ] #, n_cpu = design_$sim_prm$n_cpu)]
 			dt[, Smoking := factor(Smoking), ]
 			dt[, table(Smoking), ]
-			
-            dt[, rank_Smoking := NULL]
+
+            dt[, rankstat_Smoking := NULL]
             dt[, (col_nam) := NULL]
 
 
 
 
 
-            # Generate Smoking_number 
+            # Generate Smoking_number
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Smoking_number", ".qs"))
 			# Model_gamlss
 			# rm(Model_gamlss)
 
-	
+
             if (design_$sim_prm$logs) message("Generate Smoking_number")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Smoking_number.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1101,47 +1101,47 @@ SynthPop <-
 
 			dt[Smoking %in% c(3),
 				Smoking_number := factor(
-				levels = 0:8, labels = 0:8, ordered = TRUE,	   
-				(rank_Smoking_number > pa0) +
-				(rank_Smoking_number > pa1) +
-					(rank_Smoking_number > pa2) +
-					(rank_Smoking_number > pa3) +
-					(rank_Smoking_number > pa4) +
-					(rank_Smoking_number > pa5) +
-					(rank_Smoking_number > pa6) +
-				(rank_Smoking_number > pa7)  
+				levels = 0:8, labels = 0:8, ordered = TRUE,
+				(rankstat_Smoking_number > pa0) +
+				(rankstat_Smoking_number > pa1) +
+					(rankstat_Smoking_number > pa2) +
+					(rankstat_Smoking_number > pa3) +
+					(rankstat_Smoking_number > pa4) +
+					(rankstat_Smoking_number > pa5) +
+					(rankstat_Smoking_number > pa6) +
+				(rankstat_Smoking_number > pa7)
 				)
 				]
 
-            dt[, rank_Smoking_number := NULL]
+            dt[, rankstat_Smoking_number := NULL]
             dt[, (col_nam) := NULL]
-			
-			
-			
-			
 
 
-            # Generate Med_HT 
+
+
+
+
+            # Generate Med_HT
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Med_HT", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate Med_HT")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Med_HT.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1149,42 +1149,42 @@ SynthPop <-
             #} else {
               dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_HT := qBI(rank_Med_HT, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, Med_HT := qBI(rankstat_Med_HT, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_Med_HT := NULL]
+            dt[, rankstat_Med_HT := NULL]
             dt[, (col_nam) := NULL]
-			
-			
-			
 
 
 
 
-            # Generate Med_HL 
+
+
+
+            # Generate Med_HL
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Med_HL", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate Med_HL")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Med_HL.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1192,13 +1192,13 @@ SynthPop <-
             #} else {
               dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_HL := qBI(rank_Med_HL, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, Med_HL := qBI(rankstat_Med_HL, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_Med_HL := NULL]
+            dt[, rankstat_Med_HL := NULL]
             dt[, (col_nam) := NULL]
 
 
@@ -1206,27 +1206,27 @@ SynthPop <-
 
 
 
-            # Generate Med_DM 
+            # Generate Med_DM
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Med_DM", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate Med_DM")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Med_DM.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1234,45 +1234,45 @@ SynthPop <-
             #} else {
               dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_DM := qBI(rank_Med_DM, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, Med_DM := qBI(rankstat_Med_DM, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_Med_DM := NULL]
+            dt[, rankstat_Med_DM := NULL]
             dt[, (col_nam) := NULL]
-			
-			
-			
-			
-			
-			
-			
-			
-			
 
 
-            # Generate PA_days 
+
+
+
+
+
+
+
+
+
+            # Generate PA_days
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "PA_days", ".qs"))
 			# Model_gamlss
 			# rm(Model_gamlss)
 
-	
+
             if (design_$sim_prm$logs) message("Generate PA_days")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_PA_days.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1284,7 +1284,7 @@ SynthPop <-
 
 			dt[,
 				PA_days := factor(
-				levels = 0:7, labels = 0:7, ordered = TRUE,	   
+				levels = 0:7, labels = 0:7, ordered = TRUE,
 				(rank_PA_days > pa0) +
 				(rank_PA_days > pa1) +
 					(rank_PA_days > pa2) +
@@ -1297,49 +1297,49 @@ SynthPop <-
 
             dt[, rank_PA_days := NULL]
             dt[, (col_nam) := NULL]
-			
-			
-			
+
+
+
 			### Make PA days category
 			dt[,PA_3cat:=ifelse(PA_days %in% c(0, 1), 0,
 						ifelse(PA_days %in% c(2, 3, 4), 1,
 						ifelse(PA_days %in% c(5, 6, 7), 2, NA))),]
 				dt[,table(PA_3cat, PA_days, useNA="always"),]
-			
-			
+
+
 			dt[, PA_3cat := factor(PA_3cat + 1)]
 				table(dt$PA_3cat, useNA = "always")
-				
-	
-	
 
-			
-			
-			
-			
-			
-			
+
+
+
+
+
+
+
+
+
             # Generate BMI
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "BMI", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate BMI")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_BMI.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			
-			
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1347,14 +1347,14 @@ SynthPop <-
             #} else {
               dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
             dt[, BMI := qBCTo(rank_BMI, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
 			dt[BMI < 10, BMI := 10] #Truncate BMI predictions to avoid unrealistic values.
             dt[BMI > 70, BMI := 70] #Truncate BMI predictions to avoid unrealistic values.
-					
+
             dt[, rank_BMI := NULL]
             dt[, (col_nam) := NULL]
 
@@ -1362,21 +1362,21 @@ SynthPop <-
 
 
 
-            # Generate HbA1c 
+            # Generate HbA1c
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "HbA1c", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate HbA1c")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_HbA1c.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
@@ -1385,7 +1385,7 @@ SynthPop <-
 
 
 
-			
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
@@ -1394,33 +1394,33 @@ SynthPop <-
 			dt[, BMI_round := round(BMI), ]
 			dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
             dt[, HbA1c := qBCT(rank_HbA1c, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
-            
+
             dt[, rank_HbA1c := NULL]
             dt[, (col_nam) := NULL]
-			
-			
-			
-			
-            # Generate LDLc 
+
+
+
+
+            # Generate LDLc
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "LDLc", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate LDLc")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_LDLc.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
@@ -1428,76 +1428,76 @@ SynthPop <-
 			setnames(tbl, "BMI", "BMI_round")
 
 
-			
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
 			dt[, BMI_round := round(BMI), ]
-			dt <- absorb_dt(dt, tbl)			
+			dt <- absorb_dt(dt, tbl)
 
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
             dt[, LDLc := qBCT(rank_LDLc, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
-            
+
             dt[, rank_LDLc := NULL]
-            dt[, (col_nam) := NULL]			
-			
-			
-			
-			
-			
-			
-			
-			
-			# Generate SBP 
+            dt[, (col_nam) := NULL]
+
+
+
+
+
+
+
+
+			# Generate SBP
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "SBP", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
-	
-	
+
+
             if (design_$sim_prm$logs) message("Generate SBP")
 
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_SBP.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-					   
-					    
+
+
             setnames(tbl, "Age", "age")
             setnames(tbl, "Sex", "sex")
             setnames(tbl, "Year", "year")
 			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 			setnames(tbl, "BMI", "BMI_round")
-			
-			
-			
-			
+
+
+
+
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-            
+
 			dt[, BMI_round := round(BMI), ]
 			dt <- absorb_dt(dt, tbl)
             #}
-			
+
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
             dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
-            
+
             dt[, rank_SBP := NULL]
             dt[, (col_nam) := NULL]
-			
-			
-					
+
+
+
 
 
 
@@ -1522,9 +1522,17 @@ SynthPop <-
 
 			# ????? 20230206  # all exposure names  we do not need rank_ rankstat_
             xps_tolag <- c(
-              "bmi",
-              "ssb",
-              "juice"
+              "Smoking_number",
+              "Smoking",
+              "SBP",
+              "PA_days",
+              "Med_HT",
+              "Med_DM",
+              "Med_HL",
+              "LDLc",
+              "HbA1c",
+              "Fruit_vege",
+              "BMI"
             )
             xps_nam <-  paste0(xps_tolag, "_curr_xps")
             setnames(dt, xps_tolag, xps_nam)

@@ -1,4 +1,4 @@
-
+# change L6 to L10 and remove "#" from L54 to L84 
 source("./global.R")
 design <- Design$new("./inputs/sim_design.yaml")
 # RR ----
@@ -51,37 +51,37 @@ sp  <- SynthPop$new(1L, design)
 
 
 # lapply(diseases, function(x) x$harmonise_epi_tables(sp))
-# lapply(diseases, function(x) {
-#     print(x)
-#     x$gen_parf_files(design)
-# })
-#lapply(diseases, function(x) {
-#    print(x)
-#    x$gen_parf(sp, design, diseases)
-#})
-#
-#lapply(diseases, function(x) {
-#    print(x)
-#    x$set_init_prvl(sp, design)
-#})
-#
-#lapply(diseases, function(x) {
-#    print(x)
-#    x$set_rr(sp, design)
-#})
-#
-#lapply(diseases, function(x) {
-#    print(x)
-#    x$set_incd_prb(sp, design)
-#})
-#lapply(diseases, function(x) {
-#    print(x)
-#    x$set_dgns_prb(sp, design)
-#})
-#lapply(diseases, function(x) {
-#    print(x)
-#    x$set_mrtl_prb(sp, design)
-# #})
+ lapply(diseases, function(x) {
+     print(x)
+     x$gen_parf_files(design)
+ })
+lapply(diseases, function(x) {
+    print(x)
+    x$gen_parf(sp, design, diseases)
+})
+
+lapply(diseases, function(x) {
+    print(x)
+    x$set_init_prvl(sp, design)
+})
+
+lapply(diseases, function(x) {
+    print(x)
+    x$set_rr(sp, design)
+})
+
+lapply(diseases, function(x) {
+    print(x)
+    x$set_incd_prb(sp, design)
+})
+lapply(diseases, function(x) {
+    print(x)
+    x$set_dgns_prb(sp, design)
+})
+lapply(diseases, function(x) {
+    print(x)
+    x$set_mrtl_prb(sp, design)
+})
 # # diseases$t2dm$harmonise_epi_tables(sp)
  # diseases$t2dm$gen_parf(sp, design)
  # diseases$t2dm$set_init_prvl(sp, design)

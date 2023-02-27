@@ -1,5 +1,5 @@
 ---
-xps_name: bmi
+xps_name: BMI
 outcome: stroke
 lag: 4
 distribution: lognormal
@@ -9,12 +9,11 @@ notes:
   - Adjusted for age, sex, smoking status, systolic blood pressure,
     history of diabetes, and total and HDL cholesterol) and figure 2
     for age specific gradient.
-  - RRs are presented as per 4.56 kg/m2
-  - bmi_rr := bmi_rr ^ ((bmi_lagged - 20) / 4.56)
+  - BMI_rr := BMI_rr ^ ((BMI_lagged - 20) / 4.56)
 apply_rr_extra_fn: >
   function(sp) {
     if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')
-    sp$pop[, bmi_rr := clamp(bmi_rr^((bmi - self$get_ideal_xps_lvl(sp$mc_aggr)) / 4.56), 1, 20)]
+    sp$pop[, BMI_rr := clamp(BMI_rr^((BMI - self$get_ideal_xps_lvl(sp$mc_aggr)) / 4.56), 1, 20)]
   }
 ideal_xps_lvl_fn: >
   function(design_) { # from: PLOS ONE 2013;8:e65174 p7
@@ -46,7 +45,8 @@ agegroup,sex,rr,ci_rr
 75-79,men,1,1
 80-84,men,1,1
 85-89,men,1,1
-90+,men,1,1
+90-94,men,1,1
+95-99,men,1,1
 <1,women,1,1
 01-04,women,1,1
 05-09,women,1,1
@@ -66,5 +66,5 @@ agegroup,sex,rr,ci_rr
 75-79,women,1,1
 80-84,women,1,1
 85-89,women,1,1
-90+,women,1,1
-
+90-94,women,1,1
+95-99,women,1,1

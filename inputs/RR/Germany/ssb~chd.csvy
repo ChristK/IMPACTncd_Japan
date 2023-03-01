@@ -1,0 +1,57 @@
+---
+xps_name: ssb
+outcome: chd
+lag: 4
+distribution: lognormal
+source:
+notes:
+  - Adjusted for BMI. Ideal exposure level is assumed to be 0 ml/day.
+  - RR per 8oz serving/day is converted to RR per 227.3045ml/day.
+apply_rr_extra_fn: >
+  function(sp) {
+    if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')
+    sp$pop[, ssb_rr := clamp(ssb_rr^(ssb / 227.3045), 1, 20)]
+  }
+
+---
+agegroup,sex,rr,ci_rr
+<1,men,1,1
+01-04,men,1,1
+05-09,men,1,1
+10-14,men,1,1
+15-19,men,1,1
+20-24,men,1,1
+25-29,men,1.33,1.47
+30-34,men,1.33,1.47
+35-39,men,1.31,1.45
+40-44,men,1.31,1.45
+45-49,men,1.26,1.37
+50-54,men,1.26,1.37
+55-59,men,1.21,1.30
+60-64,men,1.21,1.30
+65-69,men,1.17,1.24
+70-74,men,1.17,1.24
+75-79,men,1.09,1.13
+80-84,men,1.09,1.13
+85-89,men,1.09,1.13
+90+,men,1.09,1.13
+<1,women,1,1
+01-04,women,1,1
+05-09,women,1,1
+10-14,women,1,1
+15-19,women,1,1
+20-24,women,1,1
+25-29,women,1.33,1.47
+30-34,women,1.33,1.47
+35-39,women,1.31,1.45
+40-44,women,1.31,1.45
+45-49,women,1.26,1.37
+50-54,women,1.26,1.37
+55-59,women,1.21,1.30
+60-64,women,1.21,1.30
+65-69,women,1.17,1.24
+70-74,women,1.17,1.24
+75-79,women,1.09,1.13
+80-84,women,1.09,1.13
+85-89,women,1.09,1.13
+90+,women,1.09,1.13

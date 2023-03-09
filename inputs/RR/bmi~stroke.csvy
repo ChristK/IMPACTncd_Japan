@@ -9,7 +9,6 @@ notes:
   - Adjusted for age, sex, smoking status, systolic blood pressure,
     history of diabetes, and total and HDL cholesterol) and figure 2
     for age specific gradient.
-  - RRs are presented as per 4.56 kg/m2
   - bmi_rr := bmi_rr ^ ((bmi_lagged - 20) / 4.56)
 apply_rr_extra_fn: >
   function(sp) {
@@ -46,7 +45,8 @@ agegroup,sex,rr,ci_rr
 75-79,men,1,1
 80-84,men,1,1
 85-89,men,1,1
-90+,men,1,1
+90-94,men,1,1
+95-99,men,1,1
 <1,women,1,1
 01-04,women,1,1
 05-09,women,1,1
@@ -66,5 +66,5 @@ agegroup,sex,rr,ci_rr
 75-79,women,1,1
 80-84,women,1,1
 85-89,women,1,1
-90+,women,1,1
-
+90-94,women,1,1
+95-99,women,1,1

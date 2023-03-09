@@ -1,5 +1,5 @@
 ---
-xps_name: sbp
+xps_name: SBP
 outcome: nonmodelled
 lag: 5
 distribution: lognormal
@@ -8,7 +8,7 @@ notes: ''
 apply_rr_extra_fn: >
   function(sp) {
     if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')
-    sp$pop[sbp <= 140, sbp_rr := 1]
+    sp$pop[SBP <= 140, SBP_rr := 1]
   }
 ---
 agegroup,sex,rr,ci_rr

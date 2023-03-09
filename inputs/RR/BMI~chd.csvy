@@ -1,5 +1,5 @@
 ---
-xps_name: bmi
+xps_name: BMI
 outcome: chd
 lag: 4
 distribution: lognormal
@@ -8,7 +8,7 @@ notes: Adjusted for age, sex, smoking status, systolic blood pressure, history o
 apply_rr_extra_fn: >
   function(sp) {
     if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')
-    sp$pop[, bmi_rr := clamp(bmi_rr^((bmi - self$get_ideal_xps_lvl(sp$mc_aggr)) / 4.56), 1, 20)]
+    sp$pop[, BMI_rr := clamp(BMI_rr^((BMI - self$get_ideal_xps_lvl(sp$mc_aggr)) / 4.56), 1, 20)]
   }
 ideal_xps_lvl_fn: >
   function(design_) { # from: PLOS ONE 2013;8:e65174 p7

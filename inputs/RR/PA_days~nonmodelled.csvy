@@ -1,12 +1,12 @@
 ---
-xps_name: active_days
+xps_name: PA_days
 outcome: nonmodelled
 lag: 5
 distribution: lognormal
 source: The Lancet 2017;389:1229–37 figure 4
 notes: ''
 ---
-agegroup,sex,active_days,rr,ci_rr
+agegroup,sex,PA_days,rr,ci_rr
 <1,men,0,1,1
 01-04,men,0,1,1
 05-09,men,0,1,1

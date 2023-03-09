@@ -1,2 +1,11 @@
 nonmodelled_ftlt_indx.fst
 nonmodelled_ftlt.fst
+chd_duration_table.fst
+chd_ftlt.fst    
+chd_incd.fst             
+chd_prvl.fst                               
+stroke_duration_table.fst
+stroke_ftlt.fst          
+stroke_incd.fst          
+stroke_prvl.fst
+

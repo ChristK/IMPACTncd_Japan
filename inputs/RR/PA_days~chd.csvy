@@ -1,5 +1,5 @@
 ---
-xps_name: active_days
+xps_name: PA_days
 outcome: chd
 lag: 4
 distribution: lognormal
@@ -7,7 +7,7 @@ source: WHO | Comparative Quantification of Health Risks, Table 10.19 (with adju
   for measurement error) http://www.who.int/publications/cra/en/.
 notes: ''
 ---
-agegroup,sex,active_days,rr,ci_rr
+agegroup,sex,PA_days,rr,ci_rr
 <1,men,0,1,1
 01-04,men,0,1,1
 05-09,men,0,1,1

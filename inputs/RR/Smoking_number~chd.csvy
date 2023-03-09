@@ -1,5 +1,5 @@
 ---
-xps_name: smok_cig
+xps_name: Smoking_number
 outcome: chd
 lag: 4
 distribution: lognormal
@@ -8,13 +8,13 @@ notes: ''
 apply_rr_extra_fn: >
   function(sp) {
     if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')
-    tt <- private$cache[smok_cig == max(smok_cig)] # holds rr for the latest used mc
-    cigmax <- max(tt$smok_cig)
-    sp$pop[smok_cig > cigmax, smok_cig := cigmax]
-    absorb_dt(sp$pop, tt, on = c('age', 'sex', 'smok_cig'))
+    tt <- private$cache[Smoking_number == max(Smoking_number)] # holds rr for the latest used mc
+    cigmax <- max(tt$Smoking_number)
+    sp$pop[Smoking_number > cigmax, Smoking_number := cigmax]
+    absorb_dt(sp$pop, tt, on = c('age', 'sex', 'Smoking_number'))
   }
 ---
-agegroup,sex,smok_cig,rr,ci_rr
+agegroup,sex,Smoking_number,rr,ci_rr
 <1,men,0,1,1
 01-04,men,0,1,1
 05-09,men,0,1,1

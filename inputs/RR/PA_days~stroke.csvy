@@ -1,5 +1,5 @@
 ---
-xps_name: active_days
+xps_name: PA_days
 outcome: stroke
 lag: 4
 distribution: lognormal
@@ -7,7 +7,7 @@ source: WHO | Comparative Quantification of Health Risks, Table 10.20 (with adju
   for measurement error) http://www.who.int/publications/cra/en/.
 notes: Estimates for ischaemic stroke
 --- 
-agegroup,sex,active_days,rr,ci_rr
+agegroup,sex,PA_days,rr,ci_rr
 <1,men,0,1,1
 01-04,men,0,1,1
 05-09,men,0,1,1

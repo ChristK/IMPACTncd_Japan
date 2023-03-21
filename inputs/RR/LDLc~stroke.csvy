@@ -3,7 +3,7 @@ xps_name: LDLc
 outcome: stroke
 lag: 4
 distribution: lognormal
-source: Major lipids, apolipoproteins, and risk of vascular disease. JAMA. 2009 Nov 11;302(18):1993-2000. doi: 10.1001/jama.2009.1619. P1997 left top in results section and eTable 5 for ischemic stroke
+source: Major lipids, apolipoproteins, and risk of vascular disease. JAMA. 2009 Nov 11;302(18):1993-2000. doi: 10.1001/jama.2009.1619. P1997 left top in results section and eTable 5 for "ischemic" stroke (1.12 [1.04-1.20). Based on the HR of "ischemic" stroke, we obtained adjusted HR of all types stroke by ratios of non-ischemic stroke to ischemic stroke.
 notes: Adjusted for age, sex, SBP, smoking status, history of diabetes, BMI, HDL-c, and TG We extrapolate HR for people aged between 30-39 using 40-59. For the ideal level, Guideline on the Management of Blood Cholesterol: Executive Summary: A Report of the American College of Cardiology/American Heart Association Task Force on Clinical Practice Guidelines. J Am Coll Cardiol. Volume 73, Issue 24, 25 June 2019, Pages e285-e350
 apply_rr_extra_fn: >
   function(sp) {
@@ -28,20 +28,20 @@ agegroup,sex,rr,ci_rr
 15-19,men,1,1
 20-24,men,1,1
 25-29,men,1,1
-30-34,men,1.12,1.20
-35-39,men,1.12,1.20
-40-44,men,1.12,1.20
-45-49,men,1.12,1.20
-50-54,men,1.12,1.20
-55-59,men,1.12,1.20
-60-64,men,1.12,1.20
-65-69,men,1.12,1.20
-70-74,men,1.12,1.20
-75-79,men,1.12,1.20
-80-84,men,1.12,1.20
-85-89,men,1.12,1.20
-90-94,men,1.12,1.20
-95-99,men,1.12,1.20
+30-34,men,1.06,1.10
+35-39,men,1.06,1.10
+40-44,men,1.06,1.10
+45-49,men,1.06,1.10
+50-54,men,1.06,1.10
+55-59,men,1.07,1.11
+60-64,men,1.07,1.12
+65-69,men,1.08,1.14
+70-74,men,1.09,1.15
+75-79,men,1.09,1.15
+80-84,men,1.09,1.15
+85-89,men,1.09,1.15
+90-94,men,1.09,1.15
+95-99,men,1.09,1.15
 <1,women,1,1
 01-04,women,1,1
 05-09,women,1,1
@@ -49,17 +49,19 @@ agegroup,sex,rr,ci_rr
 15-19,women,1,1
 20-24,women,1,1
 25-29,women,1,1
-30-34,women,1.12,1.20
-35-39,women,1.12,1.20
-40-44,women,1.12,1.20
-45-49,women,1.12,1.20
-50-54,women,1.12,1.20
-55-59,women,1.12,1.20
-60-64,women,1.12,1.20
-65-69,women,1.12,1.20
-70-74,women,1.12,1.20
-75-79,women,1.12,1.20
-80-84,women,1.12,1.20
-85-89,women,1.12,1.20
-90-94,women,1.12,1.20
-95-99,women,1.12,1.20
+30-34,women,1.04,1.06
+35-39,women,1.04,1.06
+40-44,women,1.04,1.06
+45-49,women,1.04,1.06
+50-54,women,1.04,1.07
+55-59,women,1.05,1.08
+60-64,women,1.06,1.10
+65-69,women,1.07,1.11
+70-74,women,1.07,1.12
+75-79,women,1.08,1.13
+80-84,women,1.08,1.14
+85-89,women,1.08,1.14
+90-94,women,1.08,1.14
+95-99,women,1.08,1.14
+
+

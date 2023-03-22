@@ -3,8 +3,8 @@ xps_name: HbA1c
 outcome: chd
 lag: 4
 distribution: lognormal
-source: For RRs, we used "Glycosylated Hemoglobin in Relationship to Cardiovascular Outcomes and Death in Patients with Type 2 Diabetes: A Systematic Review and Meta-Analysis https://doi.org/10.1371/journal.pone.0042551 Figure 2. The pooled relative risk associated with a 1% increase in glycosylated hemoglobin level among patients with type 2 diabetes was 1.15 (95% CI, 1.10 to 1.20) for incident CHD (non-fatal myocardial infarction, and fatal CHD)." For the ideal level, we used "Glycated haemoglobin A1c as a risk factor of cardiovascular outcomes and all-cause mortality in diabetic and non-diabetic populations: a systematic review and meta-analysis. BMJ Open. 2017 Jul 31;7(7):e015949. doi: 10.1136/bmjopen-2017-015949. our findings establish optimal HbA1c levels, for the lowest all-cause and cardiovascular mortality, ranging from 6.0% to 8.0% in people with diabetes and from 5.0% to 6.0% in those without diabetes."  
-notes: The pooled RR were multivariable-adjusted. 
+source: "For RRs, we used Glycosylated Hemoglobin in Relationship to Cardiovascular Outcomes and Death in Patients with Type 2 Diabetes: A Systematic Review and Meta-Analysis https://doi.org/10.1371/journal.pone.0042551 Figure 2. The pooled relative risk associated with a 1% increase in glycosylated hemoglobin level among patients with type 2 diabetes was 1.15 (95% CI, 1.10 to 1.20) for incident CHD (non-fatal myocardial infarction, and fatal CHD). For the ideal level, we used Glycated haemoglobin A1c as a risk factor of cardiovascular outcomes and all-cause mortality in diabetic and non-diabetic populations: a systematic review and meta-analysis. BMJ Open. 2017 Jul 31;7(7):e015949. doi: 10.1136/bmjopen-2017-015949. our findings establish optimal HbA1c levels, for the lowest all-cause and cardiovascular mortality, ranging from 6.0% to 8.0% in people with diabetes and from 5.0% to 6.0% in those without diabetes."
+notes: The pooled RR were multivariable-adjusted.
 apply_rr_extra_fn: >
   function(sp) {
     if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')

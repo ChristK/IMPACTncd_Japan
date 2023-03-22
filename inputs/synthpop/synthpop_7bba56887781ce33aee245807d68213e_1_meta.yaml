@@ -1,7 +1,0 @@
-'n': 20000
-sim_horizon_max: 37
-init_year_long: 2013
-maxlag: 10
-ageL: 30
-ageH: 99
-jumpiness: 1.0

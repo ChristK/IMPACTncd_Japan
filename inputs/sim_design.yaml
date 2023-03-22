@@ -33,42 +33,36 @@ diseases:
     mortality:
       type: ~ # NULL
   notes: .na
-- name: chd
-  friendly_name: CHD
+- name: htn
+  friendly_name: Hypertension
   meta:
     incidence:
-      type: 3 # incidence depends on disease
-      influenced_by_disease_name: t2dm
-      can_recur: no
+      type: 1
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: no # once hypertensive always hypertensive
     diagnosis:
       type: 1
       probability: 1
-      duration_distr: NBI
-      mm_wt: 0.49
+      mm_wt: 0.0
     mortality:
-      type: 3
-      influenced_by_disease_name: t2dm
-      code: 2
-  notes: .na
-- name: stroke
-  friendly_name: Stroke
-  meta:
-    incidence:
-      type: 3
-      influenced_by_disease_name: t2dm
-      can_recur: no
-    diagnosis:
-      type: 1
-      probability: 1
-      duration_distr: PIG
-      mm_wt: 0.8
-    mortality:
-      type: 3
-      influenced_by_disease_name: t2dm
-      code: 3
+      type: ~ # NULL
   notes: .na
 - name: t2dm
   friendly_name: T2DM
+  meta:
+    incidence:
+      type: 1
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      mm_wt: 0.0
+    mortality:
+      type: ~
+  notes: .na
+- name: chd
+  friendly_name: CHD
   meta:
     incidence:
       type: 2
@@ -76,11 +70,39 @@ diseases:
     diagnosis:
       type: 1
       probability: 1
-      duration_distr: GPO
-      mm_wt: 0.0
+      duration_distr: NBI
+      mm_wt: 0.49
     mortality:
+      type: 2
+      code: 2
+  notes: .na
+- name: stroke
+  friendly_name: Stroke
+  meta:
+    incidence:
+      type: 2
+      can_recur: no
+    diagnosis:
       type: 1
-      code: 4
+      probability: 1
+      duration_distr: PIG
+      mm_wt: 0.8
+    mortality:
+      type: 2
+      code: 3
+  notes: .na
+- name: cvd
+  friendly_name: CVD
+  meta:
+    incidence:
+      type: 0
+      influenced_by_disease_name:
+        - chd
+        - stroke
+    diagnosis:
+      type: 0
+    mortality:
+      type: ~
   notes: .na
 - name: nonmodelled
   friendly_name: nonmodelled
@@ -90,8 +112,7 @@ diseases:
     diagnosis:
       type: ~ # NULL
     mortality:
-      type: 3 # influenced by
-      influenced_by_disease_name: t2dm
+      type: 2 # influenced by
       code: 1
   notes: .na
 maxlag: 10
@@ -123,7 +144,7 @@ strata_for_output:
 exposures:
 - age
 - sex
-- bmi
-- ssb
-- juice
+- BMI
+- SBP
+
 

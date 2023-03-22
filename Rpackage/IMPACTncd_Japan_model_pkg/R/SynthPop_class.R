@@ -856,7 +856,7 @@ SynthPop <-
 			## Change-for-IMPACT-NCD-Japan
             #rank_mtx <- data.table(rank_mtx)
 			#rank_mtx[, colnames(rank_mtx) := lapply(.SD, function(x){x * 0.999 * 0.95 / 0.999}), .SDcols = colnames(rank_mtx)]
-			
+
 			#rank_mtx <- rank_mtx * 0.999
             #rank_mtx[, "Fruit_vege_r"] <- rank_mtx[, "Fruit_vege_r"] * 0.95 / 0.999
             #rank_mtx[, "Smoking_r"] <- rank_mtx[, "Smoking_r"] * 0.95 / 0.999
@@ -1099,21 +1099,18 @@ SynthPop <-
               dt <- absorb_dt(dt, tbl)
             #}
 
-			
-			
-			
-			dt[Smoking %in% c(3),
-				Smoking_number := factor(
-				levels = 0:8, labels = 0:8, ordered = TRUE,
-				(rankstat_Smoking_number > pa0) +
-				(rankstat_Smoking_number > pa1) +
+
+
+
+			dt[Smoking == 3,
+				Smoking_number_grp := (rankstat_Smoking_number > pa0) +
+				  (rankstat_Smoking_number > pa1) +
 					(rankstat_Smoking_number > pa2) +
 					(rankstat_Smoking_number > pa3) +
 					(rankstat_Smoking_number > pa4) +
 					(rankstat_Smoking_number > pa5) +
 					(rankstat_Smoking_number > pa6) +
-				(rankstat_Smoking_number > pa7)
-				)
+				  (rankstat_Smoking_number > pa7)
 				]
 
             dt[, rankstat_Smoking_number := NULL]
@@ -1121,17 +1118,18 @@ SynthPop <-
 
 
 			##### meeting on Feb 23 2023
-			dt[Smoking_number == 0L, Smoking_number := 5L ]
-			dt[Smoking_number == 1L, Smoking_number := 10L]
-			dt[Smoking_number == 2L, Smoking_number := 15L]
-			dt[Smoking_number == 3L, Smoking_number := 20L]
-			dt[Smoking_number == 4L, Smoking_number := 25L]
-			dt[Smoking_number == 5L, Smoking_number := 30L]
-			dt[Smoking_number == 6L, Smoking_number := 35L]
-			dt[Smoking_number == 7L, Smoking_number := 40L]
-			dt[Smoking_number == 8L, Smoking_number := sample(.N, c(50L, 60L, 80L), prob = c(0.4, 0.45, 0.15))]
+			dt[Smoking_number_grp == 0L, Smoking_number := 5L ]
+			dt[Smoking_number_grp == 1L, Smoking_number := 10L]
+			dt[Smoking_number_grp == 2L, Smoking_number := 15L]
+			dt[Smoking_number_grp == 3L, Smoking_number := 20L]
+			dt[Smoking_number_grp == 4L, Smoking_number := 25L]
+			dt[Smoking_number_grp == 5L, Smoking_number := 30L]
+			dt[Smoking_number_grp == 6L, Smoking_number := 35L]
+   dt[Smoking_number_grp == 7L, Smoking_number := 40L]
+      # I do not explicitly set.seed because I do so at the beginning of gen_synthpop()
+	    dt[Smoking_number_grp == 8L, Smoking_number := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
 
-
+      dt[, Smoking_number_grp := NULL]
 
             # Generate Med_HT
 			# Change-for-IMPACT-NCD-Japan

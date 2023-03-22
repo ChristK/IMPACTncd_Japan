@@ -3,7 +3,7 @@ xps_name: LDLc
 outcome: chd
 lag: 4
 distribution: lognormal
-source: For RRs, major lipids, apolipoproteins, and risk of vascular disease. JAMA. 2009 Nov 11;302(18):1993-2000. doi: 10.1001/jama.2009.1619. eFigure 2 non-HDL-c corresponding to LDL-c due to adjustment for HDL-c and TG. For the ideal level, Guideline on the Management of Blood Cholesterol: Executive Summary: A Report of the American College of Cardiology/American Heart Association Task Force on Clinical Practice Guidelines. J Am Coll Cardiol. Volume 73, Issue 24, 25 June 2019, Pages e285-e350
+source: "For RRs, major lipids, apolipoproteins, and risk of vascular disease. JAMA. 2009 Nov 11;302(18):1993-2000. doi: 10.1001/jama.2009.1619. eFigure 2 non-HDL-c corresponding to LDL-c due to adjustment for HDL-c and TG. For the ideal level, Guideline on the Management of Blood Cholesterol: Executive Summary: A Report of the American College of Cardiology/American Heart Association Task Force on Clinical Practice Guidelines. J Am Coll Cardiol. Volume 73, Issue 24, 25 June 2019, Pages e285-e350"
 notes: Adjusted for age, sex, SBP, smoking status, history of diabetes, BMI, HDL-c, and TG eFigure2 for age specific gradient. We extrapolate HR for people aged between 30-39 using 40-59.
 apply_rr_extra_fn: >
   function(sp) {

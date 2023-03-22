@@ -4,7 +4,12 @@ design <- Design$new("./inputs/sim_design.yaml")
 # RR ----
 # Create a named list of Exposure objects for the files in ./inputs/RR
 fl <- list.files(path = "./inputs/RR", pattern = ".csvy$", full.names = TRUE)
-RR <- future_lapply(fl, Exposure$new, design,future.seed = 950480304L)
+RR <- future_lapply(fl, Exposure$new, design, future.seed = 950480304L)
+# RR <- vector("list", length(fl))
+# for (i in seq_along(fl)) {
+#     print(fl[i])
+#     RR[[i]] <- Exposure$new(fl[i], design)
+# }
 names(RR) <- sapply(RR, function(x) x$get_name())
 invisible(future_lapply(RR, function(x) {
     x$gen_stochastic_effect(design, overwrite = TRUE, smooth = FALSE)
@@ -97,7 +102,7 @@ lapply(diseases, function(x) {
 # diseases$chd$set_incd_prb(sp, design)
 # diseases$chd$set_dgns_prb(sp, design)
 # diseases$chd$set_mrtl_prb(sp, design)
-# 
+#
 # # diseases$stroke$harmonise_epi_tables(sp)
 # diseases$stroke$gen_parf(sp, design)
 # diseases$stroke$set_init_prvl(sp, design)
@@ -105,14 +110,14 @@ lapply(diseases, function(x) {
 # diseases$stroke$set_incd_prb(sp, design)
 # diseases$stroke$set_dgns_prb(sp, design)
 # diseases$stroke$set_mrtl_prb(sp, design)
-# 
+#
 # diseases$obesity$gen_parf(sp, design)
 # diseases$obesity$set_init_prvl(sp, design)
 # diseases$obesity$set_rr(sp, design)
 # diseases$obesity$set_incd_prb(sp, design)
 # diseases$obesity$set_dgns_prb(sp, design)
 # diseases$obesity$set_mrtl_prb(sp, design)
-# 
+#
 # #diseases$nonmodelled$harmonise_epi_tables(sp)
 # diseases$nonmodelled$gen_parf(sp, design)
 # diseases$nonmodelled$set_init_prvl(sp, design)

@@ -1,6 +1,7 @@
 # History files
 .Rhistory
 .Rapp.history
+/.history
 # Session Data files
 .RData
 # User-specific files
@@ -24,8 +25,15 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+# C++ files
+Rpackage/IMPACTncd_Japan_model_pkg/src/*.o
+Rpackage/IMPACTncd_Japan_model_pkg/src/*.so
+Rpackage/IMPACTncd_Japan_model_pkg/src/*.dll
 # R Environment Variables
 .Renviron
 validation_internal
-simulation
-synthpop_7bba56887781ce33aee245807d68213e_1.fst
+/simulation
+/inputs/synthpop
+/outputs
+Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs
+IMPACTncd_Japan.code-workspace

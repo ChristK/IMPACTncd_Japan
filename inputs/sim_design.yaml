@@ -23,7 +23,7 @@ diseases:
   friendly_name: Obesity
   meta:
     incidence:
-      type: 1 # deterministically depend on exposure(s)
+      type: 1 # deterministically depend on exposure(s) not relative risk.
       aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
       can_recur: yes # cure depends on the relevant exposure(s)
     diagnosis:
@@ -37,7 +37,7 @@ diseases:
   friendly_name: Hypertension
   meta:
     incidence:
-      type: 1
+      type: 1 # deterministically depend on exposure(s) not relative risk.
       aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
       can_recur: no # once hypertensive always hypertensive
     diagnosis:
@@ -65,7 +65,7 @@ diseases:
   friendly_name: CHD
   meta:
     incidence:
-      type: 2
+      type: 2 # it depends on exposure and relative risk
       can_recur: no
     diagnosis:
       type: 1
@@ -95,7 +95,7 @@ diseases:
   friendly_name: CVD
   meta:
     incidence:
-      type: 0
+      type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
       influenced_by_disease_name:
         - chd
         - stroke
@@ -144,7 +144,17 @@ strata_for_output:
 exposures:
 - age
 - sex
+- Fruit_vege
+- Smoking
+- Smoking_number
+- Med_HT
+- Med_HL
+- Med_DM
+- PA_days
+- PA_3cat
 - BMI
+- HbA1c
+- LDLc
 - SBP
 
 

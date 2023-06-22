@@ -79,7 +79,7 @@ if(new_calibration){
   setkeyv(e, c("year", "age", "sex"))
   
   if(exists("IMPACTncd")){
-    IMPACTncdEngl::is_valid_lookup_tbl(e, c("year", "age", "sex"))
+    IMPACTncdJapan::is_valid_lookup_tbl(e, c("year", "age", "sex"))
   }
   write_fst(e, "./inputs/mortality/mrtl_clbr_nonmodelled.fst")
   
@@ -105,7 +105,7 @@ if(new_calibration){
   setkeyv(e, c("year", "age", "sex"))
   
   if(exists("IMPACTncd")){
-    IMPACTncdEngl::is_valid_lookup_tbl(e, c("year", "age", "sex"))
+    IMPACTncdJapan::is_valid_lookup_tbl(e, c("year", "age", "sex"))
   }
   write_fst(e, "./inputs/mortality/mrtl_clbr_chd.fst")
   
@@ -131,7 +131,7 @@ if(new_calibration){
   setkeyv(e, c("year", "age", "sex"))
   
   if(exists("IMPACTncd")){
-    IMPACTncdEngl::is_valid_lookup_tbl(e, c("year", "age", "sex"))
+    IMPACTncdJapan::is_valid_lookup_tbl(e, c("year", "age", "sex"))
   }
   write_fst(e, "./inputs/mortality/mrtl_clbr_stroke.fst")
   

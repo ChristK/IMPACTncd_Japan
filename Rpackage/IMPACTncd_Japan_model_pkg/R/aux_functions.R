@@ -24,7 +24,7 @@
   NULL # due to NSE notes in R CMD check
 
 .onUnload <- function(libpath) {
-  library.dynam.unload("IMPACTncdEngl", libpath)
+  library.dynam.unload("IMPACTncdJapan", libpath)
 }
 
 # Ensures that when fwrite appends file colnames of file to be written, match
@@ -301,8 +301,10 @@ validate_gamlss_tbl <-
 shift_bypid <-
   function(x, lag, id, replace = NA) {
     if (lag == 0L) return(x)
-    if (typeof(x) == "integer") {
+    if (typeof(x) == "integer" & !inherits(x, "factor")) {
       return(shift_bypidInt(x, lag, replace, id))
+    } else if (typeof(x) == "integer" & inherits(x, "factor")) {
+      return(factor(shift_bypidInt(x, lag, replace, id), labels = levels(x)))
     } else if (typeof(x) == "logical") {
       return(shift_bypidBool(x, lag, replace, id))
     } else if (typeof(x) == "double") {

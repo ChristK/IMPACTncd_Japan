@@ -1,6 +1,6 @@
 iteration_n: 15
 iteration_n_final: 100
-clusternumber: 32 # explicit parallelisation
+clusternumber: 10 # explicit parallelisation
 clusternumber_export: 4 # NEW: number of clusters for export_summaries
 n_cpus: 1 # implicit parallelisation
 logs: yes
@@ -91,19 +91,19 @@ diseases:
       type: 2
       code: 3
   notes: .na
-- name: cvd
-  friendly_name: CVD
-  meta:
-    incidence:
-      type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
-      influenced_by_disease_name:
-        - chd
-        - stroke
-    diagnosis:
-      type: 0
-    mortality:
-      type: ~
-  notes: .na
+# - name: cvd
+#   friendly_name: CVD
+#   meta:
+#     incidence:
+#       type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
+#       influenced_by_disease_name:
+#         - chd
+#         - stroke
+#     diagnosis:
+#       type: 0
+#     mortality:
+#       type: ~
+#   notes: .na
 - name: nonmodelled
   friendly_name: nonmodelled
   meta:
@@ -112,7 +112,7 @@ diseases:
     diagnosis:
       type: ~ # NULL
     mortality:
-      type: 2 # influenced by
+      type: 2
       code: 1
   notes: .na
 maxlag: 10
@@ -133,9 +133,6 @@ cols_for_output:
 - age
 - sex
 - wt
-- bmi_curr_xps
-- ssb_curr_xps
-- juice_curr_xps
 strata_for_output:
 - scenario
 - year
@@ -156,5 +153,3 @@ exposures:
 - HbA1c
 - LDLc
 - SBP
-
-

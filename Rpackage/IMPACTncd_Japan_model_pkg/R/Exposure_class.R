@@ -51,53 +51,51 @@ Exposure <-
 
 
       #' @description Reads exposure parameter from file and creates a new exposure object..
-      #' @param xps_prm A path to a csvy file with the exposure parameters.
+      #' @param sRelativeRiskByPopulationSubsetForExposureFilePath string, path to .csvy file detailing relative risk (RR) by population subset (age, sex, maybe decile 'Index of Multiple Deprivation' DIMD) for a specific exposure. File header may contain other exposure parameters.
       #' @param design A design object with the simulation parameters.
       #' @return An `Exposure` object.
       #' @examples
       #' af_stroke$read_xps_prm("./inputs/RR/af_stroke.csvy", design)
-      initialize = function(xps_prm, design) {
+      initialize = function(sRelativeRiskByPopulationSubsetForExposureFilePath, design) {
 
-        xps_prm <- normalizePath(xps_prm, mustWork = TRUE)
+        sRelativeRiskByPopulationSubsetForExposureFilePath<- normalizePath(sRelativeRiskByPopulationSubsetForExposureFilePath, mustWork = TRUE)
 
         if (!inherits(design, "Design"))
           stop("Argument design needs to be a Design object.")
 
-        if (file.exists(xps_prm)) {
+        if (file.exists(sRelativeRiskByPopulationSubsetForExposureFilePath)) {
           # TODO add some checks to ensure proper structure
-          effect <- fread(
-            xps_prm,
+          dtRelativeRiskByPopulationSubset<- fread(
+            sRelativeRiskByPopulationSubsetForExposureFilePath,
             stringsAsFactors = TRUE, yaml = TRUE
             )
 
-          if ("smok_status" %in% names(effect))
-            effect[, smok_status :=
-                               factor(smok_status, levels = 1:4)]
-          if ("ethnicity" %in% names(effect))
-            effect[, ethnicity :=
-                     factor(
-                       ethnicity,
-                       levels = c(
-                         "white", "indian", "pakistani", "bangladeshi",
-                         "other asian", "black caribbean", "black african",
-                         "chinese", "other"
-                         )
-                      )
-                   ]
+          # NOTE This needs manual update every time a new factor (other than
+          # smok_status, ethnicity, dimd) appears as a new stratum in a RR file.
+          # TODO add some checks and perhaps automate to some extent. Add
+          # documentation to avoid silent errors
+          if ("Smoking" %in% names(dtRelativeRiskByPopulationSubset))
+            dtRelativeRiskByPopulationSubset[, Smoking :=
+                               factor(Smoking, levels = 1:3)]
+          if ("PA_days" %in% names(dtRelativeRiskByPopulationSubset))
+            dtRelativeRiskByPopulationSubset[, PA_days :=
+                     factor(PA_days, levels = 0:7, labels = 0:7, ordered = TRUE)]
 
-          effect[, agegroup := relevel(agegroup, "<1")]
 
-          nam <- setdiff(names(effect), c("rr", "ci_rr"))
+
+          dtRelativeRiskByPopulationSubset[, agegroup := relevel(agegroup, "<1")]
+
+          nam <- setdiff(names(dtRelativeRiskByPopulationSubset), c("rr", "ci_rr"))
           # sex and agegroup always at the beginning
           nam <- nam[order(match(nam, c("sex", "agegroup")))]
-          setkeyv(effect, nam)
+          setkeyv(dtRelativeRiskByPopulationSubset, nam)
 
-          metadata <- attr(effect, "yaml_metadata")
-          setattr(effect, "yaml_metadata", NULL)
-            # private$get_yaml_header(xps_prm, verbose = design$sim_prm$logs)
+          metadata <- attr(dtRelativeRiskByPopulationSubset, "yaml_metadata")
+          setattr(dtRelativeRiskByPopulationSubset, "yaml_metadata", NULL)
+            # private$get_yaml_header(sRelativeRiskByPopulationSubsetForExposureFilePath, verbose = design$sim_prm$logs)
         } else {
           stop(
-            "File does not exist for argument xps_prm path."
+            "File does not exist for argument sRelativeRiskByPopulationSubsetForExposureFilePath path."
           )
         }
 
@@ -107,8 +105,8 @@ Exposure <-
             (metadata$xps_name == "met" && design$sim_prm$ignore_xps == "active_days") ||
             (grepl("^smok_", metadata$xps_name) && design$sim_prm$ignore_xps == "smoking")
             )) {
-          set(effect, NULL, "rr", 1)
-          set(effect, NULL, "ci_rr", 1)
+          set(dtRelativeRiskByPopulationSubset, NULL, "rr", 1)
+          set(dtRelativeRiskByPopulationSubset, NULL, "ci_rr", 1)
         }
 
         # Validation
@@ -144,11 +142,11 @@ Exposure <-
         private$seed <- abs(digest2int(paste0(ifelse(
           grepl("^smok_", self$name), "smoking", self$name), # rename all smoking dimensions to smoking
           self$outcome), seed = 764529L))
-        private$chksum <- digest(effect) # NOTE not affected by metadata changes
+        private$chksum <- digest(dtRelativeRiskByPopulationSubset) # NOTE not affected by metadata changes
         private$suffix <- paste0(self$name, "~", self$outcome)
 
         private$filedir <- file.path(getwd(), "simulation", "rr")
-        if (!dir.exists(private$filedir)) dir.create(private$filedir)
+        if (!dir.exists(private$filedir)) dir.create(private$filedir,recursive=TRUE)
         private$filenam <- file.path(private$filedir,
                                      paste0("rr_", private$suffix, "_",
                                             private$chksum, "_l.fst"))
@@ -189,9 +187,9 @@ Exposure <-
           setkeyv(tt, c("sex", "age"))
         } else if (length(nam) == 3L) {
           nam <- setdiff(nam, c("sex", "agegroup"))
-          if (is.numeric(effect[[nam]])) {
-            t3 <- min((effect[[nam]])):max((effect[[nam]]))
-            t4 <- sort(unique(effect[[nam]]))
+          if (is.numeric(dtRelativeRiskByPopulationSubset[[nam]])) {
+            t3 <- min((dtRelativeRiskByPopulationSubset[[nam]])):max((dtRelativeRiskByPopulationSubset[[nam]]))
+            t4 <- sort(unique(dtRelativeRiskByPopulationSubset[[nam]]))
             # check if consecutive elements
             if (!isTRUE(all.equal(t3, t4))) interpolate <- TRUE
 
@@ -204,7 +202,7 @@ Exposure <-
             tt <-
               CJ(age = (design$sim_prm$ageL - design$sim_prm$maxlag):design$sim_prm$ageH,
                 sex = factor(c("men", "women")),
-                V3 = unique(effect[[nam]]))
+                V3 = unique(dtRelativeRiskByPopulationSubset[[nam]]))
           }
 
           setnames(tt, "V3", nam)
@@ -216,30 +214,23 @@ Exposure <-
 
         to_agegrp(tt, 5L, max(tt$age), "age", "agegroup")
 
-        private$effect <- copy(effect)
+        private$effect <- copy(dtRelativeRiskByPopulationSubset)
         private$metadata <- metadata
-        private$xps_prm_file <- xps_prm
+        private$xps_prm_file <- sRelativeRiskByPopulationSubsetForExposureFilePath
 
         private$input_rr <-
-          setcolorder(effect[tt, on = .NATURAL], c("age", "agegroup", "sex"))
+          setcolorder(dtRelativeRiskByPopulationSubset[tt, on = .NATURAL], c("age", "agegroup", "sex"))
         private$input_rr[, "ci_rr" := NULL] # NOTE agegroup necessary for gen_stochastic_RR
         if (exists("interpolate") && isTRUE(interpolate)) { # linear interpolation
           private$input_rr[, rr := approx(get(nam), rr, get(nam))$y,
                            by = .(age, sex)]
         }
-        if ("smok_status" %in% names(private$input_rr))
-          private$input_rr[, smok_status :=
-                         factor(smok_status, levels = 1:4)]
-        if ("ethnicity" %in% names(private$input_rr))
-          private$input_rr[, ethnicity :=
-                   factor(
-                     ethnicity,
-                     levels = c(
-                       "white", "indian", "pakistani", "bangladeshi",
-                       "other asian", "black caribbean", "black african",
-                       "chinese", "other"
-                     )
-                   )
+        if ("Smoking" %in% names(private$input_rr))
+          private$input_rr[, Smoking :=
+                         factor(Smoking, levels = 1:3)]
+        if ("PA_days" %in% names(private$input_rr))
+          private$input_rr[, PA_days :=
+                     factor(PA_days, levels = 0:7, labels = 0:7, ordered = TRUE)
           ]
         invisible(self)
       },
@@ -280,19 +271,12 @@ Exposure <-
               design_$sim_prm$iteration_n_max,
               smooth,
               design_$sim_prm$logs, ...)
-          if ("smok_status" %in% names(stoch_effect))
-            stoch_effect[, smok_status :=
-                           factor(smok_status, levels = 1:4)]
-          if ("ethnicity" %in% names(stoch_effect))
-            stoch_effect[, ethnicity :=
-                               factor(
-                                 ethnicity,
-                                 levels = c(
-                                   "white", "indian", "pakistani", "bangladeshi",
-                                   "other asian", "black caribbean", "black african",
-                                   "chinese", "other"
-                                 )
-                               )
+          if ("Smoking" %in% names(stoch_effect))
+            stoch_effect[, Smoking :=
+                           factor(Smoking, levels = 1:3)]
+          if ("PA_days" %in% names(stoch_effect))
+            stoch_effect[, PA_days :=
+                     factor(PA_days, levels = 0:7, labels = 0:7, ordered = TRUE)
             ]
 
           write_fst(stoch_effect, private$filenam, 100)
@@ -356,7 +340,7 @@ Exposure <-
 
           stopifnot(length(mc) == 1L, between(mc, 1L, design_$sim_prm$iteration_n_max))
           mc <- as.integer(ceiling(mc))
-            if (identical(mc, private$cache_mc)) {
+          if (identical(mc, private$cache_mc)) {
             out <- copy(private$cache) # copy for safety
           } else {
             if (design_$sim_prm$stochastic) {
@@ -430,60 +414,70 @@ Exposure <-
       #' @param forPARF Set TRUE when applied on the specialised forPARF
       #'   SynthPop
       #' @return The invisible self for chaining.
-
-      xps_to_rr = function(sp, design_, checkNAs = design_$sim_prm$logs,
+      # xps_to_rr ----
+      xps_to_rr = function(sp_, design_, checkNAs = design_$sim_prm$logs,
                             forPARF = FALSE) {
           if (!inherits(design_, "Design"))
             stop("Argument design_ needs to be a Design object.")
-          if (!inherits(sp, "SynthPop"))
-            stop("Argument sp needs to be a SynthPop object.")
-          if (private$nam_rr %in% names(sp$pop))
+          if (!inherits(sp_, "SynthPop"))
+            stop("Argument sp_ needs to be a SynthPop object.")
+          if (private$nam_rr %in% names(sp_$pop))
             stop(private$nam_rr, " already present in the data.")
 
           xps_tolag <- paste0(self$name, "_curr_xps")
 
-          if (self$name %in% names(sp$pop)) {
+          if (self$name %in% names(sp_$pop)) {
             # To prevent overwriting t2dm_prvl, af_prvl etc.
-            if (!xps_tolag %in% names(sp$pop)) {
-              set(sp$pop, NULL, xps_tolag, 0L) # Assume only missing for diseases
-              sp$pop[get(self$name) > 0, (xps_tolag) := 1L] #TODO Should only count for _prvl exposures.
+            if (!xps_tolag %in% names(sp_$pop)) {
+              set(sp_$pop, NULL, xps_tolag, 0L) # Assume only missing for diseases
+              sp_$pop[get(self$name) > 0, (xps_tolag) := 1L]
             }
-            setnames(sp$pop, self$name, paste0(self$name, "____"))
+            setnames(sp_$pop, self$name, paste0(self$name, "____"))
           }
 
           if (forPARF) {
-            set(sp$pop, NULL, self$name, sp$pop[[xps_tolag]])
-            #lookup_dt(sp$pop, self$get_input_rr(), check_lookup_tbl_validity = FALSE)
-            absorb_dt(sp$pop, self$get_input_rr())
+            set(sp_$pop, NULL, self$name, sp_$pop[[xps_tolag]])
+            absorb_dt(sp_$pop, self$get_input_rr())
+
           } else {
-            set(sp$pop, NULL, self$name, # column without _curr_xps is lagged
-                shift_bypid(sp$pop[[xps_tolag]], private$lag_mc[sp$mc_aggr], sp$pop$pid))
-            #lookup_dt(sp$pop, self$get_rr(sp$mc_aggr, design_, drop = FALSE),
-            #          check_lookup_tbl_validity = FALSE)
-            absorb_dt(sp$pop, self$get_rr(sp$mc_aggr, design_, drop = FALSE))
+            if (inherits(sp_$pop[[xps_tolag]], "numeric")) {
+              rw <- 0
+            } else if (inherits(sp_$pop[[xps_tolag]], "integer")) {
+              rw <- 0L
+            } else if (inherits(sp_$pop[[xps_tolag]], "factor")) {
+              rw <- 1L # The first level
+            } else {
+              stop("Only numerics, integers, and factors are supported")
+            }
+            set(sp_$pop, NULL, self$name, # column without _curr_xps is lagged
+                shift_bypid(sp_$pop[[xps_tolag]], self$get_lag(sp_$mc_aggr), sp_$pop$pid, rw))
+            # setnafill(sp_$pop, "nocb", cols = self$name)
+            
+            absorb_dt(sp_$pop, self$get_rr(sp_$mc_aggr, design_, drop = FALSE))
           }
 
-          private$apply_rr_extra(sp)
+          private$apply_rr_extra(sp_)
 
-          if (checkNAs && private$nam_rr %in% names(sp$pop)) {
+          if (checkNAs && private$nam_rr %in% names(sp_$pop)) {
             # NOTE in case of smok_quit_yrs the risk column is deleted from the
             # rr_extra_fn()
             print(self$name)
-            print(sp$pop[!is.na(get(self$name)) & is.na(get(private$nam_rr)) &
+            print(sp_$pop[!is.na(get(self$name)) & is.na(get(private$nam_rr)) &
                            age >= design_$sim_prm$ageL &
                            year >= design_$sim_prm$init_year,
                            table(get(self$name), useNA = "always")])
           }
 
-          if (private$nam_rr %in% names(sp$pop) &&
-              is.numeric(sp$pop[[private$nam_rr]]))
-            setnafill(sp$pop, type = "const", 1, cols = private$nam_rr)
+          if (private$nam_rr %in% names(sp_$pop) &&
+              is.numeric(sp_$pop[[private$nam_rr]]))
+            setnafill(sp_$pop, type = "const", 1, cols = private$nam_rr)
 
-          sp$pop[, (self$name) := NULL]
+          sp_$pop[, (self$name) := NULL]
 
-          if (paste0(self$name, "____") %in% names(sp$pop)) {
+          if (paste0(self$name, "____") %in% names(sp_$pop)) {
             # To prevent overwriting t2dm_prvl
-            setnames(sp$pop, paste0(self$name, "____"), self$name)
+            sp_$pop[, (xps_tolag) := NULL]
+            setnames(sp_$pop, paste0(self$name, "____"), self$name)
           }
 
         return(invisible(self))
@@ -534,8 +528,8 @@ Exposure <-
         private$cache <- copy(out)
         private$cache_mc <- "forPARF"
         out
-      },
-      
+        },
+
 
       #' @description Get original metadata.
       #' @return A list with the original metadata.

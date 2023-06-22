@@ -15,11 +15,11 @@ invisible(future_lapply(RR, function(x) {
     x$gen_stochastic_effect(design, overwrite = TRUE, smooth = FALSE)
 },
 future.seed = 627524136L))
-# # NOTE smooth cannot be exported to Design for now, because the first time
-# # this parameter changes we need logic to overwrite unsmoothed files
+# NOTE smooth cannot be exported to Design for now, because the first time
+# this parameter changes we need logic to overwrite unsmoothed files
 rm(fl)
 #
-# # Generate diseases ----
+# Generate diseases ----
 diseases <- lapply(design$sim_prm$diseases, function(x) {
     x[["design_"]] <- design
     x[["RR"]] <- RR
@@ -54,8 +54,298 @@ mk_scenario_init2 <- function(scenario_name, diseases_, sp, design_) {
 # ll <- sim$gen_synthpop_demog(design)
 sp  <- SynthPop$new(1L, design)
 
-
 # lapply(diseases, function(x) x$harmonise_epi_tables(sp))
+
+lapply(diseases, function(x) {
+    print(x)
+    x$gen_parf_files(design)
+})
+lapply(diseases, function(x) {
+    print(x)
+    x$gen_parf(sp, design, diseases)
+})
+
+lapply(diseases, function(x) {
+    print(x)
+    x$set_init_prvl(sp, design)
+})
+
+lapply(diseases, function(x) {
+    print(x)
+    x$set_rr(sp, design)
+})
+
+lapply(diseases, function(x) {
+    print(x)
+    x$set_incd_prb(sp, design)
+})
+lapply(diseases, function(x) {
+    print(x)
+    x$set_dgns_prb(sp, design)
+})
+lapply(diseases, function(x) {
+    print(x)
+    x$set_mrtl_prb(sp, design)
+})
+
+l <- mk_scenario_init2("", diseases, sp, design)
+simcpp(sp$pop, l, sp$mc)
+
+sp$update_pop_weights()
+sp$pop[, mc := sp$mc_aggr]
+
+self <- diseases$chd$.__enclos_env__$self
+private <- diseases$chd$.__enclos_env__$private
+design_ <- design
+diseases_ <- diseases
+popsize <- 100
+check <- design_$sim_prm$logs
+keep_intermediate_file <- TRUE
+bUpdateExistingDiseaseSnapshot <- TRUE
+mc_iter <- mc_ <- 1
+
+class(shift_bypid(sp$pop[["PA_days_curr_xps"]], 4L, sp$pop$pid, 1L))
+table(shift_bypid(sp$pop[["PA_days_curr_xps"]], 4L, sp$pop$pid, 1L))
+
+
+
+ttt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/chd_incd.fst",
+    as.data.table = TRUE
+)[between(age, 30, 99)]
+setnames(ttt, "mu2", "mu")
+ttt[mu_lower > mu_upper, ]
+ttt[mu < mu_lower, ]
+ttt[mu > mu_upper, ]
+
+
+ttt[, sex := factor(sex)]
+ttt[, mu := mu/1e5]
+ttt[, mu_lower := mu_lower / 1e5]
+ttt[, mu_upper := mu_upper / 1e5]
+
+
+
+
+ttt[year == 2043, summary(mu / mu_lower)]
+ttt[year == 2043, summary(mu_upper/mu)]
+ttt[year == 2043, list(mu / mu_lower, mu_upper / mu)]
+ttt[year == 2043, list(mu - mu_lower, mu_upper - mu)]
+
+# initial idea from https://stats.stackexchange.com/questions/112614/determining-beta-distribution-parameters-alpha-and-beta-from-two-arbitrary
+fit_beta <- # NOT VECTORISED
+    function(x = c(0.01, 0.005, 0.5), # the values
+     x_p = c(0.5, 0.025, 0.975), # the respective quantiles of the values
+     starting_prm = c(1e1, 1e1/mean(x)) # better to overestimate
+     ) {
+        if (length(x) != length(x_p)) stop("x and x_p need to be of same length")
+        if (length(x) < 2L) stop("x need to have at least length of 2")
+        if (length(unique(x)) == 1) {
+            return(c(1, 1)) # early escape ig all x the same
+        }
+        logit <- function(p) log(p / (1 - p))
+        x_p_ <- logit(x_p)
+
+        # Logistic transformation of the Beta CDF.
+        f.beta <- function(alpha, beta, x, lower = 0, upper = 1) {
+            p <- pbeta((x - lower) / (upper - lower), alpha, beta)
+            log(p / (1 - p))
+        }
+
+        # Sums of squares.
+        wts = c(1, rep(1, length(x) - 1L)) # give more importance to the 1st value
+        delta <- function(fit, actual) sum(wts * (fit - actual)^2)
+
+        # The objective function handles the transformed parameters `theta` and
+        # uses `f.beta` and `delta` to fit the values and measure their discrepancies.
+        objective <- function(theta, x, prob, ...) {
+            ab <- exp(theta) # Parameters are the *logs* of alpha and beta
+            fit <- f.beta(ab[1], ab[2], x, ...)
+            return(delta(fit, prob))
+        }
+
+        flag <- TRUE
+        steptol_ <- 1e-6
+        max_it <- 0L
+        jump <- 2
+        if (length(x) == 2) {
+          start <- log(starting_prm) # A good guess is useful here
+        } else {
+          start <- log(fit_beta(x = head(x, 2), x_p = head(x_p, 2)))
+        }
+        while (flag && max_it < 1e3) {
+        sol <- nlm(objective, start,
+            x = x, prob = x_p_, lower = 0, upper = 1,
+            typsize = c(1, 1), fscale = 1e-12, gradtol = 1e-12, steptol = steptol_,
+            iterlim = 1000
+        )
+        start <- start * runif(length(start), 1e-12, jump)
+        rel_error <- x[1:2] / qbeta(x_p[1:2], exp(sol$estimate)[1], exp(sol$estimate)[2])
+
+        print(c(sol$code, rel_error[1], rel_error[2], x))
+        flag <- (sol$code > 2L || !between(rel_error[1], 0.8, 1.2) || !between(rel_error[2], 0.8, 1.2))
+        if (is.na(flag)) flag <- TRUE
+        max_it <- max_it + 1L
+        if (max_it == 100) wts <- c(1, rep(0.9, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 200) wts <- c(1, rep(0.8, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 300) wts <- c(1, rep(0.7, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 400) wts <- c(1, rep(0.6, length(x) - 1L)) # give even less importance to non 1st values
+        # if (max_it == 450) steptol_ <- steptol_ * 10
+        if (max_it == 500) {
+          print(max_it)
+          wts <- c(1, rep(0.5, length(x) - 1L)) # give even less importance to non 1st values
+          jump <- jump + 1
+          if (length(x) == 2) {
+            start <- log(starting_prm / c(0.1, 10))
+          } else {
+            start <- log(fit_beta(x = head(x, -1), x_p = head(x_p, -1)))
+          }
+        }
+        if (max_it == 999 && length(x) > 2) {
+           print("dropping last value")
+           start <- log(fit_beta(x = head(x, -1), x_p = head(x_p, -1)))
+           print(paste0("start values are ", start))
+           x <- head(x, -1)
+           x_p_ <- head(x_p_, -1)
+           x_p <- head(x_p, -1)
+           wts <- head(wts, -1)
+           jump <- 2
+           max_it <- 0
+        }
+        }
+        if (sol$code < 3L && max_it < 1e3) {
+            return(exp(sol$estimate)) # Estimates of alpha and beta
+        } else {
+            stop(c(sol$code, max_it, " Beta is not a good fit for these data!\n", x))
+        }
+
+    }
+    fit_beta(x = c(1.044464e-05, 4.315294e-06, 2.561652e-05), x_p = c(0.5, 0.025, 0.975))
+    fit_beta(x = c(0.000153263819407615,0.00014409257851653), x_p = c(0.5, 0.025))
+
+fit_lnorm <- # NOT VECTORISED
+    function(x = c(0.01, 0.005, 0.5), # the values
+     x_p = c(0.5, 0.025, 0.975), # the respective quantiles of the values
+     starting_prm = c(1e1, 1e1/mean(x)) # better to overestimate
+     ) {
+        if (length(x) != length(x_p)) stop("x and x_p need to be of same length")
+        if (length(x) < 2L) stop("x need to have at least length of 2")
+        if (length(unique(x)) == 1) {
+            return(c(1, 1)) # early escape ig all x the same
+        }
+        logit <- function(p) log(p / (1 - p))
+        x_p_ <- logit(x_p)
+
+        # Logistic transformation of the lnorm CDF.
+        f.lnorm <- function(alpha, beta, x, lower = 0, upper = 1) {
+            p <- plnorm((x - lower) / (upper - lower), alpha, beta)
+            log(p / (1 - p))
+        }
+
+        # Sums of squares.
+        wts = c(1, rep(1, length(x) - 1L)) # give more importance to the 1st value
+        delta <- function(fit, actual) sum(wts * (fit - actual)^2)
+
+        # The objective function handles the transformed parameters `theta` and
+        # uses `f.lnorm` and `delta` to fit the values and measure their discrepancies.
+        objective <- function(theta, x, prob, ...) {
+            ab <- exp(theta) # Parameters are the *logs* of alpha and beta
+            fit <- f.lnorm(ab[1], ab[2], x, ...)
+            return(delta(fit, prob))
+        }
+
+        flag <- TRUE
+        steptol_ <- 1e-6
+        max_it <- 0L
+        jump <- 2
+        if (length(x) == 2) {
+          start <- log(starting_prm) # A good guess is useful here
+        } else {
+          start <- log(fit_lnorm(x = head(x, 2), x_p = head(x_p, 2)))
+        }
+        while (flag && max_it < 1e3) {
+        sol <- nlm(objective, start,
+            x = x, prob = x_p_, lower = 0, upper = 1,
+            typsize = c(1, 1), fscale = 1e-12, gradtol = 1e-12, steptol = steptol_,
+            iterlim = 1000
+        )
+        start <- start * runif(length(start), 1e-12, jump)
+        rel_error <- x[1:2] / qlnorm(x_p[1:2], exp(sol$estimate)[1], exp(sol$estimate)[2])
+
+        print(c(sol$code, rel_error[1], rel_error[2], x))
+        flag <- (sol$code > 2L || !between(rel_error[1], 0.9, 1.1) || !between(rel_error[2], 0.9, 1.1))
+        if (is.na(flag)) flag <- TRUE
+        max_it <- max_it + 1L
+        if (max_it == 100) wts <- c(1, rep(0.9, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 200) wts <- c(1, rep(0.8, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 300) wts <- c(1, rep(0.7, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 400) wts <- c(1, rep(0.6, length(x) - 1L)) # give even less importance to non 1st values
+        # if (max_it == 450) steptol_ <- steptol_ * 10
+        if (max_it == 500) {
+          print(max_it)
+          wts <- c(1, rep(0.5, length(x) - 1L)) # give even less importance to non 1st values
+          jump <- jump + 1
+          if (length(x) == 2) {
+            start <- log(starting_prm / c(0.1, 10))
+          } else {
+            start <- log(fit_lnorm(x = head(x, -1), x_p = head(x_p, -1)))
+          }
+        }
+        if (max_it == 999 && length(x) > 2) {
+           print("dropping last value")
+           start <- log(fit_lnorm(x = head(x, -1), x_p = head(x_p, -1)))
+           print(paste0("start values are ", start))
+           x <- head(x, -1)
+           x_p_ <- head(x_p_, -1)
+           x_p <- head(x_p, -1)
+           wts <- head(wts, -1)
+           jump <- 2
+           max_it <- 0
+        }
+        }
+        if (sol$code < 3L && max_it < 1e3) {
+            return(exp(sol$estimate)) # Estimates of alpha and beta
+        } else {
+            stop(c(sol$code, max_it, "Log-normal is not a good fit for these data!\n", x))
+        }
+    }
+    fit_lnorm(x = c(1.044464e-05, 4.315294e-06, 2.561652e-05), x_p = c(0.5, 0.025, 0.975))
+
+    fit_beta_vec <- # VECTORISED
+        function(q = list(
+            c(0.007248869, 0.0003693000),
+             c(0.005198173, 0.0002744560),
+              c(0.009516794, 0.0004751233)
+              ),
+                 p = c(0.5, 0.025, 0.975)) {
+            if (length(unique(sapply(q, length))) != 1L) stop("all elements in q need to be of same length")
+            out <- vector("list", length(q[[1]]))
+            for (i in seq_len(length(q[[1]]))) {
+                print(i)
+                out[[i]] <- fit_beta(x = unlist(sapply(q, `[`, i)), x_p = p)
+            }
+            return(transpose(setDF(out)))
+        }
+fit_beta_vec(q = list(1.044464e-05, 4.315294e-06, 2.561652e-05))
+ttt[, c("shape1", "shape2") := fit_beta_vec(q = list(mu, mu_lower, mu_upper), p = c(0.5, 0.025, 0.975))]
+ttt[, test := qbeta(0.5, shape1, shape2)]
+ttt[, summary(mu / test)]
+ttt[, test := qbeta(0.025, shape1, shape2)]
+ttt[, summary(mu_lower / test)]
+ttt[, test := qbeta(0.975, shape1, shape2)]
+ttt[, summary(mu_upper / test)]
+summary(ttt$test)
+summary(ttt$mu)
+ttt[mu/test < .97, ]
+
+library(LearnBayes)
+quantile1 = list(p = .025, x = 0.0097890916) # 2.5% quantile should be 0.01
+quantile2 = list(p = .975, x = 0.0273909783) # 97.5% quantile should be 0.15
+res <- beta.select(quantile1, quantile2)
+qbeta(p = c(0.5, 0.025, 0.975), shape1 = res[1], shape2 = res[2])
+
+
+
+
  lapply(diseases, function(x) {
      print(x)
      x$gen_parf_files(design)
@@ -96,7 +386,7 @@ lapply(diseases, function(x) {
  # diseases$t2dm$set_mrtl_prb(sp, design)
 # #
 # # # diseases$chd$harmonise_epi_tables(sp)
-# diseases$chd$gen_parf(sp, design)
+# diseases$chd$gen_parf_files(design, diseases)
 # diseases$chd$set_init_prvl(sp, design)
 # diseases$chd$set_rr(sp, design)
 # diseases$chd$set_incd_prb(sp, design)
@@ -266,3 +556,55 @@ sp$pop[between(age, 60, 64), sum(af_prvl > 0)/.N, keyby = year][, plot(year, V1)
 sp$pop[, sum(sbp_curr_xps > 140) / .N, keyby = year]
 
 
+
+# Calibration ftlt ----
+sp$pop[year == 2043, prop.table(table(Smoking_curr_xps))]
+sp$pop[year == 2043 & age == 30, prop.table(table(Smoking_curr_xps))]
+sp$pop[year == 2043 & age == 80, prop.table(table(Smoking_curr_xps))]
+
+l <- mk_scenario_init2("", diseases, sp, design)
+absorb_dt(sp$pop, ftlt)
+
+for (year_ in 2013:2050) {
+  de <- sp$pop[year == year_ & age >= 30, .(deaths = sum(wt_immrtl * mu2)), keyby = .(age, sex)] # deaths by age/sex
+  ca <- sp$pop[year == year_ & age >= 30, .(cases = sum(wt_immrtl * (chd_prvl > 0))), keyby = .(age, sex)]
+  absorb_dt(de, ca)
+  de[, `:=` (prb_chd_mrtl2 = clamp(deaths/cases),
+             year = year_,
+             deaths = NULL,
+             cases = NULL)]
+  absorb_dt(sp$pop, de, exclude_col = "mu2")
+  simcpp(sp$pop, l, sp$mc)
+}
+source("./global.R")
+
+IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
+
+private <- IMPACTncd$.__enclos_env__$private
+self <- IMPACTncd$.__enclos_env__$self  
+mc = 1:2
+mc_ = 1L
+scenario_nam = ""
+multicore = TRUE
+scenario_fn <- function(sp) NULL
+
+sp  <- SynthPop$new(1L, Design$new("./inputs/sim_design.yaml"))
+ l <- IMPACTncd$.__enclos_env__$private$mk_scenario_init(sp, "")
+        simcpp(sp$pop, l, sp$mc)
+
+# g <- IMPACTncd$get_causal_structure(print_plot = TRUE)
+# g <- IMPACTncd$get_causal_structure(processed = FALSE, print_plot = TRUE, focus = "chd")
+
+# plot(igraph::make_ego_graph(g, order = 1, c("pain"), "in")[[1]])
+
+source("./global.R")
+IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
+scenario_fn <- function(sp) NULL
+IMPACTncd$
+  del_logs()$
+  del_outputs()$
+  run(1:2, multicore = FALSE, "sc0")
+
+design <- Design$new("./inputs/sim_design.yaml")
+IMPACTncd$diseases$chd$get_prvl()
+IMPACTncd$diseases$chd$get_prvl(2013, 1, design)[]

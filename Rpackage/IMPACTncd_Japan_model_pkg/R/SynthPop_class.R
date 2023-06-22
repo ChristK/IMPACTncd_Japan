@@ -68,7 +68,7 @@ SynthPop <-
       #' @param mc_ The Monte Carlo iteration of the synthetic population. Each
       #'   integer generates a unique synthetic population. If `mc = 0` an
       #'   object with an empty synthpop is initiated.
-      #' @param design_ A \code{\link[IMPACTncdEngl]{Design}} object.
+      #' @param design_ A \code{\link[IMPACTncdJapan]{Design}} object.
       #' @param synthpop_dir_ The directory where 'SynthPop' objects are stored.
       #'   The synthpop file in \code{\link[fst]{fst-package}} format. If
       #'   `filename` already exists, then the synthpop is loaded from there.
@@ -189,8 +189,10 @@ SynthPop <-
         invisible(self)
       },
 
+      # update_pop_weights ----
       #' @description
       #' Updates the wt_immrtl to account for mortality in baseline scenario.
+      #' @param scenario_nam The scenario name. Logic is different if "sc0".
       #' @return The invisible self for chaining.
       update_pop_weights = function(scenario_nam = "sc0") {
 
@@ -788,6 +790,7 @@ SynthPop <-
         }
       },
 
+      # gen_synthpop ----
       gen_synthpop = # returns NULL. Writes synthpop on disk
         function(mc_,
                  filename_,
@@ -1001,10 +1004,10 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Fruit_vege.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-			setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
+	              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+
+
 
 
 			col_nam <-
@@ -1012,7 +1015,7 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
@@ -1020,8 +1023,7 @@ SynthPop <-
 			# Change-for-IMPACT-NCD-Japan
             dt[, Fruit_vege := qZINBI(rank_Fruit_vege, mu, sigma, nu), ] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_Fruit_vege := NULL]
-            dt[, (col_nam) := NULL]
+            dt[, c(col_nam, "rank_Fruit_vege") := NULL]
 
 
 
@@ -1038,15 +1040,21 @@ SynthPop <-
 
             if (design_$sim_prm$logs) message("Generate Smoking")
 
+            dt[, tax_tabaco := fcase(
+              year < 2006L,                 0L,
+              year >= 2006L & year < 2010L, 1L,
+              year >= 2010L & year < 2018L, 2L,
+              year >= 2018L,                3L
+            )]
+            dt[, tax_tabaco := factor(tax_tabaco, 0:3, 0:3)]
+
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Smoking.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
 
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 
 
 			col_nam <-
@@ -1054,7 +1062,7 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
@@ -1062,10 +1070,9 @@ SynthPop <-
 			# Change-for-IMPACT-NCD-Japan
             dt[, Smoking := qMN3(rankstat_Smoking, mu, sigma), ] #, n_cpu = design_$sim_prm$n_cpu)]
 			dt[, Smoking := factor(Smoking), ]
-			dt[, table(Smoking), ]
+			# dt[, table(Smoking), ]
 
-            dt[, rankstat_Smoking := NULL]
-            dt[, (col_nam) := NULL]
+      dt[, c(col_nam, "tax_tabaco", "rankstat_Smoking") := NULL]
 
 
 
@@ -1083,12 +1090,9 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Smoking_number.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
-
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 
 
 			col_nam <-
@@ -1096,7 +1100,7 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 
@@ -1113,11 +1117,21 @@ SynthPop <-
 				  (rankstat_Smoking_number > pa7)
 				]
 
-            dt[, rankstat_Smoking_number := NULL]
-            dt[, (col_nam) := NULL]
 
 
 			##### meeting on Feb 23 2023
+      # system.time({dt[, Smoking_number := fcase(
+      #   Smoking_number_grp == 0L, 5L,
+      #   Smoking_number_grp == 1L, 10L,
+      #   Smoking_number_grp == 2L, 15L,
+      #   Smoking_number_grp == 3L, 20L,
+      #   Smoking_number_grp == 4L, 25L,
+      #   Smoking_number_grp == 5L, 30L,
+      #   Smoking_number_grp == 6L, 35L,
+      #   Smoking_number_grp == 7L, 40L,
+      #   Smoking_number_grp == 8L, sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))
+      # )]}) # NOTE not faster than the below 
+
 			dt[Smoking_number_grp == 0L, Smoking_number := 5L ]
 			dt[Smoking_number_grp == 1L, Smoking_number := 10L]
 			dt[Smoking_number_grp == 2L, Smoking_number := 15L]
@@ -1129,7 +1143,7 @@ SynthPop <-
       # I do not explicitly set.seed because I do so at the beginning of gen_synthpop()
 	    dt[Smoking_number_grp == 8L, Smoking_number := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
 
-      dt[, Smoking_number_grp := NULL]
+      dt[, c(col_nam, "rankstat_Smoking_number", "Smoking_number_grp") := NULL]
 
             # Generate Med_HT
 			# Change-for-IMPACT-NCD-Japan
@@ -1144,12 +1158,10 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Med_HT.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
 
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 
 
 			col_nam <-
@@ -1157,16 +1169,14 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_HT := qBI(rankstat_Med_HT, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
-
-            dt[, rankstat_Med_HT := NULL]
-            dt[, (col_nam) := NULL]
+            dt[, Med_HT := qbinom(rankstat_Med_HT, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, c(col_nam, "rankstat_Med_HT") := NULL]
 
 
 
@@ -1187,12 +1197,9 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Med_HL.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
-
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 
 
 			col_nam <-
@@ -1200,13 +1207,13 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_HL := qBI(rankstat_Med_HL, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, Med_HL := qbinom(rankstat_Med_HL, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
 
             dt[, rankstat_Med_HL := NULL]
             dt[, (col_nam) := NULL]
@@ -1229,12 +1236,9 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_Med_DM.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
-
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 
 
 			col_nam <-
@@ -1242,16 +1246,15 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_DM := qBI(rankstat_Med_DM, mu), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, Med_DM := qbinom(rankstat_Med_DM, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rankstat_Med_DM := NULL]
-            dt[, (col_nam) := NULL]
+            dt[, c(col_nam, "rankstat_Med_DM") := NULL]
 
 
 
@@ -1275,12 +1278,9 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_PA_days.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
-
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
 
 
 			col_nam <-
@@ -1288,41 +1288,24 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 
 			dt[,
 				PA_days := factor(
-				levels = 0:7, labels = 0:7, ordered = TRUE,
 				(rank_PA_days > pa0) +
 				(rank_PA_days > pa1) +
 					(rank_PA_days > pa2) +
 					(rank_PA_days > pa3) +
 					(rank_PA_days > pa4) +
 					(rank_PA_days > pa5) +
-					(rank_PA_days > pa6)
+					(rank_PA_days > pa6),
+          levels = 0:7, labels = 0:7, ordered = TRUE
 				)
 				]
 
-            dt[, rank_PA_days := NULL]
-            dt[, (col_nam) := NULL]
-
-
-
-			### Make PA days category
-			dt[,PA_3cat:=ifelse(PA_days %in% c(0, 1), 0,
-						ifelse(PA_days %in% c(2, 3, 4), 1,
-						ifelse(PA_days %in% c(5, 6, 7), 2, NA))),]
-				dt[,table(PA_3cat, PA_days, useNA="always"),]
-
-
-			dt[, PA_3cat := factor(PA_3cat + 1)]
-				table(dt$PA_3cat, useNA = "always")
-
-
-
-
+      dt[, c(col_nam, "rank_PA_days") := NULL]
 
 
 
@@ -1342,31 +1325,35 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_BMI.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+
+			### Make PA days category
+			dt[, PA_3cat := fifelse(PA_days %in% as.character(0:1), 1L,
+			   			fifelse(PA_days %in% as.character(2:4), 2L,
+			   			fifelse(PA_days %in% as.character(5:7), 3L, NA_integer_)))]
+				# dt[,table(PA_3cat, PA_days, useNA="always"),]
 
 
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-
+			dt[, PA_3cat := factor(PA_3cat)]
+				# table(dt$PA_3cat, useNA = "always")
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              dt <- absorb_dt(dt, tbl)
+              absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, BMI := qBCTo(rank_BMI, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
+      dt[, BMI := qBCTo(rank_BMI, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
 			dt[BMI < 10, BMI := 10] #Truncate BMI predictions to avoid unrealistic values.
-            dt[BMI > 70, BMI := 70] #Truncate BMI predictions to avoid unrealistic values.
+      dt[BMI > 70, BMI := 70] #Truncate BMI predictions to avoid unrealistic values.
 
-            dt[, rank_BMI := NULL]
-            dt[, (col_nam) := NULL]
+      dt[, c(col_nam, "rank_BMI", "PA_3cat") := NULL]
 
 
 
@@ -1387,11 +1374,11 @@ SynthPop <-
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
 
 
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			setnames(tbl, "BMI", "BMI_round")
+        setnames(tbl, c("Age", "Sex", "Year", "BMI"), c("age", "sex", "year", "BMI_round"))
+        tbl[, sex := factor(sex, 0:1, c("men", "women"))]
+        
+        tbl[, BMI_round := as.integer(10 * BMI_round)]
+			  dt[, BMI_round := as.integer(round(10 * BMI, 0))]
 
 
 
@@ -1401,17 +1388,16 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-			dt[, BMI_round := round(BMI), ]
-			dt <- absorb_dt(dt, tbl)
+			absorb_dt(dt, tbl)
             #}
+
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
             dt[, HbA1c := qBCT(rank_HbA1c, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_HbA1c := NULL]
-            dt[, (col_nam) := NULL]
+            dt[, c(col_nam, "rank_HbA1c", "BMI_round") := NULL]
 
 
 
@@ -1429,14 +1415,11 @@ SynthPop <-
             tbl <-
               read_fst("./inputs/exposure_distributions/Table_LDLc.fst",
                        as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+        setnames(tbl, c("Age", "Sex", "Year", "BMI"), c("age", "sex", "year", "BMI_round"))
+        tbl[, sex := factor(sex, 0:1, c("men", "women"))]
 
-
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			setnames(tbl, "BMI", "BMI_round")
-
+        tbl[, BMI_round := as.integer(10 * BMI_round)]
+			  dt[, BMI_round := as.integer(round(10 * BMI, 0))]
 
 
 			col_nam <-
@@ -1444,18 +1427,16 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-			dt[, BMI_round := round(BMI), ]
-			dt <- absorb_dt(dt, tbl)
+			absorb_dt(dt, tbl)
 
             #}
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, LDLc := qBCT(rank_LDLc, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, LDLc := qBCT(rank_LDLc, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_LDLc := NULL]
-            dt[, (col_nam) := NULL]
+            dt[, c(col_nam, "rank_LDLc", "BMI_round") := NULL]
 
 
 
@@ -1474,19 +1455,14 @@ SynthPop <-
 
             if (design_$sim_prm$logs) message("Generate SBP")
 
-            tbl <-
-              read_fst("./inputs/exposure_distributions/Table_SBP.fst",
-                       as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+        tbl <-
+          read_fst("./inputs/exposure_distributions/Table_SBP.fst",
+                   as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+        setnames(tbl, c("Age", "Sex", "Year", "BMI"), c("age", "sex", "year", "BMI_round"))
+        tbl[, sex := factor(sex, 0:1, c("men", "women"))]
 
-
-            setnames(tbl, "Age", "age")
-            setnames(tbl, "Sex", "sex")
-            setnames(tbl, "Year", "year")
-			tbl[, sex := ifelse(sex == 0, "men", "women"), ]
-			setnames(tbl, "BMI", "BMI_round")
-
-
-
+      tbl[, BMI_round := as.integer(BMI_round)]
+			dt[, BMI_round := as.integer(round(BMI))]
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1494,17 +1470,15 @@ SynthPop <-
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
 
-			dt[, BMI_round := round(BMI), ]
-			dt <- absorb_dt(dt, tbl)
+			absorb_dt(dt, tbl)
             #}
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
+            dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, rank_SBP := NULL]
-            dt[, (col_nam) := NULL]
+            dt[, c(col_nam, "rank_SBP", "BMI_round") := NULL]
 
 
 
@@ -1551,7 +1525,8 @@ SynthPop <-
               dt[, age := NULL]
               setnames(dt, "age100", "age")
             }
-
+            dt[, sex := factor(sex)]
+            dt[, year := as.integer(year)]
             setkey(dt, pid, year) # Just in case
             setcolorder(dt, c("pid", "year", "age", "sex")) #STRATA
             setindexv(dt, c("year", "age", "sex")) #STRATA
@@ -1627,7 +1602,8 @@ SynthPop <-
 
           invisible(dt)
         },
-
+      
+      # gen_pop_weights ----
       # Calculate weights so that their sum is the population of the area based
       # on ONS. It takes into account synthpop aggregation. So you need to sum
       # all the synthpops belong to the same aggregation to reach the total pop.

@@ -38,7 +38,6 @@ validation_internal
 Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs
 IMPACTncd_Japan.code-workspace
 inputs/disease_burden/.*
-Rpackage/IMPACTncd_Japan_model_pkg/man/*
+Rpackage/IMPACTncd_Japan_model_pkg/man/
 auxil/IMPACTncd_sim_Engl.cpp
 inputs/disease_burden/*_indx.fst
-

@@ -122,11 +122,11 @@ Simulation <-
         private$causality_structure <- make_graph(unlist(transpose(ds)),
                                                   directed = TRUE)
 
-        # European standardised population 2013 (esp) weights
+        # Japanise standardised population 2015 (esp) weights
         tt <- data.table(agegrp = agegrp_name(0, 99),
-                         wt_esp  = c(1000, 4000, 5500, 5500, 5500, 6000, 6000, 6500,
-                                     7000, 7000, 7000, 7000, 6500, 6000, 5500, 5000,
-                                     4000, 2500, 1500, 800, 200))
+                         wt_esp  = c(978000, 4048000, 5369000, 5711000, 6053000, 6396000, 6738000, 7081000,
+                                     7423000, 7766000, 8108000, 8451000, 8793000 ,9135000, 9246000, 7892000,
+                                     6306000, 4720000, 3134000, 1548000, 423000))
         esp <- CJ(agegrp = agegrp_name(0, 99),
                   sex = c("men", "women")
         )

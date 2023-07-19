@@ -91,19 +91,20 @@ diseases:
       type: 2
       code: 3
   notes: .na
-# - name: cvd
-#   friendly_name: CVD
-#   meta:
-#     incidence:
-#       type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
-#       influenced_by_disease_name:
-#         - chd
-#         - stroke
-#     diagnosis:
-#       type: 0
-#     mortality:
-#       type: ~
-#   notes: .na
+- name: cvd
+  friendly_name: CVD
+  meta:
+    incidence:
+      type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
+      influenced_by_disease_name:
+        - chd
+        - stroke
+    diagnosis:
+      type: 0
+      mm_wt: 0.0
+    mortality:
+      type: ~
+  notes: .na
 - name: nonmodelled
   friendly_name: nonmodelled
   meta:
@@ -112,7 +113,7 @@ diseases:
     diagnosis:
       type: ~ # NULL
     mortality:
-      type: 2
+      type: 1
       code: 1
   notes: .na
 maxlag: 10

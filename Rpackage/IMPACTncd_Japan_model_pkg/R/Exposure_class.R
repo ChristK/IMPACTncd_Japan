@@ -406,7 +406,7 @@ Exposure <-
       #' @description Apply the RR in a new column in sp$pop based on the
       #'   exposure level. I the case of smok_quit_yrs it modifies the risk of
       #'   smok_cig or packyrs and no new column is created.
-      #' @param sp A synthetic population.
+      #' @param sp_ A synthetic population.
       #' @param design_ A design object with the simulation parameters.
       #' @param checkNAs If `TRUE`, prints the table of NAs before they get
       #'   overwritten with 1. Note that for some exposures, NAs are expected

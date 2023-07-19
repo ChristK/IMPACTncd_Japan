@@ -341,6 +341,87 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// my_dNBI
+NumericVector my_dNBI(const IntegerVector& x, const NumericVector& mu, const NumericVector& sigma, const bool& log_p, const int& n_cpu);
+RcppExport SEXP _IMPACTncdJapan_my_dNBI(SEXP xSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP log_pSEXP, SEXP n_cpuSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const IntegerVector& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type log_p(log_pSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n_cpu(n_cpuSEXP);
+    rcpp_result_gen = Rcpp::wrap(my_dNBI(x, mu, sigma, log_p, n_cpu));
+    return rcpp_result_gen;
+END_RCPP
+}
+// my_pNBI
+NumericVector my_pNBI(const IntegerVector& q, const NumericVector& mu, const NumericVector& sigma, const bool& lower_tail, const bool& log_p, const int& n_cpu);
+RcppExport SEXP _IMPACTncdJapan_my_pNBI(SEXP qSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP lower_tailSEXP, SEXP log_pSEXP, SEXP n_cpuSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const IntegerVector& >::type q(qSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type lower_tail(lower_tailSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type log_p(log_pSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n_cpu(n_cpuSEXP);
+    rcpp_result_gen = Rcpp::wrap(my_pNBI(q, mu, sigma, lower_tail, log_p, n_cpu));
+    return rcpp_result_gen;
+END_RCPP
+}
+// my_qNBI
+IntegerVector my_qNBI(const NumericVector& p, const NumericVector& mu, const NumericVector& sigma, const bool& lower_tail, const bool& log_p, const int& n_cpu);
+RcppExport SEXP _IMPACTncdJapan_my_qNBI(SEXP pSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP lower_tailSEXP, SEXP log_pSEXP, SEXP n_cpuSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type lower_tail(lower_tailSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type log_p(log_pSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n_cpu(n_cpuSEXP);
+    rcpp_result_gen = Rcpp::wrap(my_qNBI(p, mu, sigma, lower_tail, log_p, n_cpu));
+    return rcpp_result_gen;
+END_RCPP
+}
+// my_qZANBI
+IntegerVector my_qZANBI(const NumericVector& p, const NumericVector& mu, const NumericVector& sigma, const NumericVector& nu, const bool& lower_tail, const bool& log_p, const int& n_cpu);
+RcppExport SEXP _IMPACTncdJapan_my_qZANBI(SEXP pSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP nuSEXP, SEXP lower_tailSEXP, SEXP log_pSEXP, SEXP n_cpuSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type nu(nuSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type lower_tail(lower_tailSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type log_p(log_pSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n_cpu(n_cpuSEXP);
+    rcpp_result_gen = Rcpp::wrap(my_qZANBI(p, mu, sigma, nu, lower_tail, log_p, n_cpu));
+    return rcpp_result_gen;
+END_RCPP
+}
+// my_pZANBI_scalar
+double my_pZANBI_scalar(const int& q, const double& mu, const double& sigma, const double& nu, const bool& lower_tail, const bool& log_p, const bool& check);
+RcppExport SEXP _IMPACTncdJapan_my_pZANBI_scalar(SEXP qSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP nuSEXP, SEXP lower_tailSEXP, SEXP log_pSEXP, SEXP checkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const int& >::type q(qSEXP);
+    Rcpp::traits::input_parameter< const double& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const double& >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< const double& >::type nu(nuSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type lower_tail(lower_tailSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type log_p(log_pSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type check(checkSEXP);
+    rcpp_result_gen = Rcpp::wrap(my_pZANBI_scalar(q, mu, sigma, nu, lower_tail, log_p, check));
+    return rcpp_result_gen;
+END_RCPP
+}
 // my_dSICHEL
 NumericVector my_dSICHEL(const IntegerVector& x, const NumericVector& mu, const NumericVector& sigma, const NumericVector& nu, const bool& log_, const int& n_cpu);
 RcppExport SEXP _IMPACTncdJapan_my_dSICHEL(SEXP xSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP nuSEXP, SEXP log_SEXP, SEXP n_cpuSEXP) {
@@ -542,6 +623,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector& >::type a(aSEXP);
     Rcpp::traits::input_parameter< NumericVector& >::type b(bSEXP);
     rcpp_result_gen = Rcpp::wrap(fbound(x, a, b));
+    return rcpp_result_gen;
+END_RCPP
+}
+// antilogit
+double antilogit(const double& x);
+RcppExport SEXP _IMPACTncdJapan_antilogit(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const double& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(antilogit(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -785,6 +877,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_IMPACTncdJapan_my_qDPO", (DL_FUNC) &_IMPACTncdJapan_my_qDPO, 7},
     {"_IMPACTncdJapan_simcpp", (DL_FUNC) &_IMPACTncdJapan_simcpp, 3},
     {"_IMPACTncdJapan_my_qMN4", (DL_FUNC) &_IMPACTncdJapan_my_qMN4, 7},
+    {"_IMPACTncdJapan_my_dNBI", (DL_FUNC) &_IMPACTncdJapan_my_dNBI, 5},
+    {"_IMPACTncdJapan_my_pNBI", (DL_FUNC) &_IMPACTncdJapan_my_pNBI, 6},
+    {"_IMPACTncdJapan_my_qNBI", (DL_FUNC) &_IMPACTncdJapan_my_qNBI, 6},
+    {"_IMPACTncdJapan_my_qZANBI", (DL_FUNC) &_IMPACTncdJapan_my_qZANBI, 7},
+    {"_IMPACTncdJapan_my_pZANBI_scalar", (DL_FUNC) &_IMPACTncdJapan_my_pZANBI_scalar, 7},
     {"_IMPACTncdJapan_my_dSICHEL", (DL_FUNC) &_IMPACTncdJapan_my_dSICHEL, 6},
     {"_IMPACTncdJapan_my_pSICHEL", (DL_FUNC) &_IMPACTncdJapan_my_pSICHEL, 7},
     {"_IMPACTncdJapan_my_qSICHEL", (DL_FUNC) &_IMPACTncdJapan_my_qSICHEL, 7},
@@ -799,6 +896,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_IMPACTncdJapan_identify_invitees", (DL_FUNC) &_IMPACTncdJapan_identify_invitees, 5},
     {"_IMPACTncdJapan_hc_effect", (DL_FUNC) &_IMPACTncdJapan_hc_effect, 3},
     {"_IMPACTncdJapan_fbound", (DL_FUNC) &_IMPACTncdJapan_fbound, 3},
+    {"_IMPACTncdJapan_antilogit", (DL_FUNC) &_IMPACTncdJapan_antilogit, 1},
     {"_IMPACTncdJapan_dtsubset", (DL_FUNC) &_IMPACTncdJapan_dtsubset, 3},
     {"_IMPACTncdJapan_fscramble_trajectories", (DL_FUNC) &_IMPACTncdJapan_fscramble_trajectories, 4},
     {"_IMPACTncdJapan_shift_bypidNum", (DL_FUNC) &_IMPACTncdJapan_shift_bypidNum, 4},

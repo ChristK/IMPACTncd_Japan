@@ -102,6 +102,31 @@ my_qMN4 <- function(p, mu, sigma, nu, lower_tail = TRUE, log_p = FALSE, n_cpu = 
 }
 
 #' @export
+my_dNBI <- function(x, mu, sigma, log_p, n_cpu) {
+    .Call('_IMPACTncdJapan_my_dNBI', PACKAGE = 'IMPACTncdJapan', x, mu, sigma, log_p, n_cpu)
+}
+
+#' @export
+my_pNBI <- function(q, mu, sigma, lower_tail, log_p, n_cpu) {
+    .Call('_IMPACTncdJapan_my_pNBI', PACKAGE = 'IMPACTncdJapan', q, mu, sigma, lower_tail, log_p, n_cpu)
+}
+
+#' @export
+my_qNBI <- function(p, mu, sigma, lower_tail, log_p, n_cpu) {
+    .Call('_IMPACTncdJapan_my_qNBI', PACKAGE = 'IMPACTncdJapan', p, mu, sigma, lower_tail, log_p, n_cpu)
+}
+
+#' @export
+my_qZANBI <- function(p, mu, sigma, nu, lower_tail, log_p, n_cpu) {
+    .Call('_IMPACTncdJapan_my_qZANBI', PACKAGE = 'IMPACTncdJapan', p, mu, sigma, nu, lower_tail, log_p, n_cpu)
+}
+
+#' @export
+my_pZANBI_scalar <- function(q, mu, sigma, nu, lower_tail, log_p, check) {
+    .Call('_IMPACTncdJapan_my_pZANBI_scalar', PACKAGE = 'IMPACTncdJapan', q, mu, sigma, nu, lower_tail, log_p, check)
+}
+
+#' @export
 my_dSICHEL <- function(x, mu, sigma, nu, log_ = FALSE, n_cpu = 1L) {
     .Call('_IMPACTncdJapan_my_dSICHEL', PACKAGE = 'IMPACTncdJapan', x, mu, sigma, nu, log_, n_cpu)
 }
@@ -127,17 +152,17 @@ my_pZISICHEL <- function(q, mu, sigma, nu, tau, lower_tail = TRUE, log_p = FALSE
 }
 
 #' @export
-carry_forward <- function(x, pid_mrk, y, byref = FALSE) {
+carry_forward <- function(x, pid_mrk, y, byref) {
     .Call('_IMPACTncdJapan_carry_forward', PACKAGE = 'IMPACTncdJapan', x, pid_mrk, y, byref)
 }
 
 #' @export
-carry_forward_incr <- function(x, pid_mrk, recur, y = 1L, byref = FALSE) {
+carry_forward_incr <- function(x, pid_mrk, recur, y, byref) {
     .Call('_IMPACTncdJapan_carry_forward_incr', PACKAGE = 'IMPACTncdJapan', x, pid_mrk, recur, y, byref)
 }
 
 #' @export
-carry_backward <- function(x, pid_mrk, y = 0L) {
+carry_backward <- function(x, pid_mrk, y) {
     .Call('_IMPACTncdJapan_carry_backward', PACKAGE = 'IMPACTncdJapan', x, pid_mrk, y)
 }
 
@@ -169,6 +194,11 @@ hc_effect <- function(x, prb_of_continuation, pid) {
 #' @export
 fbound <- function(x, a, b) {
     .Call('_IMPACTncdJapan_fbound', PACKAGE = 'IMPACTncdJapan', x, a, b)
+}
+
+#' @export
+antilogit <- function(x) {
+    .Call('_IMPACTncdJapan_antilogit', PACKAGE = 'IMPACTncdJapan', x)
 }
 
 dtsubset <- function(x, rows, cols) {

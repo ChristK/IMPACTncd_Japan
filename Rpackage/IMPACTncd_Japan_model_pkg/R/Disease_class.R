@@ -1136,6 +1136,7 @@ Disease <-
       #' @description Get disease incident probability.
       #' @param year_ A vector of years to return. All if missing.
       #' @param mc_ A scalar to realise the incidence probability. All if missing. The median for mc_ = 0
+      #' @param design_ A design object.
       #' @return A data.table with disease incident probabilities unless
       #'   incidence type: Universal when it returns data.table(NULL).
 
@@ -1189,6 +1190,7 @@ Disease <-
       },
 
       #' @description Get disease duration distribution parameters.
+      #' @param mc_ A scalar to realise the incidence probability. All if missing. The median for mc_ = 0
       #' @return A data.table with duration distribution parameters. unless
       #'   incidence type: Universal when it returns data.table(NULL).
 
@@ -1220,6 +1222,8 @@ Disease <-
 
       #' @description Get disease prevalent probability.
       #' @param year_ A vector of years to return. All if missing.
+      #' @param mc_ A scalar to realise the incidence probability. All if missing. The median for mc_ = 0
+      #' @param design_ A design object.
       #' @return A data.table with disease prevalent probabilities unless
       #'   incidence type: Universal when it returns data.table(NULL).
 
@@ -1273,6 +1277,8 @@ Disease <-
 
       #' @description Get disease case fatality probability.
       #' @param year_ A vector of years to return. All if missing.
+      #' @param mc_ A scalar to realise the incidence probability. All if missing. The median for mc_ = 0
+      #' @param design_ A design object.
       #' @return A data.table with disease case fatality probabilities unless
       #'   mortality type: Non-fatal when it returns data.table(NULL).
 
@@ -1827,7 +1833,11 @@ Disease <-
 
             if (xps[[1]] %in% xps_dep$xpscol) {
               lag <- xps_dep[xps[[1]], max(lag)]
-            } else lag <- 0L
+            } else {
+              lag <- 0L
+            }
+
+            ff[, year := year - lag] # need to be before tax_tabaco
 
             ff[, tax_tabaco := fcase(
               year < 2006L,                 0L,
@@ -1835,22 +1845,48 @@ Disease <-
               year >= 2010L & year < 2018L, 2L,
               year >= 2018L,                3L
             )]
-            ff[, tax_tabaco := factor(tax_tabaco, 0:3, 0:3)]
+           ff[, tax_tabaco := factor(tax_tabaco, 0:3, 0:3)]
+         
 
-            ff[, year := year - lag]
-             tbl <-
-              read_fst("./inputs/exposure_distributions/Table_Smoking.fst", # what is tax_tabaco?
-                       as.data.table = TRUE)
-              setnames(tbl, tolower(names(tbl)))
-              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+            
+
+            tbl <-
+                read_fst("./inputs/exposure_distributions/Table_Smoking_NevEx_vs_current.fst",
+                as.data.table = TRUE
+              )
+            setnames(tbl, tolower(names(tbl)))
+            tbl[, `:=` (sex = factor(sex, 0:1, c("men", "women")))]
 
             col_nam <-
               setdiff(names(tbl), intersect(names(ff), names(tbl)))
-            absorb_dt(ff, tbl)
-            ff[, Smoking_curr_xps := qMN3(rank_Smoking, mu, sigma), ] #, n_cpu = design_$sim_prm$n_cpu)]
-		      	ff[, Smoking_curr_xps := factor(Smoking_curr_xps)]
+            absorb_dt(ff, tbl) 
+            ff[, Smoking_curr_xps := as.integer(rank_Smoking < mu) * 2L] # 0 = never smoker or ex, 2 = current
+            ff[, c(col_nam) := NULL]
 
-            ff[, c(col_nam, "rank_Smoking", "tax_tabaco") := NULL]
+            tbl <-
+              read_fst("./inputs/exposure_distributions/Table_Smoking_never_vs_ex.fst",
+                as.data.table = TRUE
+              )
+            setnames(tbl, tolower(names(tbl)))
+            tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+            col_nam <-
+              setdiff(names(tbl), intersect(names(ff), names(tbl)))
+            absorb_dt(ff, tbl)
+              range01 <- function(x) {
+                if (length(x) > 1L) {
+                  (x - min(x)) / (max(x) - min(x))
+                } else {
+                  x
+                }
+              }
+            ff[Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(range01(rank_Smoking) < mu),  by = .(year)] # 0 = never smoker, 1=ex, 2=current
+
+
+            ff[, Smoking_curr_xps := factor(Smoking_curr_xps + 1L)]
+
+
+            ff[, c(col_nam, "tax_tabaco", "rank_Smoking") := NULL]
+
             ff[, year := year + lag]
           }
                       
@@ -2068,17 +2104,20 @@ Disease <-
           read_fst("./inputs/exposure_distributions/Table_SBP.fst",
                    as.data.table = TRUE)
         setnames(tbl, c("Age", "Sex", "Year", "BMI", "Smoking", "Med_HT"),
-                      c("age", "sex", "year", "BMI_round", "Smoking_curr_xps", "Med_HT_curr_xps"))
-        tbl[, sex := factor(sex, 0:1, c("men", "women"))]
-      tbl[, BMI_round := as.integer(BMI_round)]
-			ff[, BMI_round := as.integer(round(BMI_curr_xps))]
-      col_nam <-
-        setdiff(names(tbl), intersect(names(ff), names(tbl)))
+                      c("age", "sex", "year", "BMI_round", "smoking_tmp", "Med_HT_curr_xps"))
+         tbl[, `:=` (sex = factor(sex, 0:1, c("men", "women")),
+                    smoking_tmp = as.integer(smoking_tmp),
+                    BMI_round = as.integer(BMI_round))] # TODO update the saved file so we don't have to do these slow conversions every time 
+
+			ff[, `:=` (BMI_round = as.integer(round(BMI_curr_xps)),  # TODO consider Rfast::Round to speedup
+                 smoking_tmp = as.integer(Smoking_curr_xps == "3"))] # 1 = smoker
+			
+      col_nam <- setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
        absorb_dt(ff, tbl)
       ff[, SBP_curr_xps := qBCPE(rank_SBP, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
 
-       ff[, c(col_nam, "rank_SBP", "BMI_round") := NULL]
+       ff[, c(col_nam, "rank_SBP", "BMI_round", "smoking_tmp") := NULL]
        ff[, year := year + lag]
      }
 

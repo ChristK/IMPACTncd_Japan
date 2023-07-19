@@ -537,10 +537,10 @@ Simulation <-
           if (self$design$sim_prm$logs) print(x$name)
           x$
            gen_parf(sp, self$design, self$diseases)$
-           set_init_prvl(sp = sp, design_ =self$design)
+           set_init_prvl(sp = sp, design_ = self$design)
         })
       
-        scenario_fn(sp) # apply simple scenario
+        scenario_fn_primary_prevention(sp) # apply primary pevention scenario
 
         lapply(self$diseases, function(x) {
           x$set_rr(sp, self$design)$
@@ -549,7 +549,7 @@ Simulation <-
             set_mrtl_prb(sp, self$design)
         })
 
-       
+       scenario_fn_secondary_prevention(sp) # apply secondary pevention scenario
 
         # ds <- copy(self$diseases) # Necessary for parallelisation
         # lapply(self$diseases, function(x) {
@@ -663,7 +663,7 @@ Simulation <-
         )
       },
 
-      # Function to export xps
+      # export xps ----
       export_xps = function(sp, scenario_nam) {
         # NOTE no need to check validity of inputs here as it is only used
         # internally
@@ -672,21 +672,15 @@ Simulation <-
                   min_age = self$design$sim_prm$ageL, age_colname = "age",
                   agegrp_colname = "agegrp20", to_factor = TRUE)
 
-        sp$pop[, smok_never_curr_xps := fifelse(smok_status_curr_xps == "1", 1L, 0L)]
-        sp$pop[, smok_active_curr_xps := fifelse(smok_status_curr_xps == "4", 1L, 0L)]
+        sp$pop[, smok_never_curr_xps := fifelse(Smoking_curr_xps == "1", 1L, 0L)]
+        sp$pop[, smok_active_curr_xps := fifelse(Smoking_curr_xps == "3", 1L, 0L)]
 
         xps <- grep("_curr_xps$", names(sp$pop), value = TRUE)
         xps <- grep("_prvl_curr_xps$", xps, value = TRUE, invert = TRUE)
-        xps <- xps[-which(xps %in% c("smok_status_curr_xps", "met_curr_xps",
-                                     "bpmed_curr_xps"))]
-        sp$pop[smok_status_curr_xps == "1", `:=` (
-          smok_packyrs_curr_xps = NA,
-          smok_quit_yrs_curr_xps = NA,
-          smok_dur_curr_xps = NA,
-          smok_cig_curr_xps = NA
+        xps <- xps[-which(xps %in% c("Smoking_curr_xps"))]
+        sp$pop[Smoking_curr_xps != "3", `:=` (
+          Smoking_number_curr_xps = NA
         )]
-        sp$pop[smok_status_curr_xps == "4", `:=` (
-          smok_quit_yrs_curr_xps = NA)]
 
         out_xps20 <- groupingsets(
           sp$pop[all_cause_mrtl >= 0L &
@@ -699,8 +693,7 @@ Simulation <-
             "year",
             c("year", "agegrp20"),
             c("year", "sex"),
-            c("year", "agegrp20", "sex"),
-
+            c("year", "agegrp20", "sex")
             # c("year", "ethnicity"),
             # c("year", "sha")
           )
@@ -722,7 +715,7 @@ Simulation <-
           .SDcols = xps,
           sets = list(
             "year",
-            c("year", "sex"),
+            c("year", "sex")
             # c("year", "ethnicity"),
             # c("year", "sha")
           )
@@ -738,14 +731,9 @@ Simulation <-
           "smok_never_curr_xps",
           "smok_active_curr_xps"
         ) := NULL]
-        sp$pop[smok_status_curr_xps == "1", `:=` (
-          smok_packyrs_curr_xps = 0,
-          smok_quit_yrs_curr_xps = 0,
-          smok_dur_curr_xps = 0,
-          smok_cig_curr_xps = 0
+        sp$pop[Smoking_curr_xps != "3", `:=` (
+          Smoking_number_curr_xps = 0L
         )]
-        sp$pop[smok_status_curr_xps == "4", `:=` (
-          smok_quit_yrs_curr_xps = 0)]
 
         NULL
       },
@@ -769,6 +757,7 @@ Simulation <-
 
       # function to export summaries from lifecourse files.
       # lc is a lifecourse file
+      # export_summaries_hlpr ----
       export_summaries_hlpr = function(lc, type = c("le", "hle", "dis_char",
                                                     "prvl", "incd", "mrtl",  "dis_mrtl",
                                                     "allcause_mrtl_by_dis", "cms")) {

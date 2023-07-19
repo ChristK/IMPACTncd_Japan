@@ -991,7 +991,7 @@ SynthPop <-
 
 
 
-            # Generate Fruit_vege
+            # Generate Fruit_vege ----
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Fruit_vege", ".qs"))
 			# Model_gamlss$parameters
@@ -1030,13 +1030,15 @@ SynthPop <-
 
 
 
-            # Generate Smoking
+            # Generate Smoking ----
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "Smoking", ".qs"))
 			# Model_gamlss$parameters
 			# Model_gamlss$family[1]
 			# rm(Model_gamlss)
+      # (never or ex smokers = 0) vs current(=1) using data between 2003 and 2019
 
+      # The coding rule of smoking status was 3 = current, 2 = ever, 1 = never
 
             if (design_$sim_prm$logs) message("Generate Smoking")
 
@@ -1049,28 +1051,48 @@ SynthPop <-
             dt[, tax_tabaco := factor(tax_tabaco, 0:3, 0:3)]
 
             tbl <-
-              read_fst("./inputs/exposure_distributions/Table_Smoking.fst",
-                       as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-              setnames(tbl, tolower(names(tbl)))
-              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+              read_fst("./inputs/exposure_distributions/Table_Smoking_NevEx_vs_current.fst",
+                as.data.table = TRUE
+              )[between(Age, limit_age$min, limit_age$max)]
+            setnames(tbl, tolower(names(tbl)))
+            tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
-
-
-
-			col_nam <-
+            col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            # if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
-            #} else {
-              absorb_dt(dt, tbl)
-            #}
+            # } else {
+            absorb_dt(dt, tbl)
+            # }
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Smoking := qMN3(rankstat_Smoking, mu, sigma), ] #, n_cpu = design_$sim_prm$n_cpu)]
-			dt[, Smoking := factor(Smoking), ]
-			# dt[, table(Smoking), ]
+            dt[, Smoking := as.integer(rankstat_Smoking < mu) * 2L] # 0 = never smoker or ex, 2 = current
+			      dt[, c(col_nam) := NULL]
+
+            # Never (=0) vs Ex (=1) smokers using data between 2003 and 2012 Note that I did not use tabaco tax because data were limitted to 2003 and 2012
+
+            tbl <-
+              read_fst("./inputs/exposure_distributions/Table_Smoking_never_vs_ex.fst",
+                       as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
+              setnames(tbl, tolower(names(tbl)))
+              tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+      			col_nam <-
+              setdiff(names(tbl), intersect(names(dt), names(tbl)))
+              absorb_dt(dt, tbl)
+              range01 <- function(x) {
+                if (length(x) > 1L) {
+                  (x - min(x)) / (max(x) - min(x))
+                } else {
+                  x
+                }
+              }
+              dt[Smoking == 0L, Smoking := as.integer(range01(rankstat_Smoking) < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
+
+      
+      dt[, Smoking := factor(Smoking + 1L)]
+
 
       dt[, c(col_nam, "tax_tabaco", "rankstat_Smoking") := NULL]
 
@@ -1445,7 +1467,7 @@ SynthPop <-
 
 
 
-			# Generate SBP
+			# Generate SBP ----
 			# Change-for-IMPACT-NCD-Japan
 			# Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "SBP", ".qs"))
 			# Model_gamlss$parameters
@@ -1458,11 +1480,14 @@ SynthPop <-
         tbl <-
           read_fst("./inputs/exposure_distributions/Table_SBP.fst",
                    as.data.table = TRUE)[between(Age, limit_age$min, limit_age$max)]
-        setnames(tbl, c("Age", "Sex", "Year", "BMI"), c("age", "sex", "year", "BMI_round"))
-        tbl[, sex := factor(sex, 0:1, c("men", "women"))]
+        setnames(tbl, c("Age", "Sex", "Year", "BMI", "Smoking"), c("age", "sex", "year", "BMI_round", "smoking_tmp"))
+        tbl[, `:=` (sex = factor(sex, 0:1, c("men", "women")),
+                    smoking_tmp = as.integer(smoking_tmp),
+                    BMI_round = as.integer(BMI_round))] # TODO update the saved file so we don't have to do these slow conversions every time 
 
-      tbl[, BMI_round := as.integer(BMI_round)]
-			dt[, BMI_round := as.integer(round(BMI))]
+  
+			dt[, `:=` (BMI_round = as.integer(round(BMI)),  # TODO consider Rfast::Round to speedup
+      smoking_tmp = as.integer(Smoking == "3"))] # 1 = smoker
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1478,7 +1503,7 @@ SynthPop <-
 			# Change-for-IMPACT-NCD-Japan
             dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
 
-            dt[, c(col_nam, "rank_SBP", "BMI_round") := NULL]
+            dt[, c(col_nam, "rank_SBP", "BMI_round", "smoking_tmp") := NULL]
 
 
 

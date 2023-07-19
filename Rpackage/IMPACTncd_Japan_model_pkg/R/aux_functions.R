@@ -2107,59 +2107,6 @@ run_scenario <-
   }
 
 
-#   #' @export
-# export_xps <- function(mc_,
-#                        dt,
-#                        write_to_disk = TRUE,
-#                        filenam = "val_xps_output.csv",
-#                        reweighted_to_hse = FALSE) {
-#   to_agegrp(dt, 20L, 89L, "age", "agegrp20", to_factor = TRUE)
-#   setnames(dt, "t2dm_prvl_curr_xps", "t2dm_prvl_original")
-#   if ("t2dm_prvl" %in% names(dt)) {
-#     dt[, t2dm_prvl_curr_xps := fifelse(t2dm_prvl == 0L, 0L, 1L)]
-#   } else {
-#     dt[, t2dm_prvl_curr_xps := fifelse(t2dm_prvl_original == 0L, 0L, 1L)]
-#   }
-#   dt[, smok_never_curr_xps := fifelse(smok_status_curr_xps == "1", 1L, 0L)]
-#   dt[, smok_active_curr_xps := fifelse(smok_status_curr_xps == "4", 1L, 0L)]
-#   if (reweighted_to_hse) {
-#     wt <- read_fst("./synthpop/hse_sociodemographics.fst",
-#                    as.data.table = TRUE)
-#     absorb_dt(dt, wt)
-#   } else {
-#     dt[, hse_wt := 1]
-#   }
-#
-#   xps <- grep("_curr_xps$", names(dt), value = TRUE)
-#   xps <- xps[-which(xps == "smok_status_curr_xps")]
-#   out_xps <- groupingsets(
-#     dt,
-#     j = lapply(.SD, weighted.mean, hse_wt),
-#     by = c("year", "sex", "agegrp20", "qimd"),
-#     .SDcols = xps,
-#     sets = list(
-#       c("year", "sex", "agegrp20", "qimd"),
-#       c("year", "sex"),
-#       c("year", "agegrp20"),
-#       c("year", "qimd")
-#     )
-#   )[, `:=` (year = year + 2000L, mc = mc_)]
-#   for (j in seq_len(ncol(out_xps)))
-#     set(out_xps, which(is.na(out_xps[[j]])), j, "All")
-#   dt[, c(
-#     "agegrp20",
-#     "smok_never_curr_xps",
-#     "smok_active_curr_xps",
-#     "t2dm_prvl_curr_xps",
-#     "hse_wt"
-#   ) := NULL]
-#   setnames(dt, "t2dm_prvl_original", "t2dm_prvl_curr_xps")
-#
-#   setkey(out_xps, year)
-#   if (write_to_disk)
-#     fwrite_safe(out_xps, output_dir(filenam))
-#   invisible(out_xps)
-# }
 
 #' @export
 export_mrtl <-
@@ -2419,7 +2366,7 @@ run_simulation <- function(parameters, design, final = FALSE) {
     .packages = c(
       "R6",
       "data.table",
-      "IMPACTncdEngl",
+      "IMPACTncdJapan",
       "gamlss.dist", # For distr in prevalence.R
       "dqrng",
       "qs",

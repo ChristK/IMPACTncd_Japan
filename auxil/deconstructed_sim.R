@@ -54,6 +54,8 @@ mk_scenario_init2 <- function(scenario_name, diseases_, sp, design_) {
 # ll <- sim$gen_synthpop_demog(design)
 sp  <- SynthPop$new(1L, design)
 
+
+
 # lapply(diseases, function(x) x$harmonise_epi_tables(sp))
 
 lapply(diseases, function(x) {
@@ -94,8 +96,8 @@ simcpp(sp$pop, l, sp$mc)
 sp$update_pop_weights()
 sp$pop[, mc := sp$mc_aggr]
 
-self <- diseases$chd$.__enclos_env__$self
-private <- diseases$chd$.__enclos_env__$private
+self <- diseases$nonmodelled$.__enclos_env__$self
+private <- diseases$nonmodelled$.__enclos_env__$private
 design_ <- design
 diseases_ <- diseases
 popsize <- 100
@@ -104,10 +106,15 @@ keep_intermediate_file <- TRUE
 bUpdateExistingDiseaseSnapshot <- TRUE
 mc_iter <- mc_ <- 1
 
-class(shift_bypid(sp$pop[["PA_days_curr_xps"]], 4L, sp$pop$pid, 1L))
-table(shift_bypid(sp$pop[["PA_days_curr_xps"]], 4L, sp$pop$pid, 1L))
+ff <- self$get_ftlt(design_$sim_prm$init_year_long, design_ = design_)
+ff <- CJ(
+    age = seq(design_$sim_prm$ageL, design_$sim_prm$ageH),
+    sex = ff$sex,
+    year = design_$sim_prm$init_year_long,
+    unique = TRUE
+)
 
-
+ff <- clone_dt(ff, 10, idcol = NULL)
 
 ttt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/chd_incd.fst",
     as.data.table = TRUE
@@ -604,7 +611,3 @@ IMPACTncd$
   del_logs()$
   del_outputs()$
   run(1:2, multicore = FALSE, "sc0")
-
-design <- Design$new("./inputs/sim_design.yaml")
-IMPACTncd$diseases$chd$get_prvl()
-IMPACTncd$diseases$chd$get_prvl(2013, 1, design)[]

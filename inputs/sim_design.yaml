@@ -1,7 +1,7 @@
 iteration_n: 15
 iteration_n_final: 100
-clusternumber: 10 # explicit parallelisation
-clusternumber_export: 4 # NEW: number of clusters for export_summaries
+clusternumber: 20 # explicit parallelisation
+clusternumber_export: 20 # NEW: number of clusters for export_summaries
 n_cpus: 1 # implicit parallelisation
 logs: yes
 export_xps: yes
@@ -73,7 +73,7 @@ diseases:
       duration_distr: NBI
       mm_wt: 0.49
     mortality:
-      type: 2
+      type: 1
       code: 2
   notes: .na
 - name: stroke
@@ -88,7 +88,7 @@ diseases:
       duration_distr: PIG
       mm_wt: 0.8
     mortality:
-      type: 2
+      type: 1
       code: 3
   notes: .na
 - name: cvd

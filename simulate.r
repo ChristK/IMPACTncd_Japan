@@ -16,7 +16,9 @@ scenario_fn_secondary_prevention <- function(sp) NULL
 IMPACTncd$
   del_logs()$
   del_outputs()$
-  run(1:2, multicore = TRUE, "sc0")
+  run(60:100, multicore = TRUE, "sc0")
+
+
 
 IMPACTncd$export_summaries(
   multicore = TRUE,

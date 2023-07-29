@@ -73,7 +73,7 @@ diseases:
       duration_distr: NBI
       mm_wt: 0.49
     mortality:
-      type: 2
+      type: 1
       code: 2
   notes: .na
 - name: stroke
@@ -88,7 +88,7 @@ diseases:
       duration_distr: PIG
       mm_wt: 0.8
     mortality:
-      type: 2
+      type: 1
       code: 3
   notes: .na
 - name: cvd

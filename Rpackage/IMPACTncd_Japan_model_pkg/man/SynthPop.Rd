@@ -88,7 +88,7 @@ for each 'synthpop'. A metadata file, and an index file.
 integer generates a unique synthetic population. If `mc = 0` an
 object with an empty synthpop is initiated.}
 
-\item{\code{design_}}{A \code{\link[IMPACTncdEngl]{Design}} object.}
+\item{\code{design_}}{A \code{\link[IMPACTncdJapan]{Design}} object.}
 
 \item{\code{synthpop_dir_}}{The directory where 'SynthPop' objects are stored.
 The synthpop file in \code{\link[fst]{fst-package}} format. If
@@ -148,6 +148,13 @@ Updates the wt_immrtl to account for mortality in baseline scenario.
 \if{html}{\out{<div class="r">}}\preformatted{SynthPop$update_pop_weights(scenario_nam = "sc0")}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{scenario_nam}}{The scenario name. Logic is different if "sc0".}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
 The invisible self for chaining.
 }

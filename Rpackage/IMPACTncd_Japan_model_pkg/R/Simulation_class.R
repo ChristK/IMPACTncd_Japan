@@ -688,10 +688,11 @@ Simulation <-
 
         sp$pop[, smok_never_curr_xps := fifelse(Smoking_curr_xps == "1", 1L, 0L)]
         sp$pop[, smok_active_curr_xps := fifelse(Smoking_curr_xps == "3", 1L, 0L)]
+        sp$pop[, pa567_curr_xps := fifelse(PA_days_curr_xps %in% c("5", "6", "7"), 1L, 0L)]
 
         xps <- grep("_curr_xps$", names(sp$pop), value = TRUE)
         xps <- grep("_prvl_curr_xps$", xps, value = TRUE, invert = TRUE)
-        xps <- xps[-which(xps %in% c("Smoking_curr_xps"))]
+        xps <- xps[-which(xps %in% c("Smoking_curr_xps", "PA_days_curr_xps"))]
         sp$pop[Smoking_curr_xps != "3", `:=` (
           Smoking_number_curr_xps = NA
         )]
@@ -714,17 +715,17 @@ Simulation <-
         )[, `:=` (mc = sp$mc, scenario = scenario_nam)]
         # TODO above mc could also be mc_aggr. Getting the uncertainty right here is tricky
 
-        for (j in seq_len(ncol(out_xps20)))
+        for (j in names(out_xps20)[-which(names(out_xps20) %in% xps)])
           set(out_xps20, which(is.na(out_xps20[[j]])), j, "All")
         setkey(out_xps20, year)
-        fwrite_safe(out_xps20, private$output_dir("xps/xps20.csv.gz"))
+        fwrite_safe(out_xps20, private$output_dir("xps/xps20.csv.gz")) # TODO avoid append option
 
         # TODO link strata in the outputs to the design.yaml
         out_xps5 <- groupingsets(
           sp$pop[all_cause_mrtl >= 0L &
                    year >= self$design$sim_prm$init_year_long &
                    age >= self$design$sim_prm$ageL, ],
-          j = lapply(.SD, weighted.mean, wt_esp, na.rm = TRUE),
+          j = lapply(.SD, weighted.mean, wt_esp, na.rm = TRUE), # TODO avoid append option
           by = c("year", "sex"), # "ethnicity", "sha"
           .SDcols = xps,
           sets = list(
@@ -734,7 +735,7 @@ Simulation <-
             # c("year", "sha")
           )
         )[, `:=` (year = year + 2000L, mc = sp$mc, scenario = scenario_nam)]
-        for (j in seq_len(ncol(out_xps5)))
+        for (j in names(out_xps5)[-which(names(out_xps5) %in% xps)])
           set(out_xps5, which(is.na(out_xps5[[j]])), j, "All")
         setkey(out_xps5, year)
         fwrite_safe(out_xps5, private$output_dir("xps/xps_esp.csv.gz"))
@@ -743,7 +744,8 @@ Simulation <-
         sp$pop[, c(
           "agegrp20",
           "smok_never_curr_xps",
-          "smok_active_curr_xps"
+          "smok_active_curr_xps",
+          "pa567_curr_xps"
         ) := NULL]
         sp$pop[Smoking_curr_xps != "3", `:=` (
           Smoking_number_curr_xps = 0L

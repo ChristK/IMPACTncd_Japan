@@ -48,6 +48,8 @@ if (interactive()) {
     if (!nzchar(system.file(package = "remotes")))
       install.packages("remotes")
     if (nzchar(system.file(package = "roxygen2")))
+    file.remove(list.files(path = "./Rpackage/IMPACTncd_Japan_model_pkg/src", 
+    pattern = ".o$|.so$|.dll$", full.names = TRUE))
       roxygen2::roxygenise("./Rpackage/IMPACTncd_Japan_model_pkg/", clean = TRUE)
     detach_package <- function(pkg, character.only = FALSE)
     {

@@ -240,6 +240,14 @@ Simulation <-
 
         }
 
+        if (self$design$sim_prm$avoid_appending_csv) {
+          # collect the lifecourse fragments file for
+          sapply(list.files(path = private$output_dir("lifecourse"), full.names = TRUE),
+           function(fnam) {
+            fwrite_safe(fread(fnam), file = gsub("_[0-9]*_", "_", fnam))
+            file.remove(fnam)
+          })
+        }     
         while (sink.number() > 0L) sink()
 
 
@@ -617,11 +625,17 @@ Simulation <-
 
         # Write lifecourse
           if (self$design$sim_prm$logs) message("Exporting lifecourse...")
-          fwrite_safe(sp$pop,
-                      private$output_dir(paste0(
-                        "lifecourse/", sp$mc_aggr, "_lifecourse.csv.gz"
-                      )))
 
+          if (self$design$sim_prm$avoid_appending_csv) {
+            fnam <- private$output_dir(paste0(
+              "lifecourse/", sp$mc_aggr, "_", sp$mc, "_lifecourse.csv.gz"
+            ))
+          } else {
+            fnam <- private$output_dir(paste0(
+              "lifecourse/", sp$mc_aggr, "_lifecourse.csv.gz"
+            ))
+          }
+          fwrite_safe(sp$pop, fnam)
 
 
         if (self$design$sim_prm$logs) {

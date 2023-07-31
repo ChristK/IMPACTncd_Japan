@@ -18,7 +18,7 @@ apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incid
 model_trends_in_redidual_incd: no # Model trends in non attributable incidence? (NOTE implementation needs further refinement)
 init_ftlt_calibration: yes # NEW: Indicator whether case fatality is calibrated at all
 mortality_calibration: yes # NEW: Activate or deactivate mortality calibration to FDM forecast. Conditional on CF calibration
-avoid_appending_csv: yes #  Do not append on existing .csv. Rather write separately and join later.
+avoid_appending_csv: yes #  Do not append on existing .csv. Rather write separately and join later. To bypass problems with Docker on windows
 diseases:
 - name: obesity
   friendly_name: Obesity

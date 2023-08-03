@@ -437,6 +437,7 @@ d1 <- melt(d1, id.vars = c("mc", "year", "scenario", "sex"))
 d1 <- unique(d1, by = c("mc", "year", "scenario", "sex", "variable"))
 d1[, `:=` (disease = gsub("^cases_", "", variable), variable = NULL)]
 tt <- tt[, .SD, .SDcols = patterns("mc|scenario|year|sex|^mean_duration_|^mean_age_incd_|^mean_age_1st_onset_|^mean_age_prvl_|^mean_cms_score_|^mean_cms_count_")]
+tt[, mean_cms_count_cmsmm1 := as.double(mean_cms_count_cmsmm1) ]
 tt <- melt(tt, id.vars = c("mc", "year", "scenario", "sex"))
 tt[, disease := gsub("^mean_duration_|^mean_age_incd_|^mean_age_1st_onset_|^mean_age_prvl_|^mean_cms_score_|^mean_cms_count_", "", variable)]
 tt[d1, on = c("mc", "year", "scenario", "sex",  "disease"), cases := i.value]
@@ -614,4 +615,7 @@ d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, paste0(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
+
+
+
 

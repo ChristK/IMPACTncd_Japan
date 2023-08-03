@@ -467,7 +467,7 @@ inline void EvalDiagnosis(vector<disease_meta> &dsmeta,double& rn1, int j, int i
         }
     }
 
-    if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && dsmeta[j].dgns.type == "Type1") // enter branch only for prevalent cases
+    if (dsmeta[j].incd.type != "Universal" && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && dsmeta[j].dgns.type == "Type1") // enter branch only for prevalent cases
     {
         if (VECT_ELEM(dsmeta[j].dgns.prvl, i - 1) == 0 && rn1 <= VECT_ELEM(dsmeta[j].dgns.prbl1, i))
         {

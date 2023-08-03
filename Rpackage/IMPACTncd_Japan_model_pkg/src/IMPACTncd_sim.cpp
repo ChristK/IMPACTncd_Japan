@@ -291,7 +291,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
   return out;
 }
 
-void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int& j, int& i, double& rn1)
+inline void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int j, int i, double rn1)
 {
     if (dsmeta[j].incd.can_recur) // no need to check incd.flag
     {
@@ -340,7 +340,7 @@ void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int& j, int& i, double& 
     }
 }
 
-void DiseaseIncidenceType3(vector<disease_meta> &dsmeta,int& i, int& j, double& mltp, double& rn1)
+inline void DiseaseIncidenceType3(vector<disease_meta> &dsmeta,int i, int j, double& mltp, double rn1)
 {
     for (int k = 0; k < dsmeta[j].incd.influenced_by.disease_prvl.size(); ++k) // Loop over influenced by diseases
     {
@@ -399,9 +399,10 @@ void DiseaseIncidenceType3(vector<disease_meta> &dsmeta,int& i, int& j, double& 
     mltp = 1.0;
 }
 
-void EvalDiseaseIncidence(vector<disease_meta> &dsmeta,int& i, int& j, double& rn1, double& mltp)
+inline void EvalDiseaseIncidence(vector<disease_meta> &dsmeta,int i, int j, double rn1, double& mltp)
 {
-    if (dsmeta[j].incd.type == "Type0")
+  try {
+	  if (dsmeta[j].incd.type == "Type0")
     {
         for (int k = 0; k < dsmeta[j].incd.influenced_by.disease_prvl.size(); ++k) // Loop over influenced by diseases
         {
@@ -443,11 +444,17 @@ void EvalDiseaseIncidence(vector<disease_meta> &dsmeta,int& i, int& j, double& r
     {
         // TODO
     }
+  }
+	catch(std::exception &e) { 
+		// forward standard library exceptions as runtime_errors - all these have a explanatory message which Rcpp prints.
+		throw std::runtime_error((string)"Error within EvalDiseaseIncidence(): "+e.what());
+	}
 }
 
-void EvalDiagnosis(vector<disease_meta> &dsmeta,double& rn1, int& j, int& i, simul_meta& meta)
+inline void EvalDiagnosis(vector<disease_meta> &dsmeta,double& rn1, int j, int i, simul_meta& meta)
 {
-    rn1 = runif_impl();
+	try {
+		rn1 = runif_impl();
 
     if (dsmeta[j].incd.type != "Universal" && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && dsmeta[j].dgns.type == "Type0")
     {
@@ -474,11 +481,17 @@ void EvalDiagnosis(vector<disease_meta> &dsmeta,double& rn1, int& j, int& i, sim
 
     if ((dsmeta[j].dgns.type == "Type0" || dsmeta[j].dgns.type == "Type1") && VECT_ELEM(dsmeta[j].dgns.prvl, i) > 0 && dsmeta[j].dgns.mm_wt > 0.0) meta.mm_score[i] += dsmeta[j].dgns.mm_wt;
     if ((dsmeta[j].dgns.type == "Type0" || dsmeta[j].dgns.type == "Type1") && VECT_ELEM(dsmeta[j].dgns.prvl, i) > 0 && dsmeta[j].dgns.mm_wt > 0.0) meta.mm_count[i]++;
+  }
+	catch(std::exception &e) { 
+		// forward standard library exceptions as runtime_errors - all these have a explanatory message which Rcpp prints.
+		throw std::runtime_error((string)"Error within EvalDiagnosis(): "+e.what());
+	}
 
 }
 
-void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int& i, int& j, double& rn1, double& mltp)
+inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int i, int j, double& rn1, double& mltp)
 {
+	try {
     rn1 = runif_impl();
 
     if (dsmeta[j].incd.type == "Universal" || VECT_ELEM(dsmeta[j].incd.prvl, i) > 0) // enter branch only for prevalent cases or Universal incidence
@@ -562,6 +575,11 @@ void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int& i, in
             mltp = 1.0;
         } // End Type 4 mortality
     } // end if prevalent case
+	}
+	catch(std::exception &e) { 
+		// forward standard library exceptions as runtime_errors - all these have a explanatory message which Rcpp prints.
+		throw std::runtime_error((string)"Error within EvalMortality(): "+e.what());
+	}
 }
 
 //' @export

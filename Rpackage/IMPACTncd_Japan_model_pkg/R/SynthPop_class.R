@@ -886,13 +886,24 @@ SynthPop <-
 			#dt <- cbind(dt, rank_mtx)
 			#setnames(dt, colnames(rank_mtx), paste0("rank_", str_sub(colnames(rank_mtx), start = 1, end = -3)))
             dt[, c(
-              "rank_Fruit_vege"
-			  , "rank_PA_days"
-			  , "rank_BMI"
-			  , "rank_HbA1c"
-			  , "rank_LDLc"
-			  , "rank_SBP"
-            ) := rank_mtx[, list(Fruit_vege_r, PA_days_r, BMI_r, HbA1c_r, LDLc_r, SBP_r), ] ]
+              "rank_Fruit_vege",
+              "rankstat_Smoking_act",
+              "rankstat_Smoking_ex",
+              "rankstat_Med_HT",
+              "rankstat_Med_HL",
+              "rankstat_Med_DM",
+              "rank_PA_days",
+              "rank_BMI",
+              "rank_HbA1c",
+              "rank_LDLc",
+              "rank_SBP"
+            ) := rank_mtx[, list(Fruit_vege_r,
+             Smoking_act_r,
+             Smoking_ex_r,
+             Med_HT_r,
+             Med_HL_r,
+             Med_DM_r,
+             PA_days_r, BMI_r, HbA1c_r, LDLc_r, SBP_r), ]]
 
             rm(rank_mtx)
 
@@ -900,13 +911,7 @@ SynthPop <-
 			# ????? 20230206 NOT RW variables to change the variable name for rankstat
             # add non-correlated RNs
 			# Change-for-IMPACT-NCD-Japan
-            rank_cols <- c(
-			  "rankstat_Smoking"
-			  , "rankstat_Smoking_number"
-			  , "rankstat_Med_HT"
-			  , "rankstat_Med_HL"
-			  , "rankstat_Med_DM"
-			)
+            rank_cols <- c("rankstat_Smoking_number")
 
 
             for (nam in rank_cols)
@@ -967,18 +972,6 @@ SynthPop <-
                         design_$sim_prm$jumpiness),
                .SDcols = patterns("^rank_")]
             # ggplot2::qplot(year, rank_ssb, data = dt[pid %in% sample(1e1, 1)], ylim = c(0,1))
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 			# Change-for-IMPACT-NCD-Japan
@@ -1068,7 +1061,7 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Smoking := as.integer(rankstat_Smoking < mu) * 2L] # 0 = never smoker or ex, 2 = current
+            dt[, Smoking := as.integer(rankstat_Smoking_act < mu) * 2L] # 0 = never smoker or ex, 2 = current
 			      dt[, c(col_nam) := NULL]
 
             # Never (=0) vs Ex (=1) smokers using data between 2003 and 2012 Note that I did not use tabaco tax because data were limitted to 2003 and 2012
@@ -1081,20 +1074,21 @@ SynthPop <-
       			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
               absorb_dt(dt, tbl)
-              range01 <- function(x) {
-                if (length(x) > 1L) {
-                  (x - min(x)) / (max(x) - min(x))
-                } else {
-                  x
-                }
-              }
-              dt[Smoking == 0L, Smoking := as.integer(range01(rankstat_Smoking) < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
+              # range01 <- function(x) {
+              #   if (length(x) > 1L) {
+              #     (x - min(x)) / (max(x) - min(x))
+              #   } else {
+              #     x
+              #   }
+              # }
+              # dt[Smoking == 0L, Smoking := as.integer(range01(rankstat_Smoking) < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
+              dt[Smoking == 0L, Smoking := as.integer(rankstat_Smoking_ex < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
 
       
       dt[, Smoking := factor(Smoking + 1L)]
 
 
-      dt[, c(col_nam, "tax_tabaco", "rankstat_Smoking") := NULL]
+      dt[, c(col_nam, "tax_tabaco", "rankstat_Smoking_act", "rankstat_Smoking_ex") := NULL]
 
 
 

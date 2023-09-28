@@ -114,12 +114,6 @@ Disease <-
           vsFileTypes<- c(vsFileTypes, "ftlt")
 
         }
-        # private$filenams$p_zero_trend <- file.path(paste0(gsub("disease_burden",
-        #                                                        "other_parameters",
-        #                                                        db), "/p_zero_trend.fst"))
-        # private$filenams$p_zero_trend_indx <- file.path(paste0(gsub("disease_burden",
-        #                                                             "other_parameters",
-        #                                                             db), "/p_zero_trend_indx.fst"))
 
         # TODO add check for stop('For type 1 incidence aggregation of RF need
         # to be "any" or "all".')
@@ -1012,7 +1006,7 @@ Disease <-
             }
             # NOTE the above excludes incident cases. Not appropriate when
             # private$mrtl2flag == FALSE
-            #lookup_dt(sp$pop, tbl) #TODO: lookup_dt
+            # lookup_dt(sp$pop, tbl) #TODO: lookup_dt
             absorb_dt(sp$pop, tbl)
             setnafill(sp$pop, "c", 1, cols = "clbfctr")
 
@@ -1142,6 +1136,7 @@ Disease <-
 
       # get_incd ----
       get_incd = function(year_, mc_ = sp$mc_aggr, design_ = design) {
+        if (!design_$sim_prm$incd_uncertainty_distr %in% c("beta", "uniform")) stop("Argument distr need to be 'beta' or 'uniform'")
         if (sum(dim(private$incd_indx)) > 0) {
           if (missing(year_) & missing(mc_)) { # Single year without MC
             ro <- list(from = 1, to = NULL)
@@ -1164,23 +1159,45 @@ Disease <-
           out[mu_upper > 1, mu_upper := out[mu_upper < 1, max(mu_upper)]]
 
           if (!missing(mc_)) {
-            if (mc_ == 0L) {
-              out[, `:=` (
-                mu = (mu_lower + mu_upper)/2, # TODO update when use beta distr
-                mu_lower = NULL,
-                mu_upper = NULL
-              )]
-            } else { # if mc > 0 TODO stop if mc < 0
-              set.seed(private$seed + mc_ * 10 + 4L)
-              k <- runif(1)
-              out[, `:=`(
-                mu = qunif(k, mu_lower, mu_upper),
-                mu_lower = NULL,
-                mu_upper = NULL
-              )]
+            if (design_$sim_prm$incd_uncertainty_distr == "uniform") {
+              if (mc_ == 0L) {
+                out[, `:=`(
+                  mu = (mu_lower + mu_upper) / 2, # TODO update when use beta distr
+                  mu_lower = NULL,
+                  mu_upper = NULL
+                )]
+              } else { # if mc > 0 TODO stop if mc < 0
+                set.seed(private$seed + mc_ * 10 + 4L)
+                k <- runif(1)
+                out[, `:=`(
+                  mu = qunif(k, mu_lower, mu_upper),
+                  mu_lower = NULL,
+                  mu_upper = NULL
+                )]
+              }
+            } else { # if distr == "beta"
+              if (mc_ == 0L) {
+                out[mu != mu_upper, `:=`(
+                  mu = qbeta(0.5, shape1, shape2)
+                )]
+                out[, `:=`(
+                  mu_lower = NULL,
+                  mu_upper = NULL
+                )]
+              } else { # if mc > 0 TODO stop if mc < 0
+                set.seed(private$seed + mc_ * 10 + 4L)
+                k <- runif(1)
+                out[mu != mu_upper, `:=`(
+                  mu = qbeta(k, shape1, shape2)
+                )]
+                out[, `:=`(
+                  mu_lower = NULL,
+                  mu_upper = NULL
+                )]                
+              }
             }
-          }
-        out[, c("cause_name", "measure_name", "N", "N_lower", "N_upper") := NULL]
+          } # end !missing(mc_)
+        out[, c("cause_name", "measure_name", "N", "N_lower", "N_upper", "shape1", "shape2") := NULL]
 
         } else {
           message("Incidence type: ", self$meta$incidence$type)
@@ -1229,6 +1246,7 @@ Disease <-
 
       # get_prvl ----
       get_prvl = function(year_, mc_ = sp$mc_aggr, design_ = design) {
+        if (!design_$sim_prm$prvl_uncertainty_distr %in% c("beta", "uniform")) stop("Argument distr need to be 'beta' or 'uniform'")
         if (sum(dim(private$prvl_indx)) > 0) {
           if (missing(year_) & missing(mc_)) {
             ro <- list(from = 1, to = NULL)
@@ -1251,6 +1269,7 @@ Disease <-
           out[mu_upper > 1, mu_upper := out[mu_upper < 1, max(mu_upper)]]
 
         if (!missing(mc_)) {
+          if (design_$sim_prm$prvl_uncertainty_distr == "uniform") {
             if (mc_ == 0L) {
               out[, `:=` (
                 mu = (mu_lower + mu_upper)/2,
@@ -1266,8 +1285,29 @@ Disease <-
                 mu_upper = NULL
               )]
             }
+          } else { # if distr == "beta"
+              if (mc_ == 0L) {
+              out[mu != mu_upper, `:=` (
+                mu = qbeta(0.5, shape1, shape2)
+              )]
+              out[, `:=` (               
+                mu_lower = NULL,
+                mu_upper = NULL
+              )]             
+            } else { # if mc > 0 TODO stop if mc < 0
+              set.seed(private$seed + mc_ * 10 + 5L)
+              k <- runif(1)
+              out[mu != mu_upper, `:=`(
+                mu = qbeta(k, shape1, shape2)
+              )]
+              out[, `:=`(
+                mu_lower = NULL,
+                mu_upper = NULL
+              )]              
+            }
           }
-          out[, c("cause_name", "measure_name", "N", "N_lower", "N_upper") := NULL]
+          } # end !missing(mc_)
+          out[, c("cause_name", "measure_name", "N", "N_lower", "N_upper", "shape1", "shape2") := NULL]
         } else {
           message("Incidence type: ", self$meta$incidence$type)
           out <- data.table(NULL)
@@ -1280,10 +1320,11 @@ Disease <-
       #' @param mc_ A scalar to realise the incidence probability. All if missing. The median for mc_ = 0
       #' @param design_ A design object.
       #' @return A data.table with disease case fatality probabilities unless
-      #'   mortality type: Non-fatal when it returns data.table(NULL).
+      #' mortality type: Non-fatal when it returns data.table(NULL).
 
       # get_ftlt ----
       get_ftlt = function(year_, mc_ = sp$mc_aggr, design_ = design) {
+        if (!design_$sim_prm$ftlt_uncertainty_distr %in% c("beta", "uniform")) stop("Argument distr need to be 'beta' or 'uniform'")        
         if (sum(dim(private$ftlt_indx)) > 0) {
           if (missing(year_) & missing(mc_)) {
             ro <- list(from = 1, to = NULL)
@@ -1306,6 +1347,7 @@ Disease <-
           out[mu_upper > 1, mu_upper := out[mu_upper < 1, max(mu_upper)]]
 
           if (!missing(mc_)) {
+            if (design_$sim_prm$ftlt_uncertainty_distr == "uniform") {
             if (mc_ == 0L) {
               out[, `:=` (
                 mu2 = (mu_lower + mu_upper)/2,
@@ -1321,8 +1363,29 @@ Disease <-
                 mu_upper = NULL
               )]
             }
-          }
-          out[, c("cause_name", "measure_name") := NULL]
+            } else { # if distr == "beta"
+              if (mc_ == 0L) {
+              out[mu2 != mu_upper, `:=` (
+                mu2 = qbeta(0.5, shape1, shape2)
+              )]
+              out[, `:=` (
+                mu_lower = NULL,
+                mu_upper = NULL
+              )]              
+            } else { # if mc > 0 TODO stop if mc < 0
+              set.seed(private$seed + mc_ * 10 + 6L)
+              k <- runif(1)
+              out[mu2 != mu_upper, `:=`(
+                mu2 = qbeta(k, shape1, shape2)
+              )]
+              out[, `:=`(
+                mu_lower = NULL,
+                mu_upper = NULL
+              )]              
+            }
+            }
+          } # end !missing(mc_)
+          out[, c("cause_name", "measure_name", "shape1", "shape2") := NULL]
         } else {
           message("Mortality type: ", self$meta$mortality$type)
           out <- data.table(NULL)
@@ -1397,7 +1460,7 @@ Disease <-
         # TODO add logic to track file changes
 
         for (i in seq_along(private$filenams)) {
-          if (grepl("_indx.fst$|_trend.fst|_duration_table.fst", private$filenams[[i]])) next
+          if (grepl("_indx.fst$|_trend.fst|_dur.fst", private$filenams[[i]])) next
           print(private$filenams[[i]])
           cols <- metadata_fst(private$filenams[[i]])$columnNames
           # if ("mu_lower" %in% cols) {
@@ -1413,7 +1476,7 @@ Disease <-
           com <- com[order(match(com, "year"))]
 
 
-          # TODO add a rpoperty on yaml to recognise diseases apply to only one sex
+          # TODO add a property on yaml to recognise diseases apply to only one sex
           if (!"sex" %in% names(tbl) || uniqueN(tbl$sex) == 1L) {
             # NOTE not used for Japan and not updated
             tbl2 <- copy(tbl)
@@ -1490,17 +1553,20 @@ Disease <-
             flag <- FALSE
           }
 
-          # if (max(tbl$mu) > 1) {
-          #   tbl[, `:=`(
-          #     mu = mu / 1e5,
-          #     mu_lower = mu_lower / 1e5,
-          #     mu_upper = mu_upper / 1e5
-          #   )]
-          # }
-          # tbl[, c("shape1", "shape2") := private$fit_beta_vec(
-          #   q = list(mu, mu_lower, mu_upper),
-          #   p = c(0.5, 0.025, 0.975)
-          # )]
+          if (max(tbl$mu) > 1) {
+            tbl[, `:=`(
+              mu = mu / 1e5,
+              mu_lower = mu_lower / 1e5,
+              mu_upper = mu_upper / 1e5
+            )]
+          }
+          if (!"shape1" %in% names(tbl)) {
+          tbl[, c("shape1", "shape2") := private$fit_beta_vec(
+            q = list(mu, mu_upper, mu_lower),
+            p = c(0.5, 0.975, 0.025),
+            tolerance = 0.01
+          )]
+          }
 
           if (flag) setnames(tbl, "mu", "mu2")
 
@@ -2134,18 +2200,22 @@ Disease <-
 
 
         # fit_beta ----
-        # initial idea from https://stats.stackexchange.com/questions/112614/determining-beta-distribution-parameters-alpha-and-beta-from-two-arbitrary
-        fit_beta = # NOT VECTORISED
-          function(x = c(0.01, 0.005, 0.5), # the values
+# initial idea from
+# https://stats.stackexchange.com/questions/112614/determining-beta-distribution-parameters-alpha-and-beta-from-two-arbitrary
+# attempts to fit a beta distribution to some percentiles. If it fails
+# progressively drop the percentiles from the tail to ease the fitting.
+fit_beta = # NOT VECTORISED
+    function(
+     x = c(0.01, 0.005, 0.5), # the values
      x_p = c(0.5, 0.025, 0.975), # the respective quantiles of the values
-     starting_prm = c(1e1, 1e1/mean(x)) # better to overestimate
+     tolerance = 0.01, # how close to get to the given values
+     verbose = FALSE
      ) {
         if (length(x) != length(x_p)) stop("x and x_p need to be of same length")
         if (length(x) < 2L) stop("x need to have at least length of 2")
-                if (length(unique(x)) == 1) {
-                  return(c(1, 1)) # early escape if all x the same
-                }
-
+        if (length(unique(x)) == 1) {
+            return(c(1, 1)) # early escape if all x the same
+        }
         logit <- function(p) log(p / (1 - p))
         x_p_ <- logit(x_p)
 
@@ -2156,84 +2226,104 @@ Disease <-
         }
 
         # Sums of squares.
-        wts = c(1, rep(1, length(x) - 1L)) # give more importance to the 1st value
-        delta <- function(fit, actual) sum(wts * (fit - actual)^2)
+        wts = c(1, rep(1, length(x) - 1L)) # start with equal importance for all values
+        delta <- function(fit, actual, wts_) sum((wts_/sum(wts_)) * (fit - actual)^2)
 
         # The objective function handles the transformed parameters `theta` and
         # uses `f.beta` and `delta` to fit the values and measure their discrepancies.
-        objective <- function(theta, x, prob, ...) {
+        objective <- function(theta, x, prob, wts_, ...) {
             ab <- exp(theta) # Parameters are the *logs* of alpha and beta
             fit <- f.beta(ab[1], ab[2], x, ...)
-            return(delta(fit, prob))
+            return(delta(fit, prob, wts_))
         }
+        # objective(start, x, x_p_)
 
         flag <- TRUE
         steptol_ <- 1e-6
         max_it <- 0L
         jump <- 2
         if (length(x) == 2) {
-          start <- log(starting_prm) # A good guess is useful here
+          start <- log(runif(2, c(1, 1), c(1e2, 1e6))) # A good guess is useful here
         } else {
-          start <- log(private$fit_beta(x = head(x, 2), x_p = head(x_p, 2)))
+          start <- log(private$fit_beta(x = x[c(1, 2)], x_p = x_p[c(1, 2)]))
         }
-        while (flag && max_it < 1e3) {
-        sol <- nlm(objective, start,
-            x = x, prob = x_p_, lower = 0, upper = 1,
-            typsize = c(1, 1), fscale = 1e-12, gradtol = 1e-12, steptol = steptol_,
-            iterlim = 1000
-        )
-        start <- start * runif(length(start), 1e-12, jump)
-        rel_error <- x[1:2] / qbeta(x_p[1:2], exp(sol$estimate)[1], exp(sol$estimate)[2])
 
-        flag <- (sol$code > 3L || !between(rel_error[1], 0.9, 1.1) || !between(rel_error[2], 0.9, 1.1))
+        while (flag && max_it < 1e4) {
+        # sol <- optim(start, objective, x = x, prob = x_p_, method = "BFGS",
+        #  lower = rep(-4, length(start)), upper = rep(4, length(start)),
+        # control = list(trace = 5, fnscale = -1))
+         
+        sol <- tryCatch({nlm(objective, start,
+            x = x, prob = x_p_, wts_ = wts, # lower = 0, upper = 1,
+            typsize = c(1, 1), fscale = 1e-12, gradtol = 1e-12, steptol = steptol_,
+            iterlim = 5000
+        )}, error = function(e) list("estimate" = c(.5, .5), "code" = 5L)
+     )
+
+        # start <- start * runif(length(start), 1/jump, jump)
+        start <- log(runif(2, c(0, 0), c(1e2, 1e6)))
+
+        # summary(rbeta(1e6, runif(1e6, 0, 10), runif(1e6, 0, 1e6)))
+        rel_error <- x / qbeta(x_p, exp(sol$estimate)[1], exp(sol$estimate)[2])
+
+        # print(c(sol$code, rel_error, x))
+        flag <- (sol$code > 2L || any(!between(rel_error, 1 - tolerance, 1 + tolerance)))
         if (is.na(flag)) flag <- TRUE
         max_it <- max_it + 1L
-        if (max_it == 100) wts <- c(1, rep(0.9, length(x) - 1L)) # give even less importance to non 1st values
-        if (max_it == 200) wts <- c(1, rep(0.8, length(x) - 1L)) # give even less importance to non 1st values
-        if (max_it == 300) wts <- c(1, rep(0.7, length(x) - 1L)) # give even less importance to non 1st values
-        if (max_it == 400) wts <- c(1, rep(0.6, length(x) - 1L)) # give even less importance to non 1st values
-        if (max_it == 500) {
+        if (max_it == 2000) wts <- c(1, rep(0.9, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 4000) wts <- c(1, rep(0.8, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 6000) wts <- c(1, rep(0.7, length(x) - 1L)) # give even less importance to non 1st values
+        if (max_it == 8000) wts <- c(1, rep(0.6, length(x) - 1L)) # give even less importance to non 1st values
+        # if (max_it == 450) steptol_ <- steptol_ * 10
+        if (max_it == 9000) {
+        #   print(max_it)
           wts <- c(1, rep(0.5, length(x) - 1L)) # give even less importance to non 1st values
           jump <- jump + 1
           if (length(x) == 2) {
-            start <- log(starting_prm / c(1, 10))
+            start <- log(runif(2, c(0, 0), c(1e3, 1e6))) # A good guess is useful here
           } else {
-            start <- log(private$fit_beta(x = head(x, -1), x_p = head(x_p, -1)))
+            start <- log(private$fit_beta(x = x[c(1, 3)], x_p = x_p[c(1, 3)]))
           }
         }
-        if (max_it == 999 && length(x) > 2) {
-          print("dropping last value")
-          start <- log(fit_beta(x = head(x, -1), x_p = head(x_p, -1)))
-          x <- head(x, -1)
-          x_p_ <- head(x_p_, -1)
-          x_p <- head(x_p, -1)
-          wts <- head(wts, -1)
-          max_it <- 0
+        if (max_it == 9000 && length(x) > 2) {
+          if (verbose) print("dropping last value")
+           start <- log(private$fit_beta(x = head(x, -1), x_p = head(x_p, -1)))
+           x <- head(x, -1)
+           x_p_ <- head(x_p_, -1)
+           x_p <- head(x_p, -1)
+           wts <- head(wts, -1)
+           jump <- 2
+           max_it <- 0
         }
         }
-        if (sol$code < 4L && max_it < 1e3) {
+        if (sol$code < 3L && max_it < 1e4) {
             return(exp(sol$estimate)) # Estimates of alpha and beta
         } else {
-            stop(c(sol$code, max_it, "Beta is not a good fit for these data!\n", x))
+            warning(c(sol$code, max_it, " Beta is not a good fit for these data!\n", x))
+            return(c(NA_real_, NA_real_))
         }
-
     },
         # fit_beta_vec ----
+        # i.e use ttt[, c("shape1", "shape2") := fit_beta_vec(q = list(mu, mu_upper, mu_lower), p = c(0.5, 0.975, 0.025))]
         fit_beta_vec = # VECTORISED
           function(q = list(
-                     c(0.007248869, 0.0003693000),
-                     c(0.005198173, 0.0002744560),
-                     c(0.009516794, 0.0004751233)
-                   ),
-                   p = c(0.5, 0.025, 0.975)) {
-            if (length(unique(sapply(q, length))) != 1L) stop("all elements in q need to be of same length")
-            out <- vector("list", length(q[[1]]))
-            for (i in seq_len(length(q[[1]]))) {
-              out[[i]] <- private$fit_beta(x = sapply(q, `[`, i), x_p = p)
-            }
-            return(transpose(setDF(out)))
-          },
-                # helper function to get the tree of dependencies to exposures
+                 c(0.007248869, 0.0003693000),
+                 c(0.005198173, 0.0002744560),
+                 c(0.009516794, 0.0004751233)
+             ),
+             p = c(0.5, 0.025, 0.975),
+             tolerance = 0.01, 
+             verbose = FALSE) {
+        if (length(unique(sapply(q, length))) != 1L) stop("all elements in q need to be of same length")
+        out <- vector("list", length(q[[1]]))
+        for (i in seq_len(length(q[[1]]))) {
+            if (verbose) print(i)
+            out[[i]] <- private$fit_beta(x = unlist(sapply(q, `[`, i)), x_p = p, tolerance = tolerance, verbose = verbose)
+        }
+        return(transpose(setDF(out)))
+    },
+      
+      # helper function to get the tree of dependencies to exposures
       # x is a disease name string i.e. x = "other_ca"
       # diseases_ is a list of disease objects
       # TODO test that if (!i %in% out$ds)) allows interdependency (i.e. chd

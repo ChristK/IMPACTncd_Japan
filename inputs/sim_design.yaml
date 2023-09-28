@@ -7,10 +7,10 @@ logs: yes
 export_xps: yes
 keep_lifecourse: yes
 export_PARF: no
-'n': 20000 #100000 when testing, n should be small
+'n': 100000 #100000 when testing, n can be small
 n_synthpop_aggregation: 2 # number of synthpops to aggregate together
 # n_primers: 10 # better be some multiple of n_synthpop_aggregation
-init_year_long: 2013  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007.
+init_year_long: 2001  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007.
 sim_horizon_max: 2050 # population projections do not support longer horizon corresponding to CJ function
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass
 ageH: 99 # This was based on observed exposure data and observed population size
@@ -19,6 +19,10 @@ model_trends_in_redidual_incd: no # Model trends in non attributable incidence? 
 init_ftlt_calibration: yes # NEW: Indicator whether case fatality is calibrated at all
 mortality_calibration: yes # NEW: Activate or deactivate mortality calibration to FDM forecast. Conditional on CF calibration
 avoid_appending_csv: yes #  Do not append on existing .csv. Rather write separately and join later. To bypass problems with Docker on windows
+incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
+prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
+ftlt_uncertainty_distr: beta #  The distribution of case fatality uncertainty. Either beta or uniform.
+
 diseases:
 - name: obesity
   friendly_name: Obesity
@@ -117,7 +121,7 @@ diseases:
       type: 1
       code: 1
   notes: .na
-maxlag: 10
+maxlag: 6 # To allow init year of 2001. 
 jumpiness: 1.0 # increase for more erratic jumps in trajectories
 decision_aid: 0.8
 stochastic: yes

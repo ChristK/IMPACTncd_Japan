@@ -41,6 +41,9 @@ Simulation <-
       #' @field diseases A list of Disease objects.
       diseases = NA,
 
+      #' @field RR A list of RR for the simulated exposures.
+      RR = NA,
+
       #' @field scenarios A list of scenario objects.
       scenarios = NA,
 
@@ -87,12 +90,12 @@ Simulation <-
         # ./inputs/RR
         fl <- list.files(path = "./inputs/RR", pattern = ".csvy$", full.names = TRUE)
         # RR <- future_lapply(fl, Exposure$new, future.seed = 950480304L)
-        RR <- lapply(fl, Exposure$new, design = self$design)
-        names(RR) <- sapply(RR, function(x) x$get_name())
+        self$RR <- lapply(fl, Exposure$new, design = self$design)
+        names(self$RR) <- sapply(self$RR, function(x) x$get_name())
         # invisible(future_lapply(RR, function(x) {
         #   x$gen_stochastic_effect(design, overwrite = FALSE, smooth = FALSE)
         # }, future.seed = 627524136L))
-        invisible(lapply(RR, function(x) {
+        invisible(lapply(self$RR, function(x) {
           x$gen_stochastic_effect(self$design, overwrite = FALSE, smooth = FALSE)
         }))
         # NOTE smooth cannot be exported to Design for now, because the first
@@ -104,14 +107,14 @@ Simulation <-
         message("Loading diseases.")
         self$diseases <- lapply(self$design$sim_prm$diseases, function(x) {
           x[["design_"]] <- self$design
-          x[["RR"]] <- RR
+          x[["RR"]] <- self$RR
           do.call(Disease$new, x)
         })
         names(self$diseases) <- sapply(self$design$sim_prm$diseases, `[[`, "name")
 
         message("Generating microsimulation structure.")
         # Generate the graph with the causality structure
-        ds <- unlist(strsplit(names(RR), "~"))
+        ds <- unlist(strsplit(names(self$RR), "~"))
         ds[grep("^smok_", ds)] <- "smoking"
         ds <- gsub("_prvl$", "", ds)
 
@@ -1243,10 +1246,10 @@ Simulation <-
         }
       },
 
-      # Collect_files ----
+      # collect_files ----
       # Collect files written by mc_aggr or mc_aggr_mc in a folder and combine
       # them into one file
-      collect_files = function(folder_name, patttern = NULL, to_mc_aggr = FALSE) {
+      collect_files = function(folder_name, pattern = NULL, to_mc_aggr = FALSE) {
        if (to_mc_aggr) {
         string1 <- "_[0-9]+_"
         string2 <- "_"
@@ -1255,14 +1258,15 @@ Simulation <-
         string2 <- ""
        }
        sapply(
-            list.files(path = private$output_dir(folder_name), pattern = patttern, full.names = TRUE),
+            list.files(path = private$output_dir(folder_name), pattern = pattern, full.names = TRUE),
             function(fnam) {
-              fwrite_safe(fread(fnam), file = gsub(string1, string2, fnam))
+              fwrite_safe(fread(fnam), file = sub(string1, string2, fnam))
               file.remove(fnam)
             }
           )
       },
 
+      # create_new_folder ----
       # @description Create folder if doesn't exist. Stops on failure.
       # @param sDirPathName String folder path and name.
       # @param bReport Bool report folder creation.

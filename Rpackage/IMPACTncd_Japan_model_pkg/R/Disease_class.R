@@ -1822,6 +1822,11 @@ Disease <-
 
             rm(rank_mtx)
 
+            rank_cols <- c("rank_Smoking_number")
+            for (nam in rank_cols)
+              set(ff, NULL, nam, dqrunif(nrow(ff))) # NOTE do not replace with generate_rns function.
+
+
           setkeyv(ff, c("year", "age", "sex")) #STRATA
 
           if (max(ff$age) > 90L) {
@@ -1912,9 +1917,6 @@ Disease <-
               year >= 2018L,                3L
             )]
            ff[, tax_tabaco := factor(tax_tabaco, 0:3, 0:3)]
-         
-
-            
 
             tbl <-
                 read_fst("./inputs/exposure_distributions/Table_Smoking_NevEx_vs_current.fst",
@@ -1926,7 +1928,7 @@ Disease <-
             col_nam <-
               setdiff(names(tbl), intersect(names(ff), names(tbl)))
             absorb_dt(ff, tbl) 
-            ff[, Smoking_curr_xps := as.integer(rank_Smoking < mu) * 2L] # 0 = never smoker or ex, 2 = current
+            ff[, Smoking_curr_xps := as.integer(rank_Smoking_act < mu) * 2L] # 0 = never smoker or ex, 2 = current
             ff[, c(col_nam) := NULL]
 
             tbl <-
@@ -1938,20 +1940,20 @@ Disease <-
             col_nam <-
               setdiff(names(tbl), intersect(names(ff), names(tbl)))
             absorb_dt(ff, tbl)
-              range01 <- function(x) {
-                if (length(x) > 1L) {
-                  (x - min(x)) / (max(x) - min(x))
-                } else {
-                  x
-                }
-              }
-            ff[Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(range01(rank_Smoking) < mu),  by = .(year)] # 0 = never smoker, 1=ex, 2=current
+              # range01 <- function(x) {
+              #   if (length(x) > 1L) {
+              #     (x - min(x)) / (max(x) - min(x))
+              #   } else {
+              #     x
+              #   }
+              # }
+            ff[Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(rank_Smoking_ex < mu),  by = .(year)] # 0 = never smoker, 1=ex, 2=current
 
 
             ff[, Smoking_curr_xps := factor(Smoking_curr_xps + 1L)]
 
 
-            ff[, c(col_nam, "tax_tabaco", "rank_Smoking") := NULL]
+            ff[, c(col_nam, "tax_tabaco","rank_Smoking_act", "rank_Smoking_ex") := NULL]
 
             ff[, year := year + lag]
           }

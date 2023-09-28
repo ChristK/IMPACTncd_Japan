@@ -531,7 +531,7 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
         {
             for (int k = 0; k < dsmeta[j].mrtl.influenced_by.disease_prvl.size(); ++k) // Loop over influenced by diseases
             {
-                if (dsmeta[j].mrtl.influenced_by.disease_prvl[k](i - dsmeta[j].mrtl.influenced_by.lag[k]) > 0)
+                if (VECT_ELEM(dsmeta[j].mrtl.influenced_by.disease_prvl[k],i - dsmeta[j].mrtl.influenced_by.lag[k]) > 0)
                 {
                     mltp *= dsmeta[j].mrtl.influenced_by.mltp[k](i); // no lag here
                 }
@@ -555,7 +555,7 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
         {
             for (int k = 0; k < dsmeta[j].mrtl.influenced_by.disease_prvl.size(); ++k) // Loop over influenced by diseases
             {
-                if (dsmeta[j].mrtl.influenced_by.disease_prvl[k](i - dsmeta[j].mrtl.influenced_by.lag[k]) > 0)
+                if (VECT_ELEM(dsmeta[j].mrtl.influenced_by.disease_prvl[k],i - dsmeta[j].mrtl.influenced_by.lag[k]) > 0)
                 {
                     mltp *= dsmeta[j].mrtl.influenced_by.mltp[k](i); // no lag here
                 }

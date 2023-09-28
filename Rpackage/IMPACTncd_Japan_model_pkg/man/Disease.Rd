@@ -393,7 +393,7 @@ Get disease case fatality probability.
 }
 \subsection{Returns}{
 A data.table with disease case fatality probabilities unless
-  mortality type: Non-fatal when it returns data.table(NULL).
+mortality type: Non-fatal when it returns data.table(NULL).
 }
 }
 \if{html}{\out{<hr>}}

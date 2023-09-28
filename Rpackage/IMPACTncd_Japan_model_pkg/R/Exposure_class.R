@@ -58,14 +58,19 @@ Exposure <-
       #' af_stroke$read_xps_prm("./inputs/RR/af_stroke.csvy", design)
       initialize = function(sRelativeRiskByPopulationSubsetForExposureFilePath, design) {
 
-        sRelativeRiskByPopulationSubsetForExposureFilePath<- normalizePath(sRelativeRiskByPopulationSubsetForExposureFilePath, mustWork = TRUE)
+        sRelativeRiskByPopulationSubsetForExposureFilePath <- normalizePath(sRelativeRiskByPopulationSubsetForExposureFilePath, mustWork = TRUE)
 
         if (!inherits(design, "Design"))
           stop("Argument design needs to be a Design object.")
 
-        if (file.exists(sRelativeRiskByPopulationSubsetForExposureFilePath)) {
+        if (!file.exists(sRelativeRiskByPopulationSubsetForExposureFilePath)) {
+          stop(
+            "File does not exist for argument sRelativeRiskByPopulationSubsetForExposureFilePath path."
+          )
+        }
+       
           # TODO add some checks to ensure proper structure
-          dtRelativeRiskByPopulationSubset<- fread(
+          dtRelativeRiskByPopulationSubset <- fread(
             sRelativeRiskByPopulationSubsetForExposureFilePath,
             stringsAsFactors = TRUE, yaml = TRUE
             )
@@ -93,11 +98,7 @@ Exposure <-
           metadata <- attr(dtRelativeRiskByPopulationSubset, "yaml_metadata")
           setattr(dtRelativeRiskByPopulationSubset, "yaml_metadata", NULL)
             # private$get_yaml_header(sRelativeRiskByPopulationSubsetForExposureFilePath, verbose = design$sim_prm$logs)
-        } else {
-          stop(
-            "File does not exist for argument sRelativeRiskByPopulationSubsetForExposureFilePath path."
-          )
-        }
+
 
         # Used only for parf by xps
         if (length(design$sim_prm$ignore_xps) > 0L &&

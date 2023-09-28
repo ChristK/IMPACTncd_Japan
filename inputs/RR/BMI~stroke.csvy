@@ -1,7 +1,7 @@
 ---
 xps_name: BMI
 outcome: stroke
-lag: 4
+lag: 3
 distribution: lognormal
 source: The Lancet 2011;377:1085–95. doi:10.1016/S0140-6736(11)60105-0 Table 1
 notes:

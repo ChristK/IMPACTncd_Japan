@@ -244,7 +244,7 @@ Simulation <-
         }
 
         if (self$design$sim_prm$avoid_appending_csv) {
-          # collect the lifecourse fragmented file
+          message("Collecting the fragmented lifecourse files. This may take some time. Please be patient...")
           private$collect_files("lifecourse", "_lifecourse.csv.gz$", to_mc_aggr = TRUE)
 
           if (self$design$sim_prm$export_xps) {

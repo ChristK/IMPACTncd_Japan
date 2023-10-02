@@ -795,7 +795,7 @@ Simulation <-
             # c("year", "ethnicity"),
             # c("year", "sha")
           )
-        )[, `:=` (year = year + 2000L, mc = sp$mc, scenario = scenario_nam)]
+        )[, `:=` (year = year, mc = sp$mc, scenario = scenario_nam)]
         for (j in names(out_xps5)[-which(names(out_xps5) %in% xps)])
           set(out_xps5, which(is.na(out_xps5[[j]])), j, "All")
         setkey(out_xps5, year)

@@ -907,6 +907,8 @@ Disease <-
           if (private$mrtl_colnam2 %in% names(sp$pop))
             stop("Column ", private$mrtl_colnam2, " exists already in sp$pop.")
 
+          # Note currently files ending with _ftlt are in practice mrtl So as a
+          # first approximation, below I divide with init year prvl to get ftlt        
           ftlt <-
             self$get_ftlt(
               seq(
@@ -915,6 +917,14 @@ Disease <-
               ),
               mc_ = sp$mc_aggr, design_ = design_
             )
+
+          # Divide with prvl to get ftlt   
+          if (self$name != "nonmodelled") {
+            ftlt[self$get_prvl(
+              design_$sim_prm$init_year_long,
+              mc_ = sp$mc_aggr, design_ = design_
+            ), on = c("age", "sex"), mu2 := mu2 / i.mu]
+          }
 
           if (!"mu2" %in% names(ftlt))
             stop("mu2 need to be present in the ftlt file.")

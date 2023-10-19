@@ -1184,9 +1184,10 @@ SynthPop <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
-            #} else {
-              absorb_dt(dt, tbl)
-            #}
+      dt[, trueyear := year]
+      dt[age >= 70 & trueyear > 2030L, year := 2030L]
+      absorb_dt(dt, tbl)
+      dt[, `:=` (year = trueyear, trueyear = NULL)]
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
@@ -1222,9 +1223,10 @@ SynthPop <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
-            #} else {
-              absorb_dt(dt, tbl)
-            #}
+      dt[, trueyear := year]
+      dt[age >= 70 & trueyear > 2030L, year := 2030L]
+      absorb_dt(dt, tbl)
+      dt[, `:=` (year = trueyear, trueyear = NULL)]
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
@@ -1261,9 +1263,11 @@ SynthPop <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
-            #} else {
-              absorb_dt(dt, tbl)
-            #}
+       # Tame unrealistic trends
+      dt[, trueyear := year]
+      dt[age >= 70 & trueyear > 2030L, year := 2030L]
+      absorb_dt(dt, tbl)
+      dt[, `:=` (year = trueyear, trueyear = NULL)]
 
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
@@ -1304,8 +1308,13 @@ SynthPop <-
             #if (Sys.info()["sysname"] == "Linux") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
-              absorb_dt(dt, tbl)
-            #}
+
+       # Tame unrealistic trends
+      dt[, trueyear := year]
+      dt[age >= 70 & trueyear > 2025L, year := 2025L]
+      absorb_dt(dt, tbl)
+      dt[, `:=` (year = trueyear, trueyear = NULL)]
+
 
 
 			dt[,

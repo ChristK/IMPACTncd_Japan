@@ -22,51 +22,55 @@
 # https://github.com/Rdatatable/data.table/issues/1967
 
 cat("Initialising IMPACTncd_Japan model...\n\n")
-if (interactive() && !nzchar(system.file(package = "CKutils"))) {
+if (!nzchar(system.file(package = "CKutils"))) {
   if (!nzchar(system.file(package = "remotes"))) install.packages("remotes")
   remotes::install_github("ChristK/CKutils", force = TRUE, upgrade = "never")
 }
 
 library(CKutils)
-options(rgl.useNULL = TRUE)  # suppress error by demography in rstudio server
-options(future.fork.enable = TRUE) # TODO remove for production
-options(future.rng.onMisuse = "ignore") # Remove false warning
+# options(rgl.useNULL = TRUE)  # suppress error by demography in rstudio server
+# options(future.fork.enable = TRUE) # TODO remove for production
+# options(future.rng.onMisuse = "ignore") # Remove false warning
 options(datatable.verbose = FALSE)
 options(datatable.showProgress = FALSE)
 
 dependencies(yaml::read_yaml("./dependencies.yaml"))
 
-if (interactive()) {
+
   snfile <- "./Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs"
   if (file.exists(snfile)) snapshot <- changedFiles(qread(snfile))
 
 
   if (!nzchar(system.file(package = "IMPACTncdJapan")) ||
-      !file.exists(snfile) || any(nzchar(snapshot$added),
-        nzchar(snapshot$deleted),
-        nzchar(snapshot$changed))) {
-    if (!nzchar(system.file(package = "remotes")))
+    !file.exists(snfile) || any(
+    nzchar(snapshot$added),
+    nzchar(snapshot$deleted),
+    nzchar(snapshot$changed)
+  )) {
+    if (!nzchar(system.file(package = "remotes"))) {
       install.packages("remotes")
-    if (nzchar(system.file(package = "roxygen2")))
-    file.remove(list.files(path = "./Rpackage/IMPACTncd_Japan_model_pkg/src", 
-    pattern = ".o$|.so$|.dll$", full.names = TRUE))
-      roxygen2::roxygenise("./Rpackage/IMPACTncd_Japan_model_pkg/", clean = TRUE)
-    detach_package <- function(pkg, character.only = FALSE)
-    {
-      if(!character.only)
-      {
+    }
+    if (nzchar(system.file(package = "roxygen2"))) {
+      file.remove(list.files(
+        path = "./Rpackage/IMPACTncd_Japan_model_pkg/src",
+        pattern = ".o$|.so$|.dll$", full.names = TRUE
+      ))
+    }
+    roxygen2::roxygenise("./Rpackage/IMPACTncd_Japan_model_pkg/", clean = TRUE)
+    detach_package <- function(pkg, character.only = FALSE) {
+      if (!character.only) {
         pkg <- deparse(substitute(pkg))
       }
       search_item <- paste("package", pkg, sep = ":")
-      while(search_item %in% search())
-      {
+      while (search_item %in% search()) {
         detach(search_item, unload = TRUE, character.only = TRUE)
       }
     }
     detach_package(IMPACTncdJapan)
     remotes::install_local("./Rpackage/IMPACTncd_Japan_model_pkg/",
       force = TRUE,
-      upgrade = "never")
+      upgrade = "never"
+    )
 
     if (file.exists(snfile)) file.remove(snfile)
     qsave(
@@ -79,7 +83,6 @@ if (interactive()) {
       snfile
     )
   }
-}
 library(IMPACTncdJapan)
 
 

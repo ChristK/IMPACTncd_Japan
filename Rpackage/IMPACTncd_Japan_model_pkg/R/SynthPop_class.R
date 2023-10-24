@@ -40,14 +40,16 @@ SynthPop <-
 
     # public ------------------------------------------------------------------
     public = list(
-      #' @field mc The Monte Carlo iteration of the synthetic population. Every
-      #'   integer generates a unique synthetic population.
+      #' @field mc The Monte Carlo iteration of the synthetic population fragment. Every
+      #'   integer generates a unique synthetic population fragment.
       mc = NA,
 
       #' @field mc_aggr The Monte Carlo iteration of the synthetic population to
-      #'   be used when multiple synthetic populations getting aggregated.It
-      #'   ensures correct seeds for the RNGs during the simulation for the RRs
-      #'   and the lags.
+      #'   be used when multiple synthetic population fragments getting
+      #'   aggregated. For instance if the synthpop consists of 2 fragments,
+      #'   mc_aggr will be the same for both, but mc will differ. It ensures
+      #'   correct seeds for the RNGs during the simulation for the RRs and the
+      #'   lags.
       mc_aggr = NA,
 
       #' @field metadata Metadata of the synthpop.
@@ -58,7 +60,7 @@ SynthPop <-
       #'   first generated, then saved to disk, and then loaded from disk.
       pop = NA,
 
-
+      # initialize ----
       #' @description Create a new SynthPop object.
       #' If a synthpop file in \code{\link[fst]{fst-package}} format already
       #' exists, then the synthpop is loaded from there. Otherwise it is
@@ -112,9 +114,23 @@ SynthPop <-
         private$synthpop_dir <- design_$sim_prm$synthpop_dir
 
         if (mc_ > 0) {
-          private$filename <- private$gen_synthpop_filename(mc_,
-                                                            private$checksum,
-                                                            design_)
+          # Logic to reuse a synthpop with larger age range if it exists (an expansion could be used for sim horizon)) (WIP)
+        #   if (design_$sim_prm$ageH == 99L) {
+        #     private$filename <- private$gen_synthpop_filename(mc_, private$checksum, design_)
+        #   } else {
+        #     for (age_ in design_$sim_prm$ageH:99)
+        #     original_ageH <- design_$sim_prm$ageH
+        #     design_$sim_prm$ageH <- age_
+        #     new_checksum <- private$gen_checksum(design_)
+        #     potential_filename <- private$gen_synthpop_filename(mc_, new_checksum, design_)
+        #     design_$sim_prm$ageH <- original_ageH
+
+        #     if (all(sapply(private$filename, file.exists))) {
+        #       private$filename <- potential_filename
+        #       break
+        #     } 
+        # }
+          private$filename <- private$gen_synthpop_filename(mc_, private$checksum, design_)
           # logic for the synthpop load
           files_exist <- sapply(private$filename, file.exists)
           if (all(!files_exist)) {
@@ -167,8 +183,26 @@ SynthPop <-
           }
           # No need to provision for case when all file present. The following
           # lines handle this case anyway
-
-          self$pop <- private$get_synthpop()
+          
+          if (design_$sim_prm$load_simulants_rn) {
+            exclude_cols_ <- c()
+          } else { # if not load_simulants_rn = TRUE
+            exclude_cols_ <- c(
+              "rank_Fruit_vege",
+              "rankstat_Smoking_act",
+              "rankstat_Smoking_ex",
+              "rankstat_Med_HT",
+              "rankstat_Med_HL",
+              "rankstat_Med_DM",
+              "rank_PA_days",
+              "rank_BMI",
+              "rank_HbA1c",
+              "rank_LDLc",
+              "rank_SBP",
+              "rankstat_Smoking_number"
+            ) 
+          }
+          self$pop <- private$get_synthpop(exclude_cols = exclude_cols_)
           self$metadata <- yaml::read_yaml(private$filename$metafile)
 
           if (design_$sim_prm$logs) self$print()
@@ -176,6 +210,7 @@ SynthPop <-
         invisible(self)
       },
 
+      #  update_design ----
       #' @description
       #' Updates the Design object that is stored in the SynthPop object.
       #' @param design_ A design object with the simulation parameters.
@@ -226,6 +261,7 @@ SynthPop <-
         invisible(self)
       },
 
+      # delete_synthpop ----
       #' @description
       #' Delete (all) synthpop files in the synthpop directory.
       #' @param mc_ If `mc_ = NULL`, delete all files in the synthpop directory.
@@ -290,6 +326,7 @@ SynthPop <-
         return(invisible(self))
       },
 
+      # delete_incomplete_synthpop ----
       #' @description
       #' Check that every synthpop file has a metafile and an index file. Delete
       #' any orphan files.
@@ -329,6 +366,7 @@ SynthPop <-
           return(invisible(self))
         },
 
+      # check_integridy ----
       #' @description
       #' Check the integrity of (and optionally delete) .fst files by checking
       #' their metadata are readable.
@@ -394,7 +432,7 @@ SynthPop <-
 
 
 
-
+      # count_synthpop ----
       #' @description
       #' Count the synthpop files in a directory. It includes files without
       #' metafiles and index files.
@@ -436,8 +474,9 @@ SynthPop <-
           return(invisible(self))
         },
 
+      # get_checksum ----
       #' @description
-      #' Get the synthpop file paths.
+      #' Get the synthpop checksum.
       #' @param x One of "all", "synthpop" or "metafile". Can be abbreviated.
       #' @return The invisible `SynthPop` object.
       get_checksum = function() {
@@ -446,7 +485,8 @@ SynthPop <-
         cat(paste0(names(out), ": ", out))
         invisible(self)
       },
-
+      
+      # get_filename ----
       #' @description
       #' Get the synthpop file paths.
       #' @param x One of "all", "synthpop" or "metafile". Can be abbreviated.
@@ -466,6 +506,8 @@ SynthPop <-
         invisible(self)
       },
 
+
+      # get_design ----
       #' @description
       #' Get the synthpop design.
       #' @return The invisible `SynthPop` object.
@@ -475,6 +517,7 @@ SynthPop <-
         private$design
       },
 
+      # get_dir ----
       #' @description
       #' Get the synthpop dir.
       #' @return The invisible `SynthPop` object.
@@ -483,6 +526,7 @@ SynthPop <-
         invisible(self)
       },
 
+      # gen_synthpop ----
       #' @description
       #' Generate synthpop sociodemographics, random sample of the population.
       #' @param design_ A Design object,
@@ -555,6 +599,7 @@ SynthPop <-
           return(invisible(dt))
         },
 
+      # write_synthpop ----
       #' @description
       #' Generate synthpop files in parallel, using foreach, and writes them to
       #' disk. It skips files that are already on disk.
@@ -650,6 +695,7 @@ SynthPop <-
         invisible(self)
       },
 
+      # get_risks ----
       #' @description Get the risks for all individuals in a synthetic
       #'   population for a disease.
       #' @param disease_nam The disease that the risks will be returned.
@@ -665,6 +711,7 @@ SynthPop <-
         }
       },
 
+      # store_risks ----
       #' @description Stores the disease risks for all individuals in a synthetic
       #'   population in a private list.
       #' @param disease_nam The disease that the risks will be stored.
@@ -681,6 +728,7 @@ SynthPop <-
         invisible(self)
       },
 
+      # print ----
       #' @description
       #' Prints the synthpop object metadata.
       #' @return The invisible `SynthPop` object.
@@ -738,6 +786,7 @@ SynthPop <-
         )]
       },
 
+      # gen_checksum ----
       # gen synthpop unique checksum for the given set of inputs
       gen_checksum =
         function(design_) {
@@ -950,7 +999,7 @@ SynthPop <-
             if (max(dt$age) >= 100L) {
               dt[, age100 := age]
               dt[age >= 100L, age := 100L]
-            } else {"No action"}
+            }
 
             # to_agegrp(dt, 20L, 85L, "age", "agegrp20", to_factor = TRUE)
             # to_agegrp(dt, 10L, 85L, "age", "agegrp10", to_factor = TRUE)
@@ -1015,9 +1064,9 @@ SynthPop <-
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
             dt[, Fruit_vege := qZINBI(rank_Fruit_vege, mu, sigma, nu), ] #, n_cpu = design_$sim_prm$n_cpu)]
-
-            dt[, c(col_nam, "rank_Fruit_vege") := NULL]
-
+            
+            if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_Fruit_vege")
+            dt[, c(col_nam) := NULL]
 
 
 
@@ -1087,8 +1136,8 @@ SynthPop <-
       
       dt[, Smoking := factor(Smoking + 1L)]
 
-
-      dt[, c(col_nam, "tax_tabaco", "rankstat_Smoking_act", "rankstat_Smoking_ex") := NULL]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Smoking_act", "rankstat_Smoking_ex")
+      dt[, c(col_nam, "tax_tabaco") := NULL]
 
 
 
@@ -1159,7 +1208,8 @@ SynthPop <-
       # I do not explicitly set.seed because I do so at the beginning of gen_synthpop()
 	    dt[Smoking_number_grp == 8L, Smoking_number := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
 
-      dt[, c(col_nam, "rankstat_Smoking_number", "Smoking_number_grp") := NULL]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Smoking_number")
+      dt[, c(col_nam, "Smoking_number_grp") := NULL]
 
             # Generate Med_HT
 			# Change-for-IMPACT-NCD-Japan
@@ -1192,8 +1242,10 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_HT := qbinom(rankstat_Med_HT, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
-            dt[, c(col_nam, "rankstat_Med_HT") := NULL]
+      dt[, Med_HT := qbinom(rankstat_Med_HT, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Med_HT")
+      dt[, c(col_nam) := NULL]
+
 
 
 
@@ -1231,10 +1283,10 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_HL := qbinom(rankstat_Med_HL, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
-
-            dt[, rankstat_Med_HL := NULL]
-            dt[, (col_nam) := NULL]
+      dt[, Med_HL := qbinom(rankstat_Med_HL, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Med_HL")
+      dt[, c(col_nam) := NULL]
+      
 
 
 
@@ -1272,16 +1324,9 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, Med_DM := qbinom(rankstat_Med_DM, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
-
-            dt[, c(col_nam, "rankstat_Med_DM") := NULL]
-
-
-
-
-
-
-
+      dt[, Med_DM := qbinom(rankstat_Med_DM, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Med_DM")
+      dt[, c(col_nam) := NULL]
 
 
 
@@ -1312,6 +1357,9 @@ SynthPop <-
        # Tame unrealistic trends
       dt[, trueyear := year]
       dt[age >= 70 & trueyear > 2025L, year := 2025L]
+      dt[age >= 50 & sex == "men" & trueyear < 2010L, year := 2010L]
+      dt[age >= 70 & sex == "women" & trueyear < 2015L, year := 2015L]
+
       absorb_dt(dt, tbl)
       dt[, `:=` (year = trueyear, trueyear = NULL)]
 
@@ -1330,7 +1378,8 @@ SynthPop <-
 				)
 				]
 
-      dt[, c(col_nam, "rank_PA_days") := NULL]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_PA_days")
+      dt[, c(col_nam) := NULL]
 
 
 
@@ -1378,7 +1427,8 @@ SynthPop <-
 			dt[BMI < 10, BMI := 10] #Truncate BMI predictions to avoid unrealistic values.
       dt[BMI > 70, BMI := 70] #Truncate BMI predictions to avoid unrealistic values.
 
-      dt[, c(col_nam, "rank_BMI", "PA_3cat") := NULL]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_BMI")
+      dt[, c(col_nam, "PA_3cat") := NULL]
 
 
 
@@ -1420,9 +1470,10 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, HbA1c := qBCT(rank_HbA1c, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
+      dt[, HbA1c := qBCT(rank_HbA1c, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_HbA1c")
+      dt[, c(col_nam) := NULL]
 
-            dt[, c(col_nam, "rank_HbA1c", "BMI_round") := NULL]
 
 
 
@@ -1459,9 +1510,9 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, LDLc := qBCT(rank_LDLc, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
-
-            dt[, c(col_nam, "rank_LDLc", "BMI_round") := NULL]
+      dt[, LDLc := qBCT(rank_LDLc, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_LDLc")
+      dt[, c(col_nam, "BMI_round") := NULL]
 
 
 
@@ -1504,21 +1555,9 @@ SynthPop <-
 			# ????? 20230206 I cannot find my_ function
 			# For now, we use q___ insted of my_
 			# Change-for-IMPACT-NCD-Japan
-            dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
-
-            dt[, c(col_nam, "rank_SBP", "BMI_round", "smoking_tmp") := NULL]
-
-
-
-
-
-
-
-
-
-
-
-
+      dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
+      if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_SBP")
+      dt[, c(col_nam, "BMI_round", "smoking_tmp") := NULL]
 
 
 
@@ -1565,13 +1604,14 @@ SynthPop <-
           return(invisible(NULL))
         },
 
-
+      # get_synthpop ----
       # Load a synthpop file from disk in full or in chunks.
       get_synthpop =
         function(exclude_cols = c()) {
           mm_synthpop <- metadata_fst(private$filename$synthpop)
           mm_synthpop <- setdiff(mm_synthpop$columnNames, exclude_cols)
 
+ 
           # Read synthpop
 
           dt <- read_fst(private$filename$synthpop,

@@ -83,7 +83,9 @@ Simulation <-
 				private$create_new_folder(private$output_dir("logs/"),self$design$sim_prm$logs)
 
         # NOTE code below is duplicated in Synthpop class. This is intentional
-		  private$create_new_folder(self$design$sim_prm$synthpop_dir,self$design$sim_prm$logs)
+		    private$create_new_folder(self$design$sim_prm$synthpop_dir,self$design$sim_prm$logs)
+
+        private$create_empty_calibration_prms_file(replace = FALSE)
 
         message("Loading exposures.")
         # RR Create a named list of Exposure objects for the files in
@@ -261,16 +263,121 @@ Simulation <-
         invisible(self)
         },
 
+      # calibrate_incd_ftlt ----
+      #' @description generates new calibration parameters and ovwrites old ones.
+      #' @param mc A positive sequential integer vector with the Monte Carlo
+      #'   iterations of synthetic population to simulate, or a scalar.
+      #' @param replace If TRUE the calibration deletes the previous calibration file and starts from scratch. Else it continues from the last age.
+      #' @return The invisible self for chaining.
+      calibrate_incd_ftlt = function(mc, replace = FALSE) {
+        export_xps <- self$design$sim_prm$export_xps # save the original value to be restored later
+        private$create_empty_calibration_prms_file(replace = replace)
+        clbr <- fread("./simulation/calibration_prms.csv", 
+                        colClasses = list(numeric = c("chd_incd_clbr_fctr", "stroke_incd_clbr_fctr",
+                                                      "chd_ftlt_clbr_fctr", "stroke_ftlt_clbr_fctr")))
+
+        if (replace) {
+          age_start <- self$design$sim_prm$ageL
+        } else { # if replace == FALSE
+          # if all ages exist skip calibration
+          if (dim(clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1])[1] == 0) {
+            message("All ages have been calibrated. Skipping calibration.")
+            return(invisible(self))
+          }
+          age_start <- clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1, min(age)] # Unsafe but rarely
+        }
+
+        # Run the simulation from min to max age
+        for (age_ in age_start:self$design$sim_prm$ageH) {
+          scenario_fn_primary_prevention   <- function(sp) NULL
+          scenario_fn_secondary_prevention <- function(sp) NULL
+
+         # self$design$sim_prm$ageH <- age_ # restrict the age range for speed. Currently doesn't work because it trigers the generation of new synthpop files 
+
+          # Run the simulation and export summaries. TODO restrict ages for efficiency.
+        self$
+          del_logs()$
+          del_outputs()$
+          run(mc, multicore = TRUE, "sc0")$
+          export_summaries(multicore = TRUE, type = c("incd", "prvl", "dis_mrtl"), single_year_of_age = TRUE)
+       
+        # Incidence calibration
+        # load the uncalibrated results
+        unclbr <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "incd_scaled_up.csv.gz"), 
+                        select = c("year", "age", "sex", "mc", "popsize", "chd_incd", "stroke_incd"))
+        unclbr <- unclbr[age == age_, .(chd_incd = chd_incd/popsize, stroke_incd = stroke_incd/popsize), keyby = .(age, sex, year, mc)
+          ][, .(chd_incd = mean(chd_incd), stroke_incd = mean(stroke_incd)), keyby = .(age, sex, year)]
+        
+        # for CHD
+        # fit a log-log linear model to the uncalibrated results and store the coefficients
+        unclbr[chd_incd > 0, c("intercept_unclbr", "trend_unclbr") := as.list(coef(lm(log(chd_incd)~log(year)))), by = sex]
+        unclbr[, intercept_unclbr := nafill(intercept_unclbr, "const", max(intercept_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
+        unclbr[, trend_unclbr := nafill(trend_unclbr, "const", max(trend_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
+        # load benchmark
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_incd.fst"), columns = c("age", "sex", "year", "mu") , as.data.table = TRUE)[age == age_,]
+        # fit a log-log linear model to the benchmark incidence and store the coefficients
+        benchmark[, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
+        # calculate the calibration factors that the uncalibrated log-log model
+        # need to be multiplied with so it can match the benchmark log-log model
+        unclbr[benchmark[year == min(year)], chd_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
+        unclbr[, c("intercept_unclbr", "trend_unclbr") := NULL]
+
+        # Repeat for stroke
+        unclbr[stroke_incd > 0, c("intercept_unclbr", "trend_unclbr") := as.list(coef(lm(log(stroke_incd)~log(year)))), by = sex]
+        unclbr[, intercept_unclbr := nafill(intercept_unclbr, "const", max(intercept_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
+        unclbr[, trend_unclbr := nafill(trend_unclbr, "const", max(trend_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "stroke_incd.fst"), columns = c("age", "sex", "year", "mu") , as.data.table = TRUE)[age == age_,]
+        benchmark[, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
+        unclbr[benchmark[year == min(year)], stroke_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
+
+        # keep only year, age, sex, and calibration factors (to be multiplied
+        # with p0)
+        unclbr[, `:=` (chd_prvl_correction = chd_incd * (chd_incd_clbr_fctr - 1),
+                       stroke_prvl_correction = stroke_incd * (stroke_incd_clbr_fctr - 1),
+                       chd_incd = NULL, stroke_incd = NULL, intercept_unclbr = NULL, trend_unclbr = NULL)]
+        clbr[unclbr, on = c("year", "age", "sex"), `:=` (
+          chd_incd_clbr_fctr = i.chd_incd_clbr_fctr,
+          stroke_incd_clbr_fctr = i.stroke_incd_clbr_fctr
+        )]
+        
+        # Case fatality calibration
+        # Because we do incd and case fatality correction in the same step, we
+        # need to estimate the expected changes on prvl because of the incd
+        # calibration, before we proceed with the case fatality calibration.
+        # Note that the calibration factor (multiplier) is 1/prvl as we
+        # currently have mortality rates in the ftlt files.
+
+        prvl <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "prvl_scaled_up.csv.gz"), 
+                        select = c("year", "age", "sex", "mc", "popsize", "chd_prvl", "stroke_prvl"))
+        prvl <- prvl[age == age_, .(chd_prvl = chd_prvl/popsize, stroke_prvl = stroke_prvl/popsize), keyby = .(age, sex, year, mc)
+          ][, .(chd_prvl = mean(chd_prvl), stroke_prvl = mean(stroke_prvl)), keyby = .(age, sex, year)]
+        prvl[unclbr, on = c("year", "age", "sex"), `:=` (chd_ftlt_clbr_fctr = 1 / (chd_prvl + i.chd_prvl_correction),
+         stroke_ftlt_clbr_fctr = 1 / (stroke_prvl + i.stroke_prvl_correction))]
+
+        clbr[prvl, on = c("year", "age", "sex"), `:=` (
+          chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr,
+          stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr
+        )]   
+
+        fwrite(clbr, "./simulation/calibration_prms.csv") # NOTE this needs to be inside the loop so it influences the simulation during the loop over ages
+        } # end loop over ages
+        
+        self$design$sim_prm$export_xps <- export_xps # restore the original value
+        invisible(self)
+      },
+
       # export_summaries ----
 
       #' @description Process the lifecourse files
       #' @param multicore If TRUE run the simulation in parallel.
       #' @param type The type of summary to extract.
+      #' @param single_year_of_age Export summaries by single year of age. Useful for the calibration proccess. 
       #' @return The invisible self for chaining.
       export_summaries = function(multicore = TRUE,
                                   type = c("le", "hle", "dis_char", "prvl",
                                            "incd", "dis_mrtl", "mrtl",
-                                           "allcause_mrtl_by_dis", "cms")) {
+                                           "allcause_mrtl_by_dis", "cms"),
+                                  single_year_of_age = FALSE) {
 
         fl <- list.files(private$output_dir("lifecourse"), full.names = TRUE)
 
@@ -325,7 +432,7 @@ Simulation <-
           ) %dopar% {
 
             lc <-   fread(fl[i], stringsAsFactors = TRUE, key = c("scenario", "pid", "year"))
-            private$export_summaries_hlpr(lc, type = type)
+            private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
             NULL
           }
 
@@ -341,7 +448,7 @@ Simulation <-
 
           lapply(seq_along(fl), function(i) {
             lc <-   fread(fl[i], stringsAsFactors = TRUE, key = c("pid", "year"))
-            private$export_summaries_hlpr(lc, type = type)
+            private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
             NULL
           })
 
@@ -516,7 +623,6 @@ Simulation <-
       },
 
       # del_logs ----
-
       #' @description Delete log files.
       #' @return The invisible self for chaining.
       del_logs = function() {
@@ -527,6 +633,36 @@ Simulation <-
 
         if (length(fl) > 0 && self$design$sim_prm$logs)
           message("Log files deleted.")
+
+        invisible(self)
+      },
+
+      # del_parfs ----
+      #' @description Delete all files in the ./simulation/parf folder.
+      #' @return The invisible self for chaining.
+      del_parfs = function() {
+
+        fl <- list.files("./simulation/parf", full.names = TRUE)
+
+        file.remove(fl)
+
+        if (length(fl) > 0 && self$design$sim_prm$logs)
+          message("Parf files deleted.")
+
+        invisible(self)
+      },
+
+      # del_synthpops ----
+      #' @description Delete all files in the synthpop folder.
+      #' @return The invisible self for chaining.
+      del_synthpops = function() {
+
+        fl <- list.files(self$design$sim_prm$synthpop_dir, full.names = TRUE)
+
+        file.remove(fl)
+
+        if (length(fl) > 0 && self$design$sim_prm$logs)
+          message("Sythpop files deleted.")
 
         invisible(self)
       },
@@ -587,11 +723,6 @@ Simulation <-
         }
 
         sp <- SynthPop$new(mc_, self$design)
-        # e <- read_fst("./inputs/mortality/mrtl_clb.fst", as.data.table = TRUE) # mortality calibration
-        # lookup_dt(sp$pop, e, check_lookup_tbl_validity = self$design$sim_prm$logs)
-        if (!"mrtl_clbr" %in% names(sp$pop)) sp$pop[, mrtl_clbr := 1]
-        setnafill(sp$pop, "const", 1, cols = "mrtl_clbr")
-        # rm(e)
 
         # From Karl, somehow scenario_fn() makes init_prvl different. The
         # following code solves the problem.
@@ -838,16 +969,20 @@ Simulation <-
 
       # function to export summaries from lifecourse files.
       # lc is a lifecourse file
+      # single_year_of_age export summaries by single year of age to be used for calibration
       # export_summaries_hlpr ----
       export_summaries_hlpr = function(lc, type = c("le", "hle", "dis_char",
                                                     "prvl", "incd", "mrtl",  "dis_mrtl",
-                                                    "allcause_mrtl_by_dis", "cms")) {
+                                                    "allcause_mrtl_by_dis", "cms"),
+                                      single_year_of_age = FALSE) {
         if (self$design$sim_prm$logs) message("Exporting summaries...")
 
         strata <- c("mc", self$design$sim_prm$strata_for_output)
         strata_noagegrp <- c("mc",
                     setdiff(self$design$sim_prm$strata_for_output, c("agegrp")))
         strata_age <- c(strata_noagegrp, "age")
+
+        if (single_year_of_age) strata <- strata_age # used for calibrate_incd_ftlt
 
         setkeyv(lc, c("scenario", "pid", "year")) # necessary for age_onset
 
@@ -1277,6 +1412,27 @@ Simulation <-
           }
         )
         NULL
+      },
+
+      # create_empty_calibration_prms_file ---- 
+      # if replace is FALSE then it creates a calibration parameters when it is
+      # missing, file filed with 1. If replace = TRUE it overwrites the existin
+      # file
+      # returns invisible(self)
+      create_empty_calibration_prms_file = function(replace = FALSE) {
+        if (replace || !file.exists("./simulation/calibration_prms.csv")) {
+          clbr <- CJ(
+            year = self$design$sim_prm$init_year_long:(self$design$sim_prm$init_year_long + self$design$sim_prm$sim_horizon_max),
+            age = self$design$sim_prm$ageL:self$design$sim_prm$ageH,
+            sex = c("men", "women"),
+            chd_incd_clbr_fctr = 1,
+            stroke_incd_clbr_fctr = 1,
+            chd_ftlt_clbr_fctr = 1,
+            stroke_ftlt_clbr_fctr = 1
+          )
+          fwrite(clbr, "./simulation/calibration_prms.csv")
+        }
+        invisible(self)
       },
 
       # create_new_folder ----

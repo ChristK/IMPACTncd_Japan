@@ -104,8 +104,8 @@ sp$pop[, mc := sp$mc_aggr]
 # self <- IMPACTncd$.__enclos_env__$self
 # private <- IMPACTncd$.__enclos_env__$private
 
-self <- diseases$nonmodelled$.__enclos_env__$self
-private <- diseases$nonmodelled$.__enclos_env__$private
+self <- diseases$chd$.__enclos_env__$self
+private <- diseases$chd$.__enclos_env__$private
 design_ <- design
 diseases_ <- diseases
 popsize <- 100

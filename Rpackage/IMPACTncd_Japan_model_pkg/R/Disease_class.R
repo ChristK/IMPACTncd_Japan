@@ -314,28 +314,18 @@ Disease <-
         if (sum(dim(private$incd_indx)) > 0) {
           if (design_$sim_prm$logs) message("Estimating p0.")
 
-          if (design_$sim_prm$model_trends_in_redidual_incd) {
-            # TODO calculate PARF per year. Now it is assumed static as in init year
-            yrs <- seq(
-              design_$sim_prm$init_year_long,
-              design_$sim_prm$init_year_long + design_$sim_prm$sim_horizon_max
-            )
-          } else {
-            yrs <- design_$sim_prm$init_year_long
-          }
 
-          tt <- self$get_incd(yrs, 0L, design_ = design_)
-          nam <- "p0"
+          yrs <- design_$sim_prm$init_year_long
 
-          parf_dt <- clone_dt(parf_dt, length(yrs)) # works even if length(yrs) == 1
-          parf_dt[, `:=` (
-            year = .id - 1L + design_$sim_prm$init_year_long,
-            .id = NULL
-          )]
+          tt <- self$get_incd(yrs, 0L, design_ = design_) # Note this is the median incd. It is updated stochastically for each iteration with gen_parf()
+          # nam <- "p0"
+
           absorb_dt(parf_dt, tt)
           setnafill(parf_dt, "c", fill = 0, cols = "mu") # fix for prostate and breast cancer
-          parf_dt[, (nam) := mu * (1 - parf)]
-          parf_dt[, "mu" := NULL]
+          
+
+          parf_dt[, p0 := mu * (1 - parf)] 
+          parf_dt[, ("mu") := NULL]
 
         }
 
@@ -372,7 +362,8 @@ Disease <-
             design_$sim_prm$init_year_long,
             design_$sim_prm$init_year_long + design_$sim_prm$sim_horizon_max
           )
-          tt <- self$get_ftlt(yrs, 0L, design_ = design_)
+          tt <- self$get_ftlt(yrs, 0L, design_ = design_) # Note this is the median ftlt. It is updated stochastically for each iteration with gen_parf()
+          
           if ("mu" %in% names(tt)) stop("mu in ftlt file. Please rename to mu2.")
 
           setnames(tt, "mu2", "mu")
@@ -388,12 +379,11 @@ Disease <-
           setnafill(parf_dt, "c", fill = 0, cols = "mu") # fix for prostate and breast cancer
 
           if ("parf_mrtl" %in% names(parf_dt)) {
-            parf_dt[, "m0" := mu * (1 - parf_mrtl)]
-            parf_dt[, parf_mrtl := NULL]
+            parf_dt[, m0 := mu * (1 - parf_mrtl)]
           } else {
-            parf_dt[, "m0" := mu * (1 - parf)]
+            parf_dt[, m0 := mu * (1 - parf)]
           }
-          parf_dt[, "mu" := NULL]
+          parf_dt[, c("mu") := NULL]
         }
 
         if (uniqueN(parf_dt$year) == 1L) parf_dt[, year := NULL]
@@ -401,14 +391,16 @@ Disease <-
         if (check && anyNA(parf_dt)) {
           warning("NAs in parf.")
           print(summary(parf_dt))
-
           # parf_dt[is.na(get(nam)), (nam) := mu]
         }
+
         if (design_$sim_prm$logs) message("Saving parf file ", private$parf_filenam)
+        
         write_fst(parf_dt, private$parf_filenam, 100L)
+        
         if (!keep_intermediate_file) file.remove(tmpfile)
 
-        parf_dt
+        invisible(parf_dt)
       },
 
             # gen_parf ----
@@ -454,11 +446,8 @@ Disease <-
         if (file.exists(private$parf_filenam)) {
           if (design_$sim_prm$logs) message("Reading parf file from disk.")
 
-          tt <- read_fst(private$parf_filenam, as.data.table = TRUE)
-          colnam <-
-            setdiff(names(tt), intersect(names(sp$pop), names(tt)))
-          private$parf <- tt[sp$pop, on = .NATURAL, ..colnam]
-
+          parf_dt <- read_fst(private$parf_filenam, as.data.table = TRUE)
+         
         } else { # if file not exist
           if (design_$sim_prm$logs) message("Generating new parf file.")
 
@@ -471,10 +460,108 @@ Disease <-
           parf_dt <- self$gen_parf_files(design_, diseases_,
                                      popsize, check,
                                      keep_intermediate_file,bUpdateExistingDiseaseSnapshot=FALSE)
-          colnam <-
-            setdiff(names(parf_dt), intersect(names(sp$pop), names(parf_dt)))
-          private$parf <- parf_dt[sp$pop, on = .NATURAL, ..colnam]
         } # end if file not exist
+
+        # Update p0 and m0 using stochastic incidence incd and mrtl
+        if (sum(dim(private$incd_indx)) > 0) {
+          if (design_$sim_prm$logs) message("Estimating p0.")
+
+          yrs <- design_$sim_prm$init_year_long
+
+          tt <- self$get_incd(yrs, sp$mc_aggr, design_ = design_)[, year := NULL]
+          # nam <- "p0"
+
+          absorb_dt(parf_dt, tt) # now mu is incd
+          setnafill(parf_dt, "c", fill = 0, cols = "mu") # fix for prostate and breast cancer
+          
+        if (self$name != "nonmodelled") {
+          absorb_dt(parf_dt, fread("./simulation/calibration_prms.csv",
+            select =
+              c("year", "age", "sex", paste0(self$name, "_incd_clbr_fctr"))
+          ))
+        }
+
+        if (self$name == "nonmodelled" || !design_$sim_prm$calibrate_to_incd_trends) 
+          parf_dt[, paste0(self$name, "_incd_clbr_fctr") := 1]
+
+          setnames(parf_dt, paste0(self$name, "_incd_clbr_fctr"), "incd_clbr_fctr")
+         
+          parf_dt[, p0 := incd_clbr_fctr * mu * (1 - parf)] # now p0 incorporates the calibration
+          parf_dt[, c("mu", "incd_clbr_fctr") := NULL]
+        }
+
+        if (sum(dim(private$ftlt_indx)) > 0) {
+          if (design_$sim_prm$logs) message("Estimating m0.")
+
+          # Re-estimate parf without exposures and only for diseases when
+          # apply_rr_to_mrtl2 is FALSE
+          if (!design_$sim_prm$apply_RR_to_mrtl2) {
+            riskcolnam <- grep(
+              paste0(
+                "^((?!",
+                paste(self$meta$mortality$influenced_by_disease_name,
+                      collapse = "|"),
+                ").)*_rr$"
+              ),
+              names(nam),
+              value = TRUE,
+              perl = TRUE
+            )
+
+            if (length(riskcolnam) > 0) {
+              parf_dt_mrtl <-
+                ans$pop[between(age, design_$sim_prm$ageL, design_$sim_prm$ageH),
+                        .(parf_mrtl = 1 - .N / sum(Reduce(`*`, .SD))),
+                        keyby = .(age, sex), .SDcols = riskcolnam
+                ]
+              absorb_dt(parf_dt, parf_dt_mrtl)
+            }
+          }
+
+
+          yrs <- seq(
+            design_$sim_prm$init_year_long,
+            design_$sim_prm$init_year_long + design_$sim_prm$sim_horizon_max
+          )
+          tt <- self$get_ftlt(yrs, sp$mc_aggr, design_ = design_) # Note this is the median ftlt. Needs to be updated stochastically for each iteration
+          
+          if ("mu" %in% names(tt)) stop("mu in ftlt file. Please rename to mu2.")
+
+          setnames(tt, "mu2", "mu")
+          if ("mu1" %in% names(tt)) tt[, mu1 := NULL]
+
+          if (!all(yrs %in% unique(parf_dt$year))) { # TODO safer logic here
+            parf_dt <- clone_dt(parf_dt, length(yrs))
+            parf_dt[, year := .id - 1L + design_$sim_prm$init_year_long]
+            parf_dt[, .id := NULL]
+          }
+          absorb_dt(parf_dt, tt) # mu is still mrtl, not ftlt
+          setnafill(parf_dt, "c", fill = 0, cols = "mu") # fix for prostate and breast cancer
+
+        if (self$name != "nonmodelled") {
+          absorb_dt(parf_dt, fread("./simulation/calibration_prms.csv",
+            select =
+              c("year", "age", "sex", paste0(self$name, "_ftlt_clbr_fctr"))
+          ))
+        }
+
+        if (self$name == "nonmodelled" || !design_$sim_prm$calibrate_to_ftlt_trends) 
+          parf_dt[, paste0(self$name, "_ftlt_clbr_fctr") := 1]
+
+          setnames(parf_dt, paste0(self$name, "_ftlt_clbr_fctr"), "ftlt_clbr_fctr")
+        
+          if ("parf_mrtl" %in% names(parf_dt)) {
+            parf_dt[, m0 := ftlt_clbr_fctr * mu * (1 - parf_mrtl)]
+          } else {
+            parf_dt[, m0 := ftlt_clbr_fctr * mu * (1 - parf)]
+          }
+          parf_dt[, c("mu", "ftlt_clbr_fctr") := NULL]
+        }
+
+
+        colnam <-
+            setdiff(names(parf_dt), intersect(names(sp$pop), names(parf_dt)))
+        private$parf <- parf_dt[sp$pop, on = .NATURAL, ..colnam]
 
 
         invisible(self)
@@ -785,7 +872,7 @@ Disease <-
               risk_product <- 1
             }
 
-            if (TRUE) {
+            if (design_$sim_prm$init_year_incd_calibration) {
             # Calibrate estimated incidence prbl to init year incidence
             tbl <- self$get_incd(design_$sim_prm$init_year_long, mc_ = sp$mc_aggr, design_ = design_
             )[between(age, design_$sim_prm$ageL,
@@ -907,8 +994,9 @@ Disease <-
           if (private$mrtl_colnam2 %in% names(sp$pop))
             stop("Column ", private$mrtl_colnam2, " exists already in sp$pop.")
 
-          # Note currently files ending with _ftlt are in practice mrtl So as a
-          # first approximation, below I divide with init year prvl to get ftlt        
+          # Note currently files ending with _ftlt are in practice mrtl. They
+          # transforme to case ftlt with the multiplication of the calibration
+          # factor        
           ftlt <-
             self$get_ftlt(
               seq(
@@ -917,14 +1005,6 @@ Disease <-
               ),
               mc_ = sp$mc_aggr, design_ = design_
             )
-
-          # Divide with prvl to get ftlt   
-          if (self$name != "nonmodelled") {
-            ftlt[self$get_prvl(
-              design_$sim_prm$init_year_long,
-              mc_ = sp$mc_aggr, design_ = design_
-            ), on = c("age", "sex"), mu2 := mu2 / i.mu]
-          }
 
           if (!"mu2" %in% names(ftlt))
             stop("mu2 need to be present in the ftlt file.")
@@ -989,111 +1069,9 @@ Disease <-
               risk_product <- 1
             }
 
-            if (FALSE) { # design_$sim_prm$init_ftlt_calibration
-            # Calibrate estimated fatality prbl to init year incidence
-            tbl <- self$get_ftlt(design_$sim_prm$init_year, mc_ = sp$mc_aggr, design_ = design_
-            )[between(age, design_$sim_prm$ageL,
-                      design_$sim_prm$ageH)]
-            if ("mu1" %in% names(tbl)) tbl[, mu1 := NULL]
-            #lookup_dt(sp$pop, tbl) #TODO: lookup_dt
-            absorb_dt(sp$pop, tbl)
-            sp$pop[, rp := private$parf$m0 * sp$get_risks(self$name)[, Reduce(`*`, .SD),
-                                                                     .SDcols = patterns("_rr$")]]
-            setnafill(sp$pop, "c", 0, cols = c("rp", "mu2"))
-            # Above rp includes rr from diseases that risk_product doesn't have
 
-            if (self$name == "nonmodelled") {
-              tbl <- sp$pop[year == design_$sim_prm$init_year_long,
-                            .(clbfctr = sum(mu2)/sum(rp)),
-                            keyby = .(sex)]
-
-            } else {
-              tbl <- sp$pop[year == design_$sim_prm$init_year_long &
-                              get(paste0(self$name, "_prvl")) > 0L,
-                            .(clbfctr = sum(mu2)/sum(rp)),
-                            keyby = .(sex)]
-
-            }
-            # NOTE the above excludes incident cases. Not appropriate when
-            # private$mrtl2flag == FALSE
-            # lookup_dt(sp$pop, tbl) #TODO: lookup_dt
-            absorb_dt(sp$pop, tbl)
-            setnafill(sp$pop, "c", 1, cols = "clbfctr")
-
-            if (FALSE) { # design_$sim_prm$mortality_calibration
-              # Mortality calibration #
-
-              if (self$name == "chd"){
-
-                tbl <- read_fst("./inputs/mortality/mrtl_clbr_chd.fst",
-                                as.data.table = TRUE)
-
-                absorb_dt(sp$pop, tbl)
-                setnafill(sp$pop, "c", 1, cols = "mrtl_clbr")
-
-                sp$pop[, clbtrend := 1] # Calibration trend parameter
-                sp$pop[, clbintrc := 1] # Calibration intercept parameter
-
-                # Modifications based on ratios after initial calibration:
-                sp$pop[sex == "men" & age >= 67 & year >= 20, clbtrend := 1.0015] # next values: 1.002, 1.003
-
-              } else if (self$name == "stroke") {
-
-                tbl <- read_fst("./inputs/mortality/mrtl_clbr_stroke.fst",
-                                as.data.table = TRUE)
-
-                absorb_dt(sp$pop, tbl)
-                setnafill(sp$pop, "c", 1, cols = "mrtl_clbr")
-
-                sp$pop[, clbtrend := 1]
-                sp$pop[, clbintrc := 1]
-
-              } else if (self$name == "nonmodelled") {
-
-                tbl <- read_fst("./inputs/mortality/mrtl_clbr_nonmodelled.fst",
-                                as.data.table = TRUE)
-
-                absorb_dt(sp$pop, tbl)
-                setnafill(sp$pop, "c", 1, cols = "mrtl_clbr")
-
-                sp$pop[, clbtrend := 1]
-                sp$pop[, clbintrc := 1]
-                # TODO
-                # # Modifications based on ratios after initial calibration:
-                # sp$pop[sex == "men" & age >= 70 & age < 80, clbintrc := 1.01]
-                # sp$pop[sex == "men" & age >= 80 & age < 85, clbintrc := 0.99]
-                # sp$pop[year >= 25 & sex == "men" & age >= 85, clbintrc := 0.975]
-
-              } else {
-
-                sp$pop[, `:=`(mrtl_clbr = 1, clbintrc = 1, clbtrend = 1)]
-
-              }
-
-              sp$pop[year >= design_$sim_prm$init_year_long,
-                     clbfctr := clbfctr * mrtl_clbr * clbintrc *
-                       (clbtrend^(year - design_$sim_prm$init_year_long))]
-            }
-            # End of calibration
-
-            set(sp$pop, NULL, private$mrtl_colnam2,
-                clamp(private$parf$m0 * risk_product * sp$pop$clbfctr))
-
-            # setnames(sp$pop, "clbfctr", paste0(self$name, "_clbfctr_mrtl"))
-            # sp$pop[, (paste0(self$name, "_risk_product_mrtl")) := risk_product]
-            # sp$pop[, (paste0(self$name, "_m0")) := private$parf$m0]
-            sp$pop[, c("mu2", "rp", "clbfctr") := NULL]
-
-            if ("mrtl_clbr" %in% names(sp$pop)) {
-
-              sp$pop[, mrtl_clbr := NULL]
-
-            }
-
-            } else {
               set(sp$pop, NULL, private$mrtl_colnam2,
                   clamp(private$parf$m0 * risk_product))
-            }
           }
 
           setnafill(sp$pop, type = "const", fill = 0,
@@ -1858,6 +1836,11 @@ Disease <-
                         lag <- 0L
                       }
                       ff[, year := year - lag]
+                      ff[, trueyear := year]
+                      ff[age >= 70 & trueyear > 2025L, year := 2025L]
+                      ff[age >= 50 & sex == "men" & trueyear < 2010L, year := 2010L]
+                      ff[age >= 70 & sex == "women" & trueyear < 2015L, year := 2015L]
+
                       tbl <-
                         read_fst("./inputs/exposure_distributions/Table_PA_days.fst",
                           as.data.table = TRUE
@@ -1880,6 +1863,7 @@ Disease <-
 
 			
                       ff[, rank_PA_days := NULL]
+                      ff[, `:=` (year = trueyear, trueyear = NULL)]
                       ff[, year := year + lag]
                     }
           xps <- "Fruit_vege"

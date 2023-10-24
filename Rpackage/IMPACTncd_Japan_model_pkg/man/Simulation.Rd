@@ -27,6 +27,7 @@ To be completed...
 \itemize{
 \item \href{#method-Simulation-new}{\code{Simulation$new()}}
 \item \href{#method-Simulation-run}{\code{Simulation$run()}}
+\item \href{#method-Simulation-calibrate_incd_ftlt}{\code{Simulation$calibrate_incd_ftlt()}}
 \item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
 \item \href{#method-Simulation-get_causal_structure}{\code{Simulation$get_causal_structure()}}
 \item \href{#method-Simulation-get_node_names}{\code{Simulation$get_node_names()}}
@@ -34,6 +35,8 @@ To be completed...
 \item \href{#method-Simulation-update_design}{\code{Simulation$update_design()}}
 \item \href{#method-Simulation-del_outputs}{\code{Simulation$del_outputs()}}
 \item \href{#method-Simulation-del_logs}{\code{Simulation$del_logs()}}
+\item \href{#method-Simulation-del_parfs}{\code{Simulation$del_parfs()}}
+\item \href{#method-Simulation-del_synthpops}{\code{Simulation$del_synthpops()}}
 \item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
 \item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
 \item \href{#method-Simulation-print}{\code{Simulation$print()}}
@@ -86,6 +89,29 @@ The invisible self for chaining.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-calibrate_incd_ftlt"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-calibrate_incd_ftlt}{}}}
+\subsection{Method \code{calibrate_incd_ftlt()}}{
+generates new calibration parameters and ovwrites old ones.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$calibrate_incd_ftlt(mc, replace = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
+iterations of synthetic population to simulate, or a scalar.}
+
+\item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and starts from scratch. Else it continues from the last age.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-export_summaries"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-export_summaries}{}}}
 \subsection{Method \code{export_summaries()}}{
@@ -94,7 +120,8 @@ Process the lifecourse files
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$export_summaries(
   multicore = TRUE,
   type = c("le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
-    "allcause_mrtl_by_dis", "cms")
+    "allcause_mrtl_by_dis", "cms"),
+  single_year_of_age = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -104,6 +131,8 @@ Process the lifecourse files
 \item{\code{multicore}}{If TRUE run the simulation in parallel.}
 
 \item{\code{type}}{The type of summary to extract.}
+
+\item{\code{single_year_of_age}}{Export summaries by single year of age. Useful for the calibration proccess.}
 }
 \if{html}{\out{</div>}}
 }
@@ -222,6 +251,32 @@ The invisible self for chaining.
 Delete log files.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$del_logs()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-del_parfs"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-del_parfs}{}}}
+\subsection{Method \code{del_parfs()}}{
+Delete all files in the ./simulation/parf folder.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_parfs()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-del_synthpops"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-del_synthpops}{}}}
+\subsection{Method \code{del_synthpops()}}{
+Delete all files in the synthpop folder.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_synthpops()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{

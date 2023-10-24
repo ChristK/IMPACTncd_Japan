@@ -15,9 +15,9 @@ sim_horizon_max: 2050 # population projections do not support longer horizon cor
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass
 ageH: 99 # This was based on observed exposure data and observed population size
 apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incidence? NOTE it affects nonmodelled as well
-model_trends_in_redidual_incd: no # Model trends in non attributable incidence? (NOTE implementation needs further refinement)
-init_ftlt_calibration: yes # NEW: Indicator whether case fatality is calibrated at all
-mortality_calibration: yes # NEW: Activate or deactivate mortality calibration to FDM forecast. Conditional on CF calibration
+calibrate_to_incd_trends: yes # Use incidance calibration multipliers from file
+calibrate_to_ftlt_trends: yes # Use fatality calibration multipliers from file
+init_year_incd_calibration: no # Indicates whether parf*p0 is calibrated to incd for the initial year
 avoid_appending_csv: yes #  Do not append on existing .csv. Rather write separately and join later. To bypass problems with Docker on windows
 incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
 prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
@@ -123,10 +123,12 @@ diseases:
   notes: .na
 maxlag: 6 # To allow init year of 2001. 
 jumpiness: 1.0 # increase for more erratic jumps in trajectories
+keep_simulants_rn: yes # Keep the random numbers used to generate the exposures for each simulants
+load_simulants_rn: yes # Load the random numbers used to generate the exposures for each simulants. Set to no if the random numbers are not necessary for the scenarios.
 decision_aid: 0.8
 stochastic: yes
 kismet: yes
-validation: no # or yes. Note, no yes/no
+validation: no # or yes. If yes, then the validation is performed.
 max_prvl_for_outputs: 2 # duration 1 is incidence and 2 is prevalence
 iteration_n_max: 1000
 output_dir: ./outputs

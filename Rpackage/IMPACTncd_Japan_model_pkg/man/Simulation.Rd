@@ -39,6 +39,7 @@ To be completed...
 \item \href{#method-Simulation-del_synthpops}{\code{Simulation$del_synthpops()}}
 \item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
 \item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
+\item \href{#method-Simulation-validate}{\code{Simulation$validate()}}
 \item \href{#method-Simulation-print}{\code{Simulation$print()}}
 \item \href{#method-Simulation-clone}{\code{Simulation$clone()}}
 }
@@ -309,6 +310,19 @@ Get the disease multimorbidity weights (i.e. Cambridge
 
 \subsection{Returns}{
 A named vector with disease weights.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-validate"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-validate}{}}}
+\subsection{Method \code{validate()}}{
+Internal validation of the disease burden.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$validate()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The invisible self for chaining.
 }
 }
 \if{html}{\out{<hr>}}

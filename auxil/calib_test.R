@@ -4,6 +4,7 @@ self <- IMPACTncd$.__enclos_env__$self
 private <- IMPACTncd$.__enclos_env__$private
 age_ = 30
 mc <- 1:5
+replace <- FALSE
 
 # scenario_fn_primary_prevention   <- function(sp) NULL
 # scenario_fn_secondary_prevention <- function(sp) NULL
@@ -55,3 +56,5 @@ prvl[benchmark, on = c("age", "year", "sex")][sex=="women", lines(year, chd_prvl
 
 prvl[sex == "women", plot(year, chd_prvl)]
 prvl[sex == "women", plot(year, chd_ftlt_clbr_fctr)]
+
+

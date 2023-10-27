@@ -70,17 +70,20 @@ Simulation <-
         # Create folders if don't exist
         # TODO write hlp function and use lapply
         message("Creating output subfolders.")
-			private$create_new_folder(self$design$sim_prm$output_dir,self$design$sim_prm$logs)
-			private$create_new_folder(private$output_dir("summaries/"),self$design$sim_prm$logs)
-			private$create_new_folder(private$output_dir("tables/"),self$design$sim_prm$logs)
-			private$create_new_folder(private$output_dir("plots/"),self$design$sim_prm$logs)
-			private$create_new_folder(private$output_dir("lifecourse/"),self$design$sim_prm$logs)
-			if(self$design$sim_prm$export_PARF)
-				private$create_new_folder(private$output_dir("parf/"),self$design$sim_prm$logs)
-			if(self$design$sim_prm$export_xps)
-				private$create_new_folder(private$output_dir("xps/"),self$design$sim_prm$logs)
-			if (self$design$sim_prm$logs)
-				private$create_new_folder(private$output_dir("logs/"),self$design$sim_prm$logs)
+   private$create_new_folder(self$design$sim_prm$output_dir, self$design$sim_prm$logs)
+   private$create_new_folder(private$output_dir("summaries/"), self$design$sim_prm$logs)
+   private$create_new_folder(private$output_dir("tables/"), self$design$sim_prm$logs)
+   private$create_new_folder(private$output_dir("plots/"), self$design$sim_prm$logs)
+   private$create_new_folder(private$output_dir("lifecourse/"), self$design$sim_prm$logs)
+   if (self$design$sim_prm$export_PARF) {
+     private$create_new_folder(private$output_dir("parf/"), self$design$sim_prm$logs)
+   }
+   if (self$design$sim_prm$export_xps) {
+     private$create_new_folder(private$output_dir("xps/"), self$design$sim_prm$logs)
+   }
+   if (self$design$sim_prm$logs) {
+     private$create_new_folder(private$output_dir("logs/"), self$design$sim_prm$logs)
+   }
 
         # NOTE code below is duplicated in Synthpop class. This is intentional
 		    private$create_new_folder(self$design$sim_prm$synthpop_dir,self$design$sim_prm$logs)
@@ -271,6 +274,7 @@ Simulation <-
       #' @return The invisible self for chaining.
       calibrate_incd_ftlt = function(mc, replace = FALSE) {
         export_xps <- self$design$sim_prm$export_xps # save the original value to be restored later
+        self$design$sim_prm$export_xps <- FALSE # turn off export_xps to speed up the calibration
         private$create_empty_calibration_prms_file(replace = replace)
         clbr <- fread("./simulation/calibration_prms.csv", 
                         colClasses = list(numeric = c("chd_incd_clbr_fctr", "stroke_incd_clbr_fctr",
@@ -285,6 +289,7 @@ Simulation <-
             return(invisible(self))
           }
           age_start <- clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1, min(age)] # Unsafe but rarely
+          message(paste0("Starting calibration from age ", age_start, "."))
         }
 
         # Run the simulation from min to max age

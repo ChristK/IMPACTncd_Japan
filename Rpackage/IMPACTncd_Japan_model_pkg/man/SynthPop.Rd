@@ -29,13 +29,15 @@ POP$get_filename()
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{mc}}{The Monte Carlo iteration of the synthetic population. Every
-integer generates a unique synthetic population.}
+\item{\code{mc}}{The Monte Carlo iteration of the synthetic population fragment. Every
+integer generates a unique synthetic population fragment.}
 
 \item{\code{mc_aggr}}{The Monte Carlo iteration of the synthetic population to
-be used when multiple synthetic populations getting aggregated.It
-ensures correct seeds for the RNGs during the simulation for the RRs
-and the lags.}
+be used when multiple synthetic population fragments getting
+aggregated. For instance if the synthpop consists of 2 fragments,
+mc_aggr will be the same for both, but mc will differ. It ensures
+correct seeds for the RNGs during the simulation for the RRs and the
+lags.}
 
 \item{\code{metadata}}{Metadata of the synthpop.}
 
@@ -253,7 +255,7 @@ The invisible `SynthPop` object.
 \if{html}{\out{<a id="method-SynthPop-get_checksum"></a>}}
 \if{latex}{\out{\hypertarget{method-SynthPop-get_checksum}{}}}
 \subsection{Method \code{get_checksum()}}{
-Get the synthpop file paths.
+Get the synthpop checksum.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{SynthPop$get_checksum()}\if{html}{\out{</div>}}
 }

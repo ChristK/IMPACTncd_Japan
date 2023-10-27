@@ -690,6 +690,292 @@ Simulation <-
         unlist(sapply(self$diseases, function(x) x$meta$diagnosis$mm_wt))
       },
 
+      #' @description Internal validation of the disease burden.
+      #' @return The invisible self for chaining.
+      # validate ----
+      validate = function() {
+       HEIGHT <- 5
+       WIDTH <- 10
+
+
+        data_pop <- read_fst("./inputs/pop_projections/combined_population_japan.fst", columns = c("year", "age", "sex", "pops"), as.data.table = TRUE)
+        data_pop_agegrp <- copy(data_pop)
+        to_agegrp(data_pop_agegrp, 5, 99)
+        data_pop_agegrp <- data_pop_agegrp[, .(pops = sum(pops)), keyby = .(year, agegrp, sex)]
+        
+        # MRTL
+        mdd <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "dis_mrtl_scaled_up.csv.gz"))
+        mdd[, `:=` (
+        	nonmodelled_mrtl_rate = nonmodelled_deaths / popsize,
+            chd_mrtl_rate = chd_deaths / popsize,
+            stroke_mrtl_rate = stroke_deaths / popsize
+        )]
+        mdd <- mdd[scenario == "sc0", .(
+        	nonmodelled_mrtl_rate = quantile(nonmodelled_mrtl_rate, p = 0.500),
+        	nonmodelled_mrtl_rate_low = quantile(nonmodelled_mrtl_rate, p = 0.025),
+        	nonmodelled_mrtl_rate_upp = quantile(nonmodelled_mrtl_rate, p = 0.975),
+        	chd_mrtl_rate = quantile(chd_mrtl_rate, p = 0.500),
+        	chd_mrtl_rate_low = quantile(chd_mrtl_rate, p = 0.025),
+        	chd_mrtl_rate_upp = quantile(chd_mrtl_rate, p = 0.957),
+        	stroke_mrtl_rate = quantile(stroke_mrtl_rate, p = 0.500),
+        	stroke_mrtl_rate_low = quantile(stroke_mrtl_rate, p = 0.025),
+        	stroke_mrtl_rate_upp = quantile(stroke_mrtl_rate, p = 0.975),
+        	type = "modelled"), keyby = .(year, agegrp, sex)]
+        
+        obs <- read_fst(paste0("./inputs/disease_burden/","chd_ftlt.fst"), columns = c("age", "year", "sex", "mu2", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(obs, c("mu2", "mu_lower", "mu_upper"), c("chd_mrtl_rate", "chd_mrtl_rate_low", "chd_mrtl_rate_upp"))
+        tt <- read_fst(paste0("./inputs/disease_burden/","stroke_ftlt.fst"), columns = c("age", "year", "sex", "mu2", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(tt, c("mu2", "mu_lower", "mu_upper"), c("stroke_mrtl_rate", "stroke_mrtl_rate_low", "stroke_mrtl_rate_upp"))
+        absorb_dt(obs, tt)
+        tt <- read_fst(paste0("./inputs/disease_burden/","nonmodelled_ftlt.fst"), columns = c("age", "year", "sex", "mu2", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(tt, c("mu2", "mu_lower", "mu_upper"), c("nonmodelled_mrtl_rate", "nonmodelled_mrtl_rate_low", "nonmodelled_mrtl_rate_upp"))
+        absorb_dt(obs, tt)
+        absorb_dt(obs, data_pop)
+        to_agegrp(obs, 5, 99)
+        obs <- obs[, lapply(.SD, weighted.mean, w = pops), .SDcols = -c("pops", "age"), keyby = .(agegrp, year, sex)]
+        obs[, type := "observed"]
+        dt <- rbindlist(list(obs, mdd), use.names = TRUE)
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_mrtl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD mrtl rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_as_men_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_mrtl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD mrtl rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_as_women_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_mrtl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke mrtl rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_as_men_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_mrtl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke mrtl rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_as_women_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = nonmodelled_mrtl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = nonmodelled_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = nonmodelled_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Nonmodelled mrtl rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "nonmodelled_as_men_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = nonmodelled_mrtl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = nonmodelled_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = nonmodelled_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Nonmodelled mrtl rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "nonmodelled_as_women_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        # MRTL by sex alone
+        absorb_dt(dt, data_pop_agegrp)
+        dt <- dt[, lapply(.SD, weighted.mean, w = pops), .SDcols = -c("pops", "agegrp"), keyby = .(type, year, sex)]
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = chd_mrtl_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = chd_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = chd_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD mrtl rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_s_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = stroke_mrtl_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = stroke_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = stroke_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke mrtl rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_s_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = nonmodelled_mrtl_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = nonmodelled_mrtl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = nonmodelled_mrtl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Nonmodelled mrtl rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "nonmodelled_s_mrtl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        
+        
+        # INCD
+        
+        mdd <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "incd_scaled_up.csv.gz"), select = c( "mc", "scenario", "year", "agegrp", "sex", "popsize", "chd_incd", "stroke_incd"))
+        mdd[, `:=` (
+            chd_incd_rate = chd_incd / popsize,
+            stroke_incd_rate = stroke_incd / popsize
+        )]
+        mdd <- mdd[scenario == "sc0", .(
+        	chd_incd_rate = quantile(chd_incd_rate, p = 0.500),
+        	chd_incd_rate_low = quantile(chd_incd_rate, p = 0.025),
+        	chd_incd_rate_upp = quantile(chd_incd_rate, p = 0.957),
+        	stroke_incd_rate = quantile(stroke_incd_rate, p = 0.500),
+        	stroke_incd_rate_low = quantile(stroke_incd_rate, p = 0.025),
+        	stroke_incd_rate_upp = quantile(stroke_incd_rate, p = 0.975),
+        	type = "modelled"), keyby = .(year, agegrp, sex)]
+        
+        obs <- read_fst(paste0("./inputs/disease_burden/","chd_incd.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(obs, c("mu", "mu_lower", "mu_upper"), c("chd_incd_rate", "chd_incd_rate_low", "chd_incd_rate_upp"))
+        tt <- read_fst(paste0("./inputs/disease_burden/","stroke_incd.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(tt, c("mu", "mu_lower", "mu_upper"), c("stroke_incd_rate", "stroke_incd_rate_low", "stroke_incd_rate_upp"))
+        absorb_dt(obs, tt)
+        absorb_dt(obs, data_pop)
+        to_agegrp(obs, 5, 99)
+        obs <- obs[, lapply(.SD, weighted.mean, w = pops), .SDcols = -c("pops", "age"), keyby = .(agegrp, year, sex)]
+        obs[, type := "observed"]
+        dt <- rbindlist(list(obs, mdd), use.names = TRUE)
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_incd_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_incd_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_incd_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD incd rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_as_men_incd.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_incd_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_incd_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_incd_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD incd rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_as_women_incd.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_incd_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_incd_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_incd_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke incd rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_as_men_incd.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_incd_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_incd_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_incd_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke incd rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_as_women_incd.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        # INCD by sex alone
+        absorb_dt(dt, data_pop_agegrp)
+        dt <- dt[, lapply(.SD, weighted.mean, w = pops), .SDcols = -c("pops", "agegrp"), keyby = .(type, year, sex)]
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = chd_incd_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = chd_incd_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = chd_incd_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD incd rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_s_incd.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = stroke_incd_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = stroke_incd_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = stroke_incd_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke incd rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_s_incd.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        
+        # PRVL
+        mdd <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "prvl_scaled_up.csv.gz"), select = c( "mc", "scenario", "year", "agegrp", "sex", "popsize", "chd_prvl", "stroke_prvl"))
+        mdd[, `:=` (
+            chd_prvl_rate = chd_prvl / popsize,
+            stroke_prvl_rate = stroke_prvl / popsize
+        )]
+        mdd <- mdd[scenario == "sc0", .(
+        	chd_prvl_rate = quantile(chd_prvl_rate, p = 0.500),
+        	chd_prvl_rate_low = quantile(chd_prvl_rate, p = 0.025),
+        	chd_prvl_rate_upp = quantile(chd_prvl_rate, p = 0.957),
+        	stroke_prvl_rate = quantile(stroke_prvl_rate, p = 0.500),
+        	stroke_prvl_rate_low = quantile(stroke_prvl_rate, p = 0.025),
+        	stroke_prvl_rate_upp = quantile(stroke_prvl_rate, p = 0.975),
+        	type = "modelled"), keyby = .(year, agegrp, sex)]
+        
+        obs <- read_fst(paste0("./inputs/disease_burden/","chd_prvl.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(obs, c("mu", "mu_lower", "mu_upper"), c("chd_prvl_rate", "chd_prvl_rate_low", "chd_prvl_rate_upp"))
+        tt <- read_fst(paste0("./inputs/disease_burden/","stroke_prvl.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        setnames(tt, c("mu", "mu_lower", "mu_upper"), c("stroke_prvl_rate", "stroke_prvl_rate_low", "stroke_prvl_rate_upp"))
+        absorb_dt(obs, tt)
+        absorb_dt(obs, data_pop)
+        to_agegrp(obs, 5, 99)
+        obs <- obs[, lapply(.SD, weighted.mean, w = pops), .SDcols = -c("pops", "age"), keyby = .(agegrp, year, sex)]
+        obs[, type := "observed"]
+        dt <- rbindlist(list(obs, mdd), use.names = TRUE)
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_prvl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_prvl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = chd_prvl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD prvl rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_as_men_prvl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_prvl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_prvl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = chd_prvl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD prvl rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_as_women_prvl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_prvl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_prvl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "men"], aes(x = year, y = stroke_prvl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke prvl rate", "Men")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_as_men_prvl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_prvl_rate, color = type)) + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_prvl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt[sex == "women"], aes(x = year, y = stroke_prvl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(agegrp), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke prvl rate", "Women")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_as_women_prvl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        # prvl by sex alone
+        absorb_dt(dt, data_pop_agegrp)
+        dt <- dt[, lapply(.SD, weighted.mean, w = pops), .SDcols = -c("pops", "agegrp"), keyby = .(type, year, sex)]
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = chd_prvl_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = chd_prvl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = chd_prvl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("CHD prvl rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "CHD_s_prvl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        
+        p <- ggplot() + 
+        	geom_line(data = dt, aes(x = year, y = stroke_prvl_rate, color = type)) + 
+        	geom_line(data = dt, aes(x = year, y = stroke_prvl_rate_low, color = type), linetype = "dashed") + 
+        	geom_line(data = dt, aes(x = year, y = stroke_prvl_rate_upp, color = type), linetype = "dashed") +
+        	facet_wrap(. ~ factor(sex), scales = "free") +  theme_bw() + 
+        	theme(axis.text.x = element_text(angle = 90, hjust = 0.5)) + ggtitle("Stroke prvl rate", "By sex")
+        ggsave(file.path(self$design$sim_prm$output_dir, "plots", "stroke_s_prvl.jpg"), p, height = HEIGHT, width = WIDTH)	
+        invisible(self)
+      },
+
       # print ----
 
       #' @description Prints the simulation object metadata.

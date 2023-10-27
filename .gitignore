@@ -37,6 +37,6 @@ validation_internal
 /outputs
 Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs
 IMPACTncd_Japan.code-workspace
-Rpackage/IMPACTncd_Japan_model_pkg/man/
+Rpackage/IMPACTncd_Japan_model_pkg/man
 /.vscode
 inputs/exposure_distributions

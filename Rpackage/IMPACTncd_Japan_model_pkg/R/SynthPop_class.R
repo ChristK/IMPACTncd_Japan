@@ -240,9 +240,14 @@ SynthPop <-
           self$pop[, tmp := NULL]
         } else if (scenario_nam != "sc0" && !"wt" %in% names(self$pop)) {
           # For policy scenarios.
+          if (private$design$sim_prm$avoid_appending_csv) {
+              fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/",  self$mc_aggr, "_", self$mc, "_lifecourse.csv"))
+          } else {
+              fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
+          }
           x <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
 
-          t0 <- fread(x, select = list(integer = c("pid", "year"), character = "scenario", numeric = "wt"),
+          t0 <- fread(fnam, select = list(integer = c("pid", "year"), character = "scenario", numeric = "wt"),
                       key = c("scenario", "pid", "year"))[scenario == "sc0", ] # wt for sc0
 
           # For some reason pid and year get read incorrectly as character sometimes

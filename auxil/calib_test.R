@@ -57,4 +57,26 @@ prvl[benchmark, on = c("age", "year", "sex")][sex=="women", lines(year, chd_prvl
 prvl[sex == "women", plot(year, chd_prvl)]
 prvl[sex == "women", plot(year, chd_ftlt_clbr_fctr)]
 
+unclbr <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "prvl_scaled_up.csv.gz"), 
+                     select = c("year", "agegrp", "sex", "mc", "popsize", "chd_prvl", "stroke_prvl"))
 
+unclbr <- unclbr[agegrp == "95-99", .(chd_prvl = chd_prvl/popsize, stroke_prvl = stroke_prvl/popsize), keyby = .(sex, year, mc)
+   ][, .(chd_prvl = mean(chd_prvl), stroke_prvl = mean(stroke_prvl)), keyby = .(sex, year)]
+
+unclbr[sex == "men", plot(year, chd_prvl)]
+
+lc[age > 94, sum(chd_prvl > 0)/.N, keyby = year] # prevalence increases fast
+lc[age > 94, sum(chd_prvl == 1)/.N, keyby = year] # incidence plateau
+lc[age > 94 & chd_prvl > 0, sum(all_cause_mrtl == 2L)/.N, keyby = year][, plot(year, V1)]
+lc[age > 94 & chd_prvl > 0, sum(all_cause_mrtl == 1L)/.N, keyby = year][, plot(year, V1)]
+lc[age > 94 & chd_prvl > 0, sum(all_cause_mrtl == 3L)/.N, keyby = year][, plot(year, V1)]
+lc[age > 98 & sex == "women", sum(all_cause_mrtl > 0L)/.N, keyby = year][, scatter.smooth(year, V1)]
+
+lc[age == 95 & sex == "women", sum(all_cause_mrtl == 2L)/.N, keyby = year][, scatter.smooth(year, V1)]
+benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == 95L,]
+benchmark[sex == "women", lines(year, mu2, col = "red")]
+
+lc[age == 95 & sex == "women", sum(chd_prvl > 0)/.N, keyby = year][, scatter.smooth(year, V1)]
+benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_prvl.fst"), columns = c("age", "sex", "year", "mu") , as.data.table = TRUE)[age == 95L,]
+benchmark[sex == "women", plot(year, mu, col = "red")]
+lc[age == 95 & sex == "women", sum(chd_prvl > 0)/.N, keyby = year][, lines(year, V1)]

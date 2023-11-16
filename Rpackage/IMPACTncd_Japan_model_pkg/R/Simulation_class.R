@@ -266,6 +266,25 @@ Simulation <-
         invisible(self)
         },
 
+
+# The trends in incidence by sex alone seem a bit off. This is because I
+# calibrate using a single year of age, and there is bias there that is
+# compounded rather than cancelling out. I think I can fix this by adding a
+# final step in the calibration after the calibration by a single year of age
+# finish. The prevalence at older ages fluctuates a lot. This is because the
+# initial values we get from GBD are not aligned with the mortality rates we
+# use. The only way to fix this is by using DISMOD to align the initial
+# prevalence for the given incidence and mortality. Please remind me if you have
+# used DISMOD before so you can do this. It would be very helpful. Nonmodelled,
+# CHD and stroke mortalities are underestimated. This is most likely because I
+# calibrate them independently from one another while the risk of mortality is
+# not independent but competing. I think I can change the calibration algorithm
+# to consider competing risks. Another possibility is that it is the bias
+# introduced by the use of beta distribution for the uncertainty. From memory,
+# when I checked it, that bias was much smaller than the one observed in these
+# plots, but I will double-check to make sure.
+ 
+
       # calibrate_incd_ftlt ----
       #' @description generates new calibration parameters and ovwrites old ones.
       #' @param mc A positive sequential integer vector with the Monte Carlo
@@ -311,7 +330,7 @@ Simulation <-
         unclbr <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "incd_scaled_up.csv.gz"), 
                         select = c("year", "age", "sex", "mc", "popsize", "chd_incd", "stroke_incd"))
         unclbr <- unclbr[age == age_, .(chd_incd = chd_incd/popsize, stroke_incd = stroke_incd/popsize), keyby = .(age, sex, year, mc)
-          ][, .(chd_incd = mean(chd_incd), stroke_incd = mean(stroke_incd)), keyby = .(age, sex, year)]
+          ][, .(chd_incd = median(chd_incd), stroke_incd = median(stroke_incd)), keyby = .(age, sex, year)]
         
         # for CHD
         # fit a log-log linear model to the uncalibrated results and store the coefficients
@@ -321,7 +340,7 @@ Simulation <-
         # load benchmark
         benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_incd.fst"), columns = c("age", "sex", "year", "mu") , as.data.table = TRUE)[age == age_,]
         # fit a log-log linear model to the benchmark incidence and store the coefficients
-        benchmark[, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
+        benchmark[year >= self$design$sim_prm$init_year_long, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
         # calculate the calibration factors that the uncalibrated log-log model
         # need to be multiplied with so it can match the benchmark log-log model
         unclbr[benchmark[year == min(year)], chd_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
@@ -332,7 +351,7 @@ Simulation <-
         unclbr[, intercept_unclbr := nafill(intercept_unclbr, "const", max(intercept_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
         unclbr[, trend_unclbr := nafill(trend_unclbr, "const", max(trend_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
         benchmark <- read_fst(file.path("./inputs/disease_burden", "stroke_incd.fst"), columns = c("age", "sex", "year", "mu") , as.data.table = TRUE)[age == age_,]
-        benchmark[, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
+        benchmark[year >= self$design$sim_prm$init_year_long, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
         unclbr[benchmark[year == min(year)], stroke_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
 
         # keep only year, age, sex, and calibration factors (to be multiplied
@@ -355,7 +374,7 @@ Simulation <-
         prvl <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "prvl_scaled_up.csv.gz"), 
                         select = c("year", "age", "sex", "mc", "popsize", "chd_prvl", "stroke_prvl"))
         prvl <- prvl[age == age_, .(chd_prvl = chd_prvl/popsize, stroke_prvl = stroke_prvl/popsize), keyby = .(age, sex, year, mc)
-          ][, .(chd_prvl = mean(chd_prvl), stroke_prvl = mean(stroke_prvl)), keyby = .(age, sex, year)]
+          ][, .(chd_prvl = median(chd_prvl), stroke_prvl = median(stroke_prvl)), keyby = .(age, sex, year)]
         prvl[unclbr, on = c("year", "age", "sex"), `:=` (chd_ftlt_clbr_fctr = 1 / (chd_prvl + i.chd_prvl_correction),
          stroke_ftlt_clbr_fctr = 1 / (stroke_prvl + i.stroke_prvl_correction))]
 

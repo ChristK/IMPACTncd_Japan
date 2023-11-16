@@ -82,7 +82,6 @@ Design <-
             "export_xps"            ,
             "output_dir"            ,
             "synthpop_dir"          ,
-            "validation"            ,
             "max_prvl_for_outputs"  ,
             "iteration_n_max"       ,
             "n_synthpop_aggregation"

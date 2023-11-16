@@ -1,5 +1,5 @@
 
-
+# PRODUCES WRONG PLOTS FOR MORTALITY
 ####################################
 ###### validation plots of incidence, prevalence, and mortality
 ####################################
@@ -27,9 +27,6 @@
 
 HEIGHT <- 5
 WIDTH <- 10
-
-
-
 
 ######################################################
 ######################################################
@@ -429,37 +426,17 @@ for(iii in 1:nrow(LOOP)){
 			a[51:nrow(a), ]	
 			
 			
-		data_gbd_pop[, ":="(
-			N       = mu2 * pops,
-			N_lower = mu_lower * pops,
-			N_upper = mu_upper * pops
-			), ]
-		
-		
-		
 		### gbd + pop per 5 yo
 		data_gbd_agg <- data_gbd_pop[, .(
-			n_gbd_med = sum(N),
-			n_gbd_low = sum(N_lower),
-			n_gbd_upp = sum(N_upper),
+			rate_gbd_med = weighted.mean(mu2, pops),
+			rate_gbd_low = weighted.mean(mu_lower, pops),
+			rate_gbd_upp = weighted.mean(mu_upper, pops),
+			n_gbd_med = sum(mu2 * pops),
+			n_gbd_low = sum(mu_lower * pops),
+			n_gbd_upp = sum(mu_upper * pops),
 			pops = sum(pops)			
 			), by = c("year", "agegrp", "sex")]
-			
-			
-
-		data_gbd_agg[, ":="(
-			rate_gbd_med = n_gbd_med/pops,
-			rate_gbd_low = n_gbd_low/pops,
-			rate_gbd_upp = n_gbd_upp/pops
-			), ]
-			
-			data_gbd_agg[, max(year) - min(year) + 1, ] 
-			data_gbd_agg[, unique(agegrp) %>% length(.), ]
-			data_gbd_agg[, unique(sex) %>% length(.), ] 
-			nrow(data_gbd_agg)
-		
-		
-		
+	
 		
 		
 		### plot men

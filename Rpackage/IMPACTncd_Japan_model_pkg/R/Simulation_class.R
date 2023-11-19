@@ -1047,6 +1047,8 @@ Simulation <-
       # split the files into 50MB chunks
       for (i in 1:length(fl)) {
         file <- fl[i]
+        if (!file.exists(file)) next
+        
           # split the file into 49MB chunks
           if (.Platform$OS.type == "unix") {
             system(paste0("split -b 49m ", file, " ", file, ".chunk"))

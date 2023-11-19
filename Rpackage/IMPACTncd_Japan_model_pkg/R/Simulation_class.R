@@ -162,22 +162,7 @@ Simulation <-
         
         # recombine the chunks of large files
         # TODO logic to delete these files
-        if (file.exists("./simulation/large_files_indx.csv")) {
-          fl <- fread("./simulation/large_files_indx.csv")$pths
-          for (i in 1:length(fl)) {
-            if (file.exists(fl[i])) next
-            file <- fl[i]
-            # recombine the chunks
-            if (.Platform$OS.type == "unix") {
-              system(paste0("cat ", file, ".chunk?? > ", file, ""))
-            } else if (.Platform$OS.type == "windows") {
-              # For windows split and cat are from https://unxutils.sourceforge.net/
-              shell(paste0("cat ", file, ".chunk?? > ", file, ""))
-            } else {
-              stop("Operating system is not supported.")
-            }
-          }
-        }
+        self$reconstruct_large_files()
 
         # check if sequential vector. Necessary if
         # design$sim_prm$n_synthpop_aggregation > 1
@@ -313,23 +298,8 @@ Simulation <-
       calibrate_incd_ftlt = function(mc, replace = FALSE) {
         # recombine the chunks of large files
         # TODO logic to delete these files
-        if (file.exists("./simulation/large_files_indx.csv")) {
-          fl <- fread("./simulation/large_files_indx.csv")$pths
-          for (i in 1:length(fl)) {
-            if (file.exists(fl[i])) next
-            file <- fl[i]
-            # recombine the chunks
-            if (.Platform$OS.type == "unix") {
-              system(paste0("cat ", file, ".chunk?? > ", file, ""))
-            } else if (.Platform$OS.type == "windows") {
-              # For windows split and cat are from https://unxutils.sourceforge.net/
-              shell(paste0("cat ", file, ".chunk?? > ", file, ""))
-            } else {
-              stop("Operating system is not supported.")
-            }
-          }
-        }
-        
+        self$reconstruct_large_files()
+
         export_xps <- self$design$sim_prm$export_xps # save the original value to be restored later
         self$design$sim_prm$export_xps <- FALSE # turn off export_xps to speed up the calibration
         private$create_empty_calibration_prms_file(replace = replace)
@@ -968,10 +938,22 @@ Simulation <-
         	stroke_prvl_rate_upp = quantile(stroke_prvl_rate, p = 0.975),
         	type = "modelled"), keyby = .(year, agegrp, sex)]
         
-        obs <- read_fst(paste0("./inputs/disease_burden/","chd_prvl.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        obs <- read_fst(paste0("./inputs/disease_burden/","chd_prvl.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper", "prvl_mltp"),  as.data.table = TRUE)
         setnames(obs, c("mu", "mu_lower", "mu_upper"), c("chd_prvl_rate", "chd_prvl_rate_low", "chd_prvl_rate_upp"))
-        tt <- read_fst(paste0("./inputs/disease_burden/","stroke_prvl.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper"),  as.data.table = TRUE)
+        obs[, `:=` (
+            chd_prvl_rate = chd_prvl_rate * prvl_mltp,
+            chd_prvl_rate_low = chd_prvl_rate_low * prvl_mltp,
+            chd_prvl_rate_upp = chd_prvl_rate_upp * prvl_mltp,
+            prvl_mltp = NULL
+        )]
+        tt <- read_fst(paste0("./inputs/disease_burden/","stroke_prvl.fst"), columns = c("age", "year", "sex", "mu", "mu_lower", "mu_upper", "prvl_mltp"),  as.data.table = TRUE)
         setnames(tt, c("mu", "mu_lower", "mu_upper"), c("stroke_prvl_rate", "stroke_prvl_rate_low", "stroke_prvl_rate_upp"))
+        tt[, `:=` (
+            stroke_prvl_rate = stroke_prvl_rate * prvl_mltp,
+            stroke_prvl_rate_low = stroke_prvl_rate_low * prvl_mltp,
+            stroke_prvl_rate_upp = stroke_prvl_rate_upp * prvl_mltp,
+            prvl_mltp = NULL
+        )]
         absorb_dt(obs, tt)
         absorb_dt(obs, data_pop)
         to_agegrp(obs, 5, 99)
@@ -1033,10 +1015,95 @@ Simulation <-
         invisible(self)
       },
 
-      # print ----
+      # split_large_files ----
+      #' @description Splits files larger than 50Mb into chunks of 49Mb.
+      #' @details The function splits files larger than 50Mb into chunks of 49Mb
+      #' so they can be tracked by GitHub. The large files are deleted and an
+      #' index is created at "./simulation/large_files_indx.csv" so they can be
+      #' reconstructed. The function also adds the large files to `.gitignore`.
+      #' It works on Linux and Windows. Untested on Mac.
+      #' @return The invisible `Simulation` object.
+      split_large_files = function() {
+      fl <- list.files(".", full.names = TRUE, recursive = TRUE)
+      fl <- sort(fl[file.size(fl)/(1024^2) >= 50])
+      fl <- grep("/synthpop/|/outputs/", fl, ignore.case = TRUE, value = TRUE, invert = TRUE)
+      if (length(fl) == 0) { # no large files. Early escape.
+        invisible(self)
+      }
 
+      if (file.exists("./simulation/large_files_indx.csv")) {
+          fl <- sort(unique(c(fread("./simulation/large_files_indx.csv")$pths, fl)))
+      }
+      fwrite(list(pths = fl), "./simulation/large_files_indx.csv")
+      
+      # add large files to .gitignore
+      excl <- readLines("./.gitignore")
+      for (i in 1:length(fl)) {
+        file <- gsub("^./", "", fl[i])
+        if (file %in% excl) next
+        write(file, file="./.gitignore", append = TRUE)
+      }
+      
+      # split the files into 50MB chunks
+      for (i in 1:length(fl)) {
+        file <- fl[i]
+          # split the file into 49MB chunks
+          if (.Platform$OS.type == "unix") {
+            system(paste0("split -b 49m ", file, " ", file, ".chunk"))
+          } else if (.Platform$OS.type == "windows") {
+            # For windows split and cat are from https://unxutils.sourceforge.net/
+            shell(paste0("split -b 49m ", file, " ", file, ".chunk"))
+          } else stop("Operating system is not supported.")
+          # remove the original file
+          file.remove(file)
+      }
+
+      invisible(self)
+      },
+
+      # reconstruct_large_files ----
+      #' @description Reconstructs large files from chunks.
+      #' @details The function reconstructs large files from chunks. The path of
+      #' the files are stored in "./simulation/large_files_indx.csv". It works
+      #' on Linux and Windows. Untested on Mac.
+      #' @return The invisible `Simulation` object.
+      reconstruct_large_files = function() {
+        if (file.exists("./simulation/large_files_indx.csv")) {
+          fl <- fread("./simulation/large_files_indx.csv")$pths
+          for (i in 1:length(fl)) {
+            if (file.exists(fl[i])) next
+            file <- fl[i]
+            # recombine the chunks
+            if (.Platform$OS.type == "unix") {
+              system(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else if (.Platform$OS.type == "windows") {
+              # For windows split and cat are from https://unxutils.sourceforge.net/
+              shell(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else {
+              stop("Operating system is not supported.")
+            }
+          }
+        }
+        invisible(self)
+      },
+
+      # del_large_files ----
+      #' @description Deletes large files.
+      #' @details The function deletes large files that are stored in chunks.
+      #' The path of the files are stored in
+      #' "./simulation/large_files_indx.csv".
+      #' @return The invisible `Simulation` object.
+      del_large_files = function() {
+      if (file.exists("./simulation/large_files_indx.csv")) {
+        fl <- fread("./simulation/large_files_indx.csv")$pths
+        file.remove(fl) 
+      }
+      invisible(self)
+      }, 
+
+      # print ----
       #' @description Prints the simulation object metadata.
-      #' @return The invisible `SynthPop` object.
+      #' @return The invisible `Simulation` object.
       print = function() {
         print(c(
           "TODO..."

@@ -159,6 +159,25 @@ Simulation <-
 
         if (!is.integer(mc)) stop("mc need to be an integer")
         if (any(mc <= 0)) stop("mc need to be positive integer")
+        
+        # recombine the chunks of large files
+        # TODO logic to delete these files
+        if (file.exists("./simulation/large_files_indx.csv")) {
+          fl <- fread("./simulation/large_files_indx.csv")$pths
+          for (i in 1:length(fl)) {
+            if (file.exists(fl[i])) next
+            file <- fl[i]
+            # recombine the chunks
+            if (.Platform$OS.type == "unix") {
+              system(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else if (.Platform$OS.type == "windows") {
+              # For windows split and cat are from https://unxutils.sourceforge.net/
+              shell(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else {
+              stop("Operating system is not supported.")
+            }
+          }
+        }
 
         # check if sequential vector. Necessary if
         # design$sim_prm$n_synthpop_aggregation > 1
@@ -292,6 +311,25 @@ Simulation <-
       #' @param replace If TRUE the calibration deletes the previous calibration file and starts from scratch. Else it continues from the last age.
       #' @return The invisible self for chaining.
       calibrate_incd_ftlt = function(mc, replace = FALSE) {
+        # recombine the chunks of large files
+        # TODO logic to delete these files
+        if (file.exists("./simulation/large_files_indx.csv")) {
+          fl <- fread("./simulation/large_files_indx.csv")$pths
+          for (i in 1:length(fl)) {
+            if (file.exists(fl[i])) next
+            file <- fl[i]
+            # recombine the chunks
+            if (.Platform$OS.type == "unix") {
+              system(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else if (.Platform$OS.type == "windows") {
+              # For windows split and cat are from https://unxutils.sourceforge.net/
+              shell(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else {
+              stop("Operating system is not supported.")
+            }
+          }
+        }
+        
         export_xps <- self$design$sim_prm$export_xps # save the original value to be restored later
         self$design$sim_prm$export_xps <- FALSE # turn off export_xps to speed up the calibration
         private$create_empty_calibration_prms_file(replace = replace)

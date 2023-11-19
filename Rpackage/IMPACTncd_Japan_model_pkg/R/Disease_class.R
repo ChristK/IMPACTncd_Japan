@@ -1260,7 +1260,7 @@ Disease <-
           if (design_$sim_prm$prvl_uncertainty_distr == "uniform") {
             if (mc_ == 0L) {
               out[, `:=` (
-                mu = (mu_lower + mu_upper)/2,
+                mu = prvl_mltp * (mu_lower + mu_upper)/2,
                 mu_lower = NULL,
                 mu_upper = NULL
               )]
@@ -1268,15 +1268,15 @@ Disease <-
               set.seed(private$seed + mc_ * 10 + 5L)
               k <- runif(1)
               out[, `:=`(
-                mu = qunif(k, mu_lower, mu_upper),
+                mu = prvl_mltp * qunif(k, mu_lower, mu_upper),
                 mu_lower = NULL,
                 mu_upper = NULL
               )]
             }
           } else { # if distr == "beta"
               if (mc_ == 0L) {
-              out[mu != mu_upper, `:=` (
-                mu = qbeta(0.5, shape1, shape2)
+              out[, `:=` ( 
+                mu = prvl_mltp * qbeta(0.5, shape1, shape2)
               )]
               out[, `:=` (               
                 mu_lower = NULL,
@@ -1285,8 +1285,8 @@ Disease <-
             } else { # if mc > 0 TODO stop if mc < 0
               set.seed(private$seed + mc_ * 10 + 5L)
               k <- runif(1)
-              out[mu != mu_upper, `:=`(
-                mu = qbeta(k, shape1, shape2)
+              out[, `:=`(
+                mu = prvl_mltp * qbeta(k, shape1, shape2)
               )]
               out[, `:=`(
                 mu_lower = NULL,
@@ -1295,7 +1295,7 @@ Disease <-
             }
           }
           } # end !missing(mc_)
-          out[, c("cause_name", "measure_name", "N", "N_lower", "N_upper", "shape1", "shape2") := NULL]
+          out[, c("cause_name", "measure_name", "N", "N_lower", "N_upper", "shape1", "shape2", "prvl_mltp") := NULL]
         } else {
           message("Incidence type: ", self$meta$incidence$type)
           out <- data.table(NULL)
@@ -1767,6 +1767,26 @@ Disease <-
       # gen_sp_forPARF ----
       gen_sp_forPARF =
         function(mc_, ff, design_, diseases_) {
+
+        # recombine the chunks of large files
+        # TODO logic to delete these files
+        if (file.exists("./simulation/large_files_indx.csv")) {
+          fl <- fread("./simulation/large_files_indx.csv")$pths
+          for (i in 1:length(fl)) {
+            if (file.exists(fl[i])) next
+            file <- fl[i]
+            # recombine the chunks
+            if (.Platform$OS.type == "unix") {
+              system(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else if (.Platform$OS.type == "windows") {
+              # For windows split and cat are from https://unxutils.sourceforge.net/
+              shell(paste0("cat ", file, ".chunk?? > ", file, ""))
+            } else {
+              stop("Operating system is not supported.")
+            }
+          }
+        }
+
 
           dqRNGkind("pcg64")
           set.seed(private$seed + mc_)

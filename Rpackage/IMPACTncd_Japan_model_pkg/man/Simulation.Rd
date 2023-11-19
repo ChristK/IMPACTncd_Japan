@@ -40,6 +40,9 @@ To be completed...
 \item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
 \item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
 \item \href{#method-Simulation-validate}{\code{Simulation$validate()}}
+\item \href{#method-Simulation-split_large_files}{\code{Simulation$split_large_files()}}
+\item \href{#method-Simulation-reconstruct_large_files}{\code{Simulation$reconstruct_large_files()}}
+\item \href{#method-Simulation-del_large_files}{\code{Simulation$del_large_files()}}
 \item \href{#method-Simulation-print}{\code{Simulation$print()}}
 \item \href{#method-Simulation-clone}{\code{Simulation$clone()}}
 }
@@ -326,6 +329,65 @@ The invisible self for chaining.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-split_large_files"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-split_large_files}{}}}
+\subsection{Method \code{split_large_files()}}{
+Splits files larger than 50Mb into chunks of 49Mb.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$split_large_files()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+The function splits files larger than 50Mb into chunks of 49Mb
+so they can be tracked by GitHub. The large files are deleted and an
+index is created at "./simulation/large_files_indx.csv" so they can be
+reconstructed. The function also adds the large files to `.gitignore`.
+It works on Linux and Windows. Untested on Mac.
+}
+
+\subsection{Returns}{
+The invisible `Simulation` object.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-reconstruct_large_files"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-reconstruct_large_files}{}}}
+\subsection{Method \code{reconstruct_large_files()}}{
+Reconstructs large files from chunks.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$reconstruct_large_files()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+The function reconstructs large files from chunks. The path of
+the files are stored in "./simulation/large_files_indx.csv". It works
+on Linux and Windows. Untested on Mac.
+}
+
+\subsection{Returns}{
+The invisible `Simulation` object.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-del_large_files"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-del_large_files}{}}}
+\subsection{Method \code{del_large_files()}}{
+Deletes large files.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_large_files()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+The function deletes large files that are stored in chunks.
+The path of the files are stored in
+"./simulation/large_files_indx.csv".
+}
+
+\subsection{Returns}{
+The invisible `Simulation` object.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-print"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-print}{}}}
 \subsection{Method \code{print()}}{
@@ -335,7 +397,7 @@ Prints the simulation object metadata.
 }
 
 \subsection{Returns}{
-The invisible `SynthPop` object.
+The invisible `Simulation` object.
 }
 }
 \if{html}{\out{<hr>}}

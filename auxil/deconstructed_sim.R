@@ -1,6 +1,26 @@
 # change L6 to L10 and remove "#" from L54 to L84 for IMPACT-NCD-JAPAN
 source("./global.R")
 design <- Design$new("./inputs/sim_design.yaml")
+
+# recombine the chunks of large files
+# TODO logic to delete these files
+if (file.exists("./simulation/large_files_indx.csv")) {
+  fl <- fread("./simulation/large_files_indx.csv")$pths
+  for (i in 1:length(fl)) {
+    if (file.exists(fl[i])) next
+    file <- fl[i]
+    # recombine the chunks
+    if (.Platform$OS.type == "unix") {
+      system(paste0("cat ", file, ".chunk?? > ", file, ""))
+    } else if (.Platform$OS.type == "windows") {
+      # For windows split and cat are from https://unxutils.sourceforge.net/
+      shell(paste0("cat ", file, ".chunk?? > ", file, ""))
+    } else {
+      stop("Operating system is not supported.")
+    }
+  }
+}
+
 # RR ----
 # Create a named list of Exposure objects for the files in ./inputs/RR
 fl <- list.files(path = "./inputs/RR", pattern = ".csvy$", full.names = TRUE)

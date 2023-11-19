@@ -32,11 +32,12 @@ Rpackage/IMPACTncd_Japan_model_pkg/src/*.dll
 # R Environment Variables
 .Renviron
 validation_internal
-/simulation
 /inputs/synthpop
 /outputs
 Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs
 IMPACTncd_Japan.code-workspace
 Rpackage/IMPACTncd_Japan_model_pkg/man
 /.vscode
-inputs/exposure_distributions
+inputs/exposure_distributions/Table_HbA1c.fst
+inputs/exposure_distributions/Table_LDLc.fst
+inputs/exposure_distributions/Table_SBP.fst

@@ -538,14 +538,12 @@ Disease <-
           absorb_dt(parf_dt, tt) # mu is still mrtl, not ftlt
           setnafill(parf_dt, "c", fill = 0, cols = "mu") # fix for prostate and breast cancer
 
-        if (self$name != "nonmodelled") {
           absorb_dt(parf_dt, fread("./simulation/calibration_prms.csv",
             select =
               c("year", "age", "sex", paste0(self$name, "_ftlt_clbr_fctr"))
           ))
-        }
 
-        if (self$name == "nonmodelled" || !design_$sim_prm$calibrate_to_ftlt_trends) 
+        if (!design_$sim_prm$calibrate_to_ftlt_trends) 
           parf_dt[, paste0(self$name, "_ftlt_clbr_fctr") := 1]
 
           setnames(parf_dt, paste0(self$name, "_ftlt_clbr_fctr"), "ftlt_clbr_fctr")

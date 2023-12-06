@@ -305,17 +305,18 @@ Simulation <-
         private$create_empty_calibration_prms_file(replace = replace)
         clbr <- fread("./simulation/calibration_prms.csv", 
                         colClasses = list(numeric = c("chd_incd_clbr_fctr", "stroke_incd_clbr_fctr",
-                                                      "chd_ftlt_clbr_fctr", "stroke_ftlt_clbr_fctr")))
+                                                      "chd_ftlt_clbr_fctr", "stroke_ftlt_clbr_fctr",
+                                                       "nonmodelled_ftlt_clbr_fctr")))
 
         if (replace) {
           age_start <- self$design$sim_prm$ageL
         } else { # if replace == FALSE
           # if all ages exist skip calibration
-          if (dim(clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1])[1] == 0) {
+          if (dim(clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1 | nonmodelled_ftlt_clbr_fctr == 1])[1] == 0) {
             message("All ages have been calibrated. Skipping calibration.")
             return(invisible(self))
           }
-          age_start <- clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1, min(age)] # Unsafe but rarely
+          age_start <- clbr[chd_incd_clbr_fctr == 1 | stroke_incd_clbr_fctr == 1 | chd_ftlt_clbr_fctr == 1 | stroke_ftlt_clbr_fctr == 1 | nonmodelled_ftlt_clbr_fctr == 1, min(age)] # Unsafe but rarely
           message(paste0("Starting calibration from age ", age_start, "."))
         }
 
@@ -331,14 +332,14 @@ Simulation <-
           del_logs()$
           del_outputs()$
           run(mc, multicore = TRUE, "sc0")$
-          export_summaries(multicore = TRUE, type = c("incd", "prvl", "dis_mrtl"), single_year_of_age = TRUE)
+          export_summaries(multicore = TRUE, type = c("incd", "prvl"), single_year_of_age = TRUE) # , "dis_mrtl"
        
         # Incidence calibration
         # load the uncalibrated results
         unclbr <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "incd_scaled_up.csv.gz"), 
                         select = c("year", "age", "sex", "mc", "popsize", "chd_incd", "stroke_incd"))
         unclbr <- unclbr[age == age_, .(chd_incd = chd_incd/popsize, stroke_incd = stroke_incd/popsize), keyby = .(age, sex, year, mc)
-          ][, .(chd_incd = median(chd_incd), stroke_incd = median(stroke_incd)), keyby = .(age, sex, year)]
+          ][, .(chd_incd = mean(chd_incd), stroke_incd = mean(stroke_incd)), keyby = .(age, sex, year)]
         
         # for CHD
         # fit a log-log linear model to the uncalibrated results and store the coefficients
@@ -351,7 +352,7 @@ Simulation <-
         benchmark[year >= self$design$sim_prm$init_year_long, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
         # calculate the calibration factors that the uncalibrated log-log model
         # need to be multiplied with so it can match the benchmark log-log model
-        unclbr[benchmark[year == min(year)], chd_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
+        unclbr[benchmark[year == max(year)], chd_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
         unclbr[, c("intercept_unclbr", "trend_unclbr") := NULL]
 
         # Repeat for stroke
@@ -360,7 +361,7 @@ Simulation <-
         unclbr[, trend_unclbr := nafill(trend_unclbr, "const", max(trend_unclbr, na.rm = TRUE)), by = sex] # NOTE I use max just to return a value. It doesn't matter what value it is.
         benchmark <- read_fst(file.path("./inputs/disease_burden", "stroke_incd.fst"), columns = c("age", "sex", "year", "mu") , as.data.table = TRUE)[age == age_,]
         benchmark[year >= self$design$sim_prm$init_year_long, c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(log(mu)~log(year)))), by = sex]
-        unclbr[benchmark[year == min(year)], stroke_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
+        unclbr[benchmark[year == max(year)], stroke_incd_clbr_fctr := exp(intercept_bnchmrk + trend_bnchmrk * log(year)) / exp(intercept_unclbr + trend_unclbr * log(year)), on = c("age", "sex")] # Do not join on year!
 
         # keep only year, age, sex, and calibration factors (to be multiplied
         # with p0)
@@ -380,15 +381,45 @@ Simulation <-
         # currently have mortality rates in the ftlt files.
 
         prvl <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "prvl_scaled_up.csv.gz"), 
-                        select = c("year", "age", "sex", "mc", "popsize", "chd_prvl", "stroke_prvl"))
-        prvl <- prvl[age == age_, .(chd_prvl = chd_prvl/popsize, stroke_prvl = stroke_prvl/popsize), keyby = .(age, sex, year, mc)
-          ][, .(chd_prvl = median(chd_prvl), stroke_prvl = median(stroke_prvl)), keyby = .(age, sex, year)]
-        prvl[unclbr, on = c("year", "age", "sex"), `:=` (chd_ftlt_clbr_fctr = 1 / (chd_prvl + i.chd_prvl_correction),
-         stroke_ftlt_clbr_fctr = 1 / (stroke_prvl + i.stroke_prvl_correction))]
+                        select = c("year", "age", "sex", "mc", "popsize", "chd_prvl", "stroke_prvl"))[age == age_,]
+
+        # prvl <- prvl[, `:=` (
+        #   chd_ftlt_clbr_fctr = (chd_prvl - chd_prvl*((stroke_mrtl + nonmodelled_mrtl)/popsize) + chd_prvl_correction * popsize)/chd_mrtl,
+        #   stroke_ftlt_clbr_fctr = (stroke_prvl - stroke_prvl*((chd_mrtl + nonmodelled_mrtl)/popsize) + stroke_prvl_correction * popsize)/stroke_mrtl,
+        #   nonmodelled_ftlt_clbr_fctr = popsize/(popsize - chd_mrtl - stroke_mrtl)
+        #   )][, .(chd_ftlt_clbr_fctr = mean(chd_ftlt_clbr_fctr),
+        #                 stroke_ftlt_clbr_fctr = mean(stroke_ftlt_clbr_fctr), 
+        #                 nonmodelled_ftlt_clbr_fctr = mean(nonmodelled_ftlt_clbr_fctr)),
+        #                  keyby = .(age, sex, year)]
+        
+        prvl <- prvl[, .(
+          chd_prvl = chd_prvl/popsize,
+          stroke_prvl = stroke_prvl/popsize,
+          popsize, age, sex, year, mc)
+          ][, .(chd_prvl = mean(chd_prvl),
+                stroke_prvl = mean(stroke_prvl),
+                popsize = mean(popsize)), keyby = .(age, sex, year)]
+        prvl[unclbr, on = c("year", "age", "sex"), `:=` (
+          chd_prvl_correction = i.chd_prvl_correction, # Note corrections for prvl are rates
+          stroke_prvl_correction = i.stroke_prvl_correction)]
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_,]
+        prvl[benchmark, on = c("age", "sex", "year"), chd_mrtl := mu2]
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "stroke_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_,]
+        prvl[benchmark, on = c("age", "sex", "year"), stroke_mrtl := mu2]
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "nonmodelled_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_,]
+        prvl[benchmark, on = c("age", "sex", "year"), nonmodelled_mrtl := mu2]
+
+
+
+        prvl[, `:=` (
+          chd_ftlt_clbr_fctr = 1 / (chd_prvl + chd_prvl_correction - stroke_mrtl - nonmodelled_mrtl),
+          stroke_ftlt_clbr_fctr = 1 / (stroke_prvl + stroke_prvl_correction - chd_mrtl - nonmodelled_mrtl),
+          nonmodelled_ftlt_clbr_fctr = 1/(1 - chd_mrtl - stroke_mrtl))]
 
         clbr[prvl, on = c("year", "age", "sex"), `:=` (
           chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr,
-          stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr
+          stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr,
+          nonmodelled_ftlt_clbr_fctr = i.nonmodelled_ftlt_clbr_fctr
         )]   
 
         fwrite(clbr, "./simulation/calibration_prms.csv") # NOTE this needs to be inside the loop so it influences the simulation during the loop over ages
@@ -1845,7 +1876,8 @@ Simulation <-
             chd_incd_clbr_fctr = 1,
             stroke_incd_clbr_fctr = 1,
             chd_ftlt_clbr_fctr = 1,
-            stroke_ftlt_clbr_fctr = 1
+            stroke_ftlt_clbr_fctr = 1,
+            nonmodelled_ftlt_clbr_fctr = 1
           )
           fwrite(clbr, "./simulation/calibration_prms.csv")
         }

@@ -3,12 +3,12 @@ IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 self <- IMPACTncd$.__enclos_env__$self
 private <- IMPACTncd$.__enclos_env__$private
 age_ = 30
-mc <- 1:5
+mc <- 1:3
 replace <- FALSE
 
 # scenario_fn_primary_prevention   <- function(sp) NULL
 # scenario_fn_secondary_prevention <- function(sp) NULL
-# 
+
 # IMPACTncd$
 #   del_logs()$
 #   del_outputs()$
@@ -18,7 +18,7 @@ replace <- FALSE
 unclbr <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "incd_scaled_up.csv.gz"), 
                      select = c("year", "age", "sex", "mc", "popsize", "chd_incd", "stroke_incd"))
 unclbr <- unclbr[age == age_, .(chd_incd = chd_incd/popsize, stroke_incd = stroke_incd/popsize), keyby = .(age, sex, year, mc)
-   ][, .(chd_incd = mean(chd_incd), stroke_incd = mean(stroke_incd)), keyby = .(age, sex, year)]
+   ][, .(chd_incd = median(chd_incd), stroke_incd = median(stroke_incd)), keyby = .(age, sex, year)]
      
 # for CHD
 # fit a log-log linear model to the uncalibrated results and store the coefficients

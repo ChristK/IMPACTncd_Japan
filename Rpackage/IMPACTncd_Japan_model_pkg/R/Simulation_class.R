@@ -430,17 +430,16 @@ Simulation <-
                 stroke_mrtl = mean(stroke_mrtl),
                 nonmodelled_mrtl = mean(nonmodelled_mrtl),
                 popsize = mean(popsize)), keyby = .(age, sex, year)]
-        mrtl[chd_mrtl == 0, chd_mrtl := 1/popsize] # to avoid Inf through diision by 0
-        mrtl[stroke_mrtl == 0, stroke_mrtl := 1/popsize] # to avoid Inf through diision by 0
-        mrtl[nonmodelled_mrtl == 0, nonmodelled_mrtl := 1/popsize] # to avoid Inf through diision by 0
-
         benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_ - 1L,]
         mrtl[benchmark, on = c("age", "sex", "year"), chd_ftlt_clbr_fctr := mu2/chd_mrtl]
         benchmark <- read_fst(file.path("./inputs/disease_burden", "stroke_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_ - 1L,]
         mrtl[benchmark, on = c("age", "sex", "year"), stroke_ftlt_clbr_fctr := mu2/stroke_mrtl]
         benchmark <- read_fst(file.path("./inputs/disease_burden", "nonmodelled_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_ - 1L,]
         mrtl[benchmark, on = c("age", "sex", "year"), nonmodelled_ftlt_clbr_fctr := mu2/nonmodelled_mrtl]
-
+        mrtl[chd_ftlt_clbr_fctr == Inf, chd_ftlt_clbr_fctr := 1] # to avoid Inf through division by 0
+        mrtl[stroke_ftlt_clbr_fctr == Inf, stroke_ftlt_clbr_fctr := 1] # to avoid Inf through division by 0
+        mrtl[nonmodelled_ftlt_clbr_fctr == Inf, nonmodelled_ftlt_clbr_fctr := 1] # to avoid Inf through division by 0
+        
         clbr[mrtl, on = c("year", "age", "sex"), `:=` (
           chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr * chd_ftlt_clbr_fctr,
           stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr * stroke_ftlt_clbr_fctr,

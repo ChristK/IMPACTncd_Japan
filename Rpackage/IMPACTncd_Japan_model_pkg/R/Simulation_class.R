@@ -332,7 +332,7 @@ Simulation <-
           del_logs()$
           del_outputs()$
           run(mc, multicore = TRUE, "sc0")$
-          export_summaries(multicore = TRUE, type = c("incd", "prvl"), single_year_of_age = TRUE) # , "dis_mrtl"
+          export_summaries(multicore = TRUE, type = c("incd", "prvl", "dis_mrtl"), single_year_of_age = TRUE) # 
        
         # Incidence calibration
         # load the uncalibrated results
@@ -412,15 +412,57 @@ Simulation <-
 
 
         prvl[, `:=` (
-          chd_ftlt_clbr_fctr = 1 / (chd_prvl + chd_prvl_correction - stroke_mrtl - nonmodelled_mrtl),
-          stroke_ftlt_clbr_fctr = 1 / (stroke_prvl + stroke_prvl_correction - chd_mrtl - nonmodelled_mrtl),
+          chd_ftlt_clbr_fctr = 1 / (chd_prvl + chd_prvl_correction), #  - stroke_mrtl - nonmodelled_mrtl
+          stroke_ftlt_clbr_fctr = 1 / (stroke_prvl + stroke_prvl_correction), #  - chd_mrtl - nonmodelled_mrtl
           nonmodelled_ftlt_clbr_fctr = 1/(1 - chd_mrtl - stroke_mrtl))]
+
+        # Fix the calibration factors for the ages that have been calibrated
+        if (age_ > age_start) {
+        # NOTE here age is age_1L
+        mrtl <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "dis_mrtl_scaled_up.csv.gz"), 
+                        select = c("year", "age", "sex", "mc", "popsize", "chd_deaths", "stroke_deaths", "nonmodelled_deaths"))[age == age_ - 1L,]
+        mrtl <- mrtl[, .(
+          chd_mrtl = chd_deaths/popsize,
+          stroke_mrtl = stroke_deaths/popsize,
+          nonmodelled_mrtl = nonmodelled_deaths/popsize,
+          popsize, age, sex, year, mc)
+          ][, .(chd_mrtl = mean(chd_mrtl),
+                stroke_mrtl = mean(stroke_mrtl),
+                nonmodelled_mrtl = mean(nonmodelled_mrtl),
+                popsize = mean(popsize)), keyby = .(age, sex, year)]
+        mrtl[chd_mrtl == 0, chd_mrtl := 1/popsize] # to avoid Inf through diision by 0
+        mrtl[stroke_mrtl == 0, stroke_mrtl := 1/popsize] # to avoid Inf through diision by 0
+        mrtl[nonmodelled_mrtl == 0, nonmodelled_mrtl := 1/popsize] # to avoid Inf through diision by 0
+
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_ - 1L,]
+        mrtl[benchmark, on = c("age", "sex", "year"), chd_ftlt_clbr_fctr := mu2/chd_mrtl]
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "stroke_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_ - 1L,]
+        mrtl[benchmark, on = c("age", "sex", "year"), stroke_ftlt_clbr_fctr := mu2/stroke_mrtl]
+        benchmark <- read_fst(file.path("./inputs/disease_burden", "nonmodelled_ftlt.fst"), columns = c("age", "sex", "year", "mu2") , as.data.table = TRUE)[age == age_ - 1L,]
+        mrtl[benchmark, on = c("age", "sex", "year"), nonmodelled_ftlt_clbr_fctr := mu2/nonmodelled_mrtl]
+
+        clbr[mrtl, on = c("year", "age", "sex"), `:=` (
+          chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr * chd_ftlt_clbr_fctr,
+          stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr * stroke_ftlt_clbr_fctr,
+          nonmodelled_ftlt_clbr_fctr = i.nonmodelled_ftlt_clbr_fctr * nonmodelled_ftlt_clbr_fctr
+        )] 
+        }
+
+        if (age_ == self$design$sim_prm$ageH) {
+          # shortcut for age == 99 hopefully with tiny bias
+          mrtl[, age := age + 1L]
+          prvl[mrtl, on = c("year", "age", "sex"), `:=` (
+          chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr * chd_ftlt_clbr_fctr,
+          stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr * stroke_ftlt_clbr_fctr,
+          nonmodelled_ftlt_clbr_fctr = i.nonmodelled_ftlt_clbr_fctr * nonmodelled_ftlt_clbr_fctr
+        )] 
+        }
 
         clbr[prvl, on = c("year", "age", "sex"), `:=` (
           chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr,
           stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr,
           nonmodelled_ftlt_clbr_fctr = i.nonmodelled_ftlt_clbr_fctr
-        )]   
+        )] 
 
         fwrite(clbr, "./simulation/calibration_prms.csv") # NOTE this needs to be inside the loop so it influences the simulation during the loop over ages
         } # end loop over ages

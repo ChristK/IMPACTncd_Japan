@@ -240,11 +240,9 @@ SynthPop <-
           self$pop[, tmp := NULL]
         } else if (scenario_nam != "sc0" && !"wt" %in% names(self$pop)) {
           # For policy scenarios.
-          if (private$design$sim_prm$avoid_appending_csv) {
-              fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/",  self$mc_aggr, "_", self$mc, "_lifecourse.csv"))
-          } else {
-              fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
-          }
+
+          fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
+
           x <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
 
           t0 <- fread(fnam, select = list(integer = c("pid", "year"), character = "scenario", numeric = "wt"),
@@ -619,7 +617,8 @@ SynthPop <-
         on.exit(self$delete_incomplete_synthpop(), add = TRUE)
         mc_ <- as.integer(ceiling(mc_))
 
-        if (Sys.info()["sysname"] == "Windows") {
+        if (.Platform$OS.type == "windows") {
+          # TODO update to make compatible with windows
           cl <-
             makeCluster(private$design$sim_prm$clusternumber) # used for clustering. Windows compatible
           registerDoParallel(cl)
@@ -1059,7 +1058,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
               absorb_dt(dt, tbl)
@@ -1106,7 +1105,7 @@ SynthPop <-
 
             col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            # if (Sys.info()["sysname"] == "Linux") {
+            # if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             # } else {
             absorb_dt(dt, tbl)
@@ -1167,7 +1166,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
               absorb_dt(dt, tbl)
@@ -1237,7 +1236,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
       dt[, trueyear := year]
       dt[age >= 70 & trueyear > 2030L, year := 2030L]
@@ -1278,7 +1277,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
       dt[, trueyear := year]
       dt[age >= 70 & trueyear > 2030L, year := 2030L]
@@ -1318,7 +1317,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
        # Tame unrealistic trends
       dt[, trueyear := year]
@@ -1355,7 +1354,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
 
@@ -1419,7 +1418,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
               absorb_dt(dt, tbl)
@@ -1465,7 +1464,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
 			absorb_dt(dt, tbl)
@@ -1505,7 +1504,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
 			absorb_dt(dt, tbl)
@@ -1550,7 +1549,7 @@ SynthPop <-
 
 			col_nam <-
               setdiff(names(tbl), intersect(names(dt), names(tbl)))
-            #if (Sys.info()["sysname"] == "Linux") {
+            #if (.Platform$OS.type == "unix") {
             #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
             #} else {
 

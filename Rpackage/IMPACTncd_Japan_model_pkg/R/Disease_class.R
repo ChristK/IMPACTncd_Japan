@@ -264,7 +264,7 @@ cl <-
             xps_dt <- parLapplyLB(
               cl = cl,
               X = seq(1, (popsize / 10L)),
-              fun = function(x) private$gen_sp_forPARF(mc_iter, ff = ff, design_ = design_, diseases_ = diseases_)
+              fun = function(x) private$gen_sp_forPARF(x, ff = ff, design_ = design_, diseases_ = diseases_)
             )
           } else {
             registerDoParallel(design_$sim_prm$clusternumber) # used for forking. Only Linux/OSX compatible

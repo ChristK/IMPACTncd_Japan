@@ -10,23 +10,20 @@ IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 
 # plot(igraph::make_ego_graph(g, order = 1, c("chd"), "in")[[1]])
 
-scenario_fn_primary_prevention   <- function(sp) NULL
-scenario_fn_secondary_prevention <- function(sp) NULL
-
 IMPACTncd$
   del_logs()$
   del_outputs()$
-  run(1:100, multicore = TRUE, "sc0")
+  run(1:2, multicore = TRUE, "sc0")
 
-
-
-scenario_fn_primary_prevention   <- function(sp) {
-
-  # Write a scenario function here
-}
+# example of primary prevention scenario function
+IMPACTncd$update_primary_prevention_scn(
+  function(synthpop) {
+    synthpop$pop[year > 2013, SBP_curr_xps := SBP_curr_xps * 0.9]
+  }
+)
 
 IMPACTncd$
-  run(1:100, multicore = TRUE, "sc1")
+  run(1:2, multicore = TRUE, "sc1")
 
 
 IMPACTncd$export_summaries(
@@ -39,5 +36,13 @@ IMPACTncd$export_summaries(
 )
 
 source("./auxil/process_out.R")
-source("./auxil/simulate_R_validation.r")
 
+
+# sp$pop colnames 
+#  [1] "pid"                     "year"                    "age"                     "sex"                     "type"                   
+#  [6] "rank_Fruit_vege"         "rankstat_Smoking_act"    "rankstat_Smoking_ex"     "rankstat_Med_HT"         "rankstat_Med_HL"        
+# [11] "rankstat_Med_DM"         "rank_PA_days"            "rank_BMI"                "rank_HbA1c"              "rank_LDLc"              
+# [16] "rank_SBP"                "rankstat_Smoking_number" "Fruit_vege_curr_xps"     "Smoking_curr_xps"        "Smoking_number_curr_xps"
+# [21] "Med_HT_curr_xps"         "Med_HL_curr_xps"         "Med_DM_curr_xps"         "PA_days_curr_xps"        "BMI_curr_xps"           
+# [26] "HbA1c_curr_xps"          "LDLc_curr_xps"           "SBP_curr_xps"            "pid_mrk"                 "wt_immrtl"              
+# [31] "all_cause_mrtl"          "cms_score"               "cms_count" 

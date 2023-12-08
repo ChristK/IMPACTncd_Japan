@@ -32,7 +32,8 @@
 Simulation <-
   R6::R6Class(
     classname = "Simulation",
-
+    lock_objects = TRUE, # allows primary prevention scenario to be updated
+    lock_class = TRUE,
 # public ------------------------------------------------------------------
     public = list(
       #' @field design A Design object.
@@ -145,7 +146,43 @@ Simulation <-
           x$meta$mortality$code))
         private$death_codes[["alive"]] <- 0L
 
+        private$primary_prevention_scn = function(synthpop) NULL # default for baseline scenario
+        private$secondary_prevention_scn = function(synthpop) NULL # default for baseline scenario
+
         invisible(self)
+      },
+
+
+      # update_primary_prevention_scn ----
+      #' @description Updates the primary prevention policy scenario
+      #' @param method a function with synthpop as an argument that models the primary prevention policy.
+      #' @return The invisible self for chaining.
+      update_primary_prevention_scn = function(method) {
+        private$primary_prevention_scn <- method
+        environment(private$primary_prevention_scn) <- environment(private$update_primary_prevention_scn)
+      },
+
+      # get_primary_prevention_scn ----
+      #' @description Get the primary prevention policy scenario
+      #' @return The primary prevention policy scenario.
+      get_primary_prevention_scn = function() {
+        private$primary_prevention_scn
+      },
+
+      # update_secondary_prevention_scn ----
+      #' @description Updates the secondary prevention policy scenario
+      #' @param method a function with synthpop as an argument that models the secondary prevention policy.
+      #' @return The invisible self for chaining.
+      update_secondary_prevention_scn = function(method) {
+        private$secondary_prevention_scn <- method
+        environment(private$secondary_prevention_scn) <- environment(private$update_secondary_prevention_scn)
+      },
+
+      # get_secondary_prevention_scn ----
+      #' @description Get the secondary prevention policy scenario
+      #' @return The secondary prevention policy scenario.
+      get_secondary_prevention_scn = function() {
+        private$secondary_prevention_scn
       },
 
       # run ----
@@ -203,16 +240,66 @@ Simulation <-
 
         if (multicore) {
 
-          if (Sys.info()["sysname"] == "Windows") {
-            cl <-
-              makeCluster(self$design$sim_prm$clusternumber) # used for clustering. Windows compatible
-            registerDoParallel(cl)
-          } else {
-            registerDoParallel(self$design$sim_prm$clusternumber) # used for forking. Only Linux/OSX compatible
-          }
+          if (self$design$sim_prm$logs) private$time_mark("Start of parallelisation")
 
-          if (self$design$sim_prm$logs)
-            private$time_mark("Start of parallelisation")
+          if (.Platform$OS.type == "windows") {
+            cl <-
+              makeClusterPSOCK(
+                self$design$sim_prm$clusternumber,
+                dryrun = FALSE,
+                quiet = FALSE,
+                rscript_startup = quote(local({
+                  library(CKutils)
+                  library(IMPACTncdJapan)
+                  library(digest)
+                  library(fst)
+                  library(qs)
+                  library(wrswoR)
+                  library(gamlss.dist)
+                  library(dqrng)
+                  library(data.table)
+                })),
+                rscript_args = c("--no-init-file",
+                                 "--no-site-file",
+                                 "--no-environ"),
+                setup_strategy = "parallel"
+              ) # used for clustering. Windows compatible
+
+            on.exit(if (exists("cl")) stopCluster(cl))
+
+            xps_dt <- parLapplyLB(
+              cl = cl,
+              X = mc_sp,
+              fun = function(x) private$run_sim(mc_ = x, scenario_nam)
+            )
+          } else {
+            # used for forking. Only Linux/OSX compatible
+            registerDoParallel(self$design$sim_prm$clusternumber)
+
+            xps_dt <- foreach(
+              mc_iter = mc_sp,
+              .inorder = FALSE,
+              .options.multicore = list(preschedule = FALSE),
+              .verbose = self$design$sim_prm$logs,
+              .packages = c(
+                "R6",
+                "digest",
+                "qs",
+                "wrswoR",
+                "gamlss.dist",
+                "dqrng",
+                "CKutils",
+                "IMPACTncdJapan",
+                "fst",
+                "data.table"
+              ),
+              .export = ls(envir = globalenv()),
+              .noexport = NULL # c("time_mark")
+            ) %dopar% {
+              private$run_sim(mc_ = mc_iter, scenario_nam)
+
+            }          
+
 
           xps_dt <- foreach(
             mc_iter = mc_sp,
@@ -236,11 +323,8 @@ Simulation <-
 
           }
 
-          if (exists("cl")) stopCluster(cl)
-
           if (self$design$sim_prm$logs) private$time_mark("End of parallelisation")
-
-
+         }
         } else {
           if (self$design$sim_prm$logs)
             private$time_mark("Start of single-core run")
@@ -322,10 +406,6 @@ Simulation <-
 
         # Run the simulation from min to max age
         for (age_ in age_start:self$design$sim_prm$ageH) {
-          scenario_fn_primary_prevention   <- function(sp) NULL
-          scenario_fn_secondary_prevention <- function(sp) NULL
-
-         # self$design$sim_prm$ageH <- age_ # restrict the age range for speed. Currently doesn't work because it trigers the generation of new synthpop files 
 
           # Run the simulation and export summaries. TODO restrict ages for efficiency.
         self$
@@ -439,7 +519,7 @@ Simulation <-
         mrtl[chd_ftlt_clbr_fctr == Inf, chd_ftlt_clbr_fctr := 1] # to avoid Inf through division by 0
         mrtl[stroke_ftlt_clbr_fctr == Inf, stroke_ftlt_clbr_fctr := 1] # to avoid Inf through division by 0
         mrtl[nonmodelled_ftlt_clbr_fctr == Inf, nonmodelled_ftlt_clbr_fctr := 1] # to avoid Inf through division by 0
-        
+
         clbr[mrtl, on = c("year", "age", "sex"), `:=` (
           chd_ftlt_clbr_fctr = i.chd_ftlt_clbr_fctr * chd_ftlt_clbr_fctr,
           stroke_ftlt_clbr_fctr = i.stroke_ftlt_clbr_fctr * stroke_ftlt_clbr_fctr,
@@ -509,7 +589,7 @@ Simulation <-
 
         if (multicore) {
 
-          if (Sys.info()["sysname"] == "Windows") {
+          if (.Platform$OS.type == "windows") {
             cl <-
               makeCluster(self$design$sim_prm$clusternumber) # used for clustering. Windows compatible
             registerDoParallel(cl)
@@ -1195,6 +1275,10 @@ Simulation <-
       death_codes = NA,
       # diseasenam_hlp = NA,
       esp_weights = data.table(),
+      #Models a primary prevention policy scenario
+      primary_prevention_scn = NULL,
+      #Models a secondary prevention policy scenario
+      secondary_prevention_scn = NULL,
 
       # run_sim ----
       # Runs the simulation in one core. mc is scalar
@@ -1225,7 +1309,7 @@ Simulation <-
            set_init_prvl(sp = sp, design_ = self$design)
         })
       
-        scenario_fn_primary_prevention(sp) # apply primary pevention scenario
+        private$primary_prevention_scn(sp) # apply primary pevention scenario
 
         lapply(self$diseases, function(x) {
           x$set_rr(sp, self$design)$
@@ -1234,7 +1318,7 @@ Simulation <-
             set_mrtl_prb(sp, self$design)
         })
 
-       scenario_fn_secondary_prevention(sp) # apply secondary pevention scenario
+        private$secondary_prevention_scn(sp) # apply secondary pevention scenario
 
         # ds <- copy(self$diseases) # Necessary for parallelisation
         # lapply(self$diseases, function(x) {

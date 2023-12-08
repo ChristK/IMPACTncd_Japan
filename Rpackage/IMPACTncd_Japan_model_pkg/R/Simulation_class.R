@@ -589,17 +589,46 @@ Simulation <-
 
         if (multicore) {
 
-          if (.Platform$OS.type == "windows") {
-            cl <-
-              makeCluster(self$design$sim_prm$clusternumber) # used for clustering. Windows compatible
-            registerDoParallel(cl)
-          } else {
-            registerDoParallel(self$design$sim_prm$clusternumber) # used for forking. Only Linux/OSX compatible
-          }
-
           if (self$design$sim_prm$logs)
             private$time_mark("Start exporting summaries")
 
+          if (.Platform$OS.type == "windows") {
+            cl <-
+              makeClusterPSOCK(
+                self$design$sim_prm$clusternumber_export,
+                dryrun = FALSE,
+                quiet = FALSE,
+                rscript_startup = quote(local({
+                  library(CKutils)
+                  library(IMPACTncdJapan)
+                  library(digest)
+                  library(fst)
+                  library(qs)
+                  library(wrswoR)
+                  library(gamlss.dist)
+                  library(dqrng)
+                  library(data.table)
+                })),
+                rscript_args = c("--no-init-file",
+                                 "--no-site-file",
+                                 "--no-environ"),
+                setup_strategy = "parallel"
+              ) # used for clustering. Windows compatible
+
+            on.exit(if (exists("cl")) stopCluster(cl))
+
+            parLapplyLB(
+              cl = cl,
+              X = seq_along(fl),
+              fun = function(i) {
+               lc <- fread(fl[i], stringsAsFactors = TRUE, key = c("scenario", "pid", "year"))
+               private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
+               NULL
+              }
+            )
+
+          } else {
+            registerDoParallel(self$design$sim_prm$clusternumber_export) # used for forking. Only Linux/OSX compatible
           xps_dt <- foreach(
             i = seq_along(fl),
             .inorder = TRUE,
@@ -618,9 +647,12 @@ Simulation <-
             lc <-   fread(fl[i], stringsAsFactors = TRUE, key = c("scenario", "pid", "year"))
             private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
             NULL
+          }          
           }
 
-          if (exists("cl")) stopCluster(cl)
+        
+
+
 
           if (self$design$sim_prm$logs)
             private$time_mark("End of exporting summuries")

@@ -239,7 +239,7 @@ Disease <-
           if (.Platform$OS.type == "windows") {
 cl <-
               makeClusterPSOCK(
-                self$design$sim_prm$clusternumber,
+                design_$sim_prm$clusternumber,
                 dryrun = FALSE,
                 quiet = FALSE,
                 rscript_startup = quote(local({

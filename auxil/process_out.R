@@ -11,7 +11,10 @@ baseline_year_for_change_outputs <- 2001L
 theme_set(new = theme_economist())
 theme_update(axis.text.x = element_text(size = 9), plot.title = element_text(hjust = 0.5))
 
-# TODO standardised age/agegroup in filenames
+what <- "dis_mrtl"
+type <- "ons"
+strata <- "year"
+baseline_year <- baseline_year_for_change_outputs
 
 # Prvl not standardised----
 simulationParameters <- read_yaml(base::normalizePath("./inputs/sim_design.yaml", mustWork = TRUE))
@@ -23,6 +26,7 @@ tbl_smmrs <- function(
     what = c(
             "prvl", "prvl_change", "incd", "incd_change",
             "ftlt", "ftlt_change", "mrtl", "mrtl_change",
+            "dis_mrtl", "dis_mrtl_change",
             "cms_score", "cms_score_change", "cms_score_age",
             "cms_score_age_change", "cms_count", "cms_count_change",
             "pop"
@@ -47,6 +51,8 @@ tbl_smmrs <- function(
                 "ftlt_change" = "/dis_mrtl",
                 "mrtl" = "mrtl",
                 "mrtl_change" = "mrtl",
+                "dis_mrtl" = "dis_mrtl",
+                "dis_mrtl_change" = "dis_mrtl",
                 "cms_score" = "cms_score",
                 "cms_score_change" = "cms_score",
                 "cms_score_age" = "cms_score_by_age",
@@ -71,6 +77,8 @@ tbl_smmrs <- function(
                 "ftlt_change" = "_deaths$|_prvl$",
                 "mrtl" = "_mrtl$|^popsize$",
                 "mrtl_change" = "_mrtl$|^popsize$",
+                "dis_mrtl" = "^nonmodelled_deaths$|^chd_deaths$|^stroke_deaths$|^popsize$",
+                "dis_mrtl_change" = "^nonmodelled_deaths$|^chd_deaths$|^stroke_deaths$|^popsize$",
                 "cms_score" = "cms_score",
                 "cms_score_change" = "cms_score",
                 "cms_score_age" = "cms_score",
@@ -88,6 +96,8 @@ tbl_smmrs <- function(
                 "ftlt_change" = "ftlt_rate_",
                 "mrtl" = "mrtl_rate_",
                 "mrtl_change" = "mrtl_change_",
+                "dis_mrtl" = "disease_mrtl_rate_",
+                "dis_mrtl_change" = "disease_mrtl_change_",                
                 "cms_score" = "mean_cms_score_",
                 "cms_score_change" = "mean_cms_score_",
                 "cms_score_age" = "mean_cms_score_",
@@ -105,6 +115,8 @@ tbl_smmrs <- function(
                 "ftlt_change" = "fatality change by ",
                 "mrtl" = "mortality by ",
                 "mrtl_change" = "mortality change by ",
+                "dis_mrtl" = "disease mortality by ",
+                "dis_mrtl_change" = "disease mortality change by ",                
                 "cms_score" = "mean CMS score by ",
                 "cms_score_change" = "mean CMS score change by ",
                 "cms_score_age" = "mean CMS score by ",
@@ -112,7 +124,7 @@ tbl_smmrs <- function(
                 "cms_count" = "mean CMS count by ",
                 "cms_count_change" = "mean CMS count change by ",
                 "pop" = "pop size by "
-        )
+        ) # used in output filenames
 
 
 
@@ -194,6 +206,7 @@ tbl_smmrs <- function(
                         }
                 }
                 setkeyv(d, setdiff(x, "mc"))
+                setcolorder(d, setdiff(x, "mc"))
                 str5 <- c(
                         "ons" = " (not standardised).csv",
                         "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
@@ -217,6 +230,7 @@ outperm <- expand.grid(
         what = c(
                 "prvl", "prvl_change", "incd", "incd_change",
                 "ftlt", "ftlt_change", "mrtl", "mrtl_change",
+                "dis_mrtl", "dis_mrtl_change",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
                 "pop"

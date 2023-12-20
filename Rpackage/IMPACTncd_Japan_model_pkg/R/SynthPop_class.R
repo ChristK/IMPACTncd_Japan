@@ -1174,7 +1174,7 @@ SynthPop <-
           #   }
           # }
           # dt[Smoking == 0L, Smoking := as.integer(range01(rankstat_Smoking) < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
-          dt[Smoking == 0L, Smoking := as.integer(rankstat_Smoking_ex < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
+          dt[Smoking == 0L, Smoking := as.integer(rankstat_Smoking_ex < mu)] # 0 = never smoker, 1=ex, 2=current
 
 
           dt[, Smoking := factor(Smoking + 1L)]

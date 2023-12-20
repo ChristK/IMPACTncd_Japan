@@ -1,4 +1,4 @@
-mcnum <- 20L # Number of iterations
+mcnum <- 2L # Number of iterations
 source("./global.R")
 IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 
@@ -77,9 +77,11 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear & Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(rankstat_Smoking_ex < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
+        synthpop$pop[year > setyear & Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(rankstat_Smoking_ex < mu)] # 0 = never smoker, 1=ex, 2=current
 
         synthpop$pop[, Smoking_curr_xps := factor(Smoking_curr_xps + 1L)]
+        if (anyNA(synthpop$pop$Smoking_curr_xps)) stop("NA in Smoking_curr_xps")
+
         synthpop$pop[, c(col_nam, "tax_tabaco") := NULL]
 
 
@@ -95,8 +97,9 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
+        synthpop$pop[year > setyear, Smoking_number_curr_xps := NA_integer_] # Clean slate
         synthpop$pop[
-            year > setyear & Smoking_curr_xps == 3,
+            year > setyear & Smoking_curr_xps == "3",
             Smoking_number_grp := (rankstat_Smoking_number > pa0) +
                 (rankstat_Smoking_number > pa1) +
                 (rankstat_Smoking_number > pa2) +
@@ -116,7 +119,7 @@ IMPACTncd$update_primary_prevention_scn(
         synthpop$pop[Smoking_number_grp == 6L, Smoking_number_curr_xps := 35L]
         synthpop$pop[Smoking_number_grp == 7L, Smoking_number_curr_xps := 40L]
         # I do not explicitly set.seed because I do so at the beginning of the scenario
-        synthpop$pop[Smoking_number_grp == 8L, Smoking_number := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
+        synthpop$pop[Smoking_number_grp == 8L, Smoking_number_curr_xps := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
 
         synthpop$pop[, c(col_nam, "Smoking_number_grp") := NULL]
         NULL
@@ -372,6 +375,7 @@ IMPACTncd$update_primary_prevention_scn(
         synthpop$pop[year > setyear, Fruit_vege_curr_xps := qZINBI(rank_Fruit_vege, mu, sigma, nu)]
         synthpop$pop[, c(col_nam) := NULL]
 
+        # Smoking
         rs <- .Random.seed
         set.seed(2121870L + synthpop$mc) # Not mc_aggr # same as in Synthpop class
         synthpop$pop[, tax_tabaco := 0L] # true for 2001
@@ -411,9 +415,10 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear & Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(rankstat_Smoking_ex < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
+        synthpop$pop[year > setyear & Smoking_curr_xps == 0L, Smoking_curr_xps := as.integer(rankstat_Smoking_ex < mu)] # 0 = never smoker, 1=ex, 2=current
 
         synthpop$pop[, Smoking_curr_xps := factor(Smoking_curr_xps + 1L)]
+        if (anyNA(synthpop$pop$Smoking_curr_xps)) stop("NA in Smoking_curr_xps")
         synthpop$pop[, c(col_nam, "tax_tabaco") := NULL]
 
 
@@ -429,8 +434,9 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
+        synthpop$pop[year > setyear, Smoking_number_curr_xps := NA_integer_] # Clean slate
         synthpop$pop[
-            year > setyear & Smoking_curr_xps == 3,
+            year > setyear & Smoking_curr_xps == "3",
             Smoking_number_grp := (rankstat_Smoking_number > pa0) +
                 (rankstat_Smoking_number > pa1) +
                 (rankstat_Smoking_number > pa2) +
@@ -450,7 +456,7 @@ IMPACTncd$update_primary_prevention_scn(
         synthpop$pop[Smoking_number_grp == 6L, Smoking_number_curr_xps := 35L]
         synthpop$pop[Smoking_number_grp == 7L, Smoking_number_curr_xps := 40L]
         # I do not explicitly set.seed because I do so at the beginning of the scenario
-        synthpop$pop[Smoking_number_grp == 8L, Smoking_number := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
+        synthpop$pop[Smoking_number_grp == 8L, Smoking_number_curr_xps := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
 
         synthpop$pop[, c(col_nam, "Smoking_number_grp") := NULL]
         set.seed(rs)

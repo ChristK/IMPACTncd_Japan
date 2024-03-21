@@ -26,6 +26,10 @@ To be completed...
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-Simulation-new}{\code{Simulation$new()}}
+\item \href{#method-Simulation-update_primary_prevention_scn}{\code{Simulation$update_primary_prevention_scn()}}
+\item \href{#method-Simulation-get_primary_prevention_scn}{\code{Simulation$get_primary_prevention_scn()}}
+\item \href{#method-Simulation-update_secondary_prevention_scn}{\code{Simulation$update_secondary_prevention_scn()}}
+\item \href{#method-Simulation-get_secondary_prevention_scn}{\code{Simulation$get_secondary_prevention_scn()}}
 \item \href{#method-Simulation-run}{\code{Simulation$run()}}
 \item \href{#method-Simulation-calibrate_incd_ftlt}{\code{Simulation$calibrate_incd_ftlt()}}
 \item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
@@ -36,6 +40,7 @@ To be completed...
 \item \href{#method-Simulation-del_outputs}{\code{Simulation$del_outputs()}}
 \item \href{#method-Simulation-del_logs}{\code{Simulation$del_logs()}}
 \item \href{#method-Simulation-del_parfs}{\code{Simulation$del_parfs()}}
+\item \href{#method-Simulation-del_RR_cache}{\code{Simulation$del_RR_cache()}}
 \item \href{#method-Simulation-del_synthpops}{\code{Simulation$del_synthpops()}}
 \item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
 \item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
@@ -65,6 +70,72 @@ Create a new simulation object.
 }
 \subsection{Returns}{
 A new `Simulation` object.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-update_primary_prevention_scn"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-update_primary_prevention_scn}{}}}
+\subsection{Method \code{update_primary_prevention_scn()}}{
+Updates the primary prevention policy scenario
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$update_primary_prevention_scn(method)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{method}}{a function with synthpop as an argument that models the primary prevention policy.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-get_primary_prevention_scn"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-get_primary_prevention_scn}{}}}
+\subsection{Method \code{get_primary_prevention_scn()}}{
+Get the primary prevention policy scenario
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_primary_prevention_scn()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The primary prevention policy scenario.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-update_secondary_prevention_scn"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-update_secondary_prevention_scn}{}}}
+\subsection{Method \code{update_secondary_prevention_scn()}}{
+Updates the secondary prevention policy scenario
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$update_secondary_prevention_scn(method)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{method}}{a function with synthpop as an argument that models the secondary prevention policy.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-get_secondary_prevention_scn"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-get_secondary_prevention_scn}{}}}
+\subsection{Method \code{get_secondary_prevention_scn()}}{
+Get the secondary prevention policy scenario
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_secondary_prevention_scn()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The secondary prevention policy scenario.
 }
 }
 \if{html}{\out{<hr>}}
@@ -268,6 +339,19 @@ The invisible self for chaining.
 Delete all files in the ./simulation/parf folder.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$del_parfs()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-del_RR_cache"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-del_RR_cache}{}}}
+\subsection{Method \code{del_RR_cache()}}{
+Delete all files in the ./simulation/rr folder.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_RR_cache()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{

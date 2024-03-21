@@ -540,7 +540,7 @@ SynthPop <-
         invisible(self)
       },
 
-      # gen_synthpop ----
+      # gen_synthpop_demog ----
       #' @description
       #' Generate synthpop sociodemographics, random sample of the population.
       #' @param design_ A Design object,
@@ -1288,7 +1288,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, Med_HT := qbinom(rankstat_Med_HT, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, Med_HT := as.integer(rankstat_Med_HT > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Med_HT")
           dt[, c(col_nam) := NULL]
 
@@ -1330,7 +1330,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, Med_HL := qbinom(rankstat_Med_HL, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, Med_HL := as.integer(rankstat_Med_HL > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Med_HL")
           dt[, c(col_nam) := NULL]
 
@@ -1372,7 +1372,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, Med_DM := qbinom(rankstat_Med_DM, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, Med_DM := as.integer(rankstat_Med_DM > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Med_DM")
           dt[, c(col_nam) := NULL]
 
@@ -1454,7 +1454,7 @@ SynthPop <-
           tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
           ### Make PA days category
-          dt[, PA_3cat := fifelse(
+          dt[, pa_3cat := fifelse(
             PA_days %in% as.character(0:1), 1L,
             fifelse(
               PA_days %in% as.character(2:4), 2L,
@@ -1464,7 +1464,7 @@ SynthPop <-
           # dt[,table(PA_3cat, PA_days, useNA="always"),]
 
 
-          dt[, PA_3cat := factor(PA_3cat)]
+          dt[, pa_3cat := factor(pa_3cat)]
           # table(dt$PA_3cat, useNA = "always")
 
           col_nam <-
@@ -1483,7 +1483,7 @@ SynthPop <-
           dt[BMI > 70, BMI := 70] # Truncate BMI predictions to avoid unrealistic values.
 
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_BMI")
-          dt[, c(col_nam, "PA_3cat") := NULL]
+          dt[, c(col_nam, "pa_3cat") := NULL]
 
 
 

@@ -301,31 +301,33 @@ Simulation <-
             }          
 
 
-          xps_dt <- foreach(
-            mc_iter = mc_sp,
-            .inorder = FALSE,
-            .options.multicore = list(preschedule = FALSE),
-            .verbose = self$design$sim_prm$logs,
-            .packages = c(
-              "R6",
-              "gamlss.dist",
-              "dqrng",
-              "CKutils",
-              "IMPACTncdJapan",
-              "fst",
-              "data.table"
-            ),
-            .export = NULL,
-            .noexport = NULL # c("time_mark")
-          ) %dopar% {
+          # xps_dt <- foreach(
+          #   mc_iter = mc_sp,
+          #   .inorder = FALSE,
+          #   .options.multicore = list(preschedule = FALSE),
+          #   .verbose = self$design$sim_prm$logs,
+          #   .packages = c(
+          #     "R6",
+          #     "gamlss.dist",
+          #     "dqrng",
+          #     "CKutils",
+          #     "IMPACTncdJapan",
+          #     "fst",
+          #     "data.table"
+          #   ),
+          #   .export = NULL,
+          #   .noexport = NULL # c("time_mark")
+          # ) %dopar% {
 
-            private$run_sim(mc_ = mc_iter, scenario_nam)
+          #   private$run_sim(mc_ = mc_iter, scenario_nam)
 
-          }
+          # }
 
-          if (self$design$sim_prm$logs) private$time_mark("End of parallelisation")
          }
-        } else {
+
+        if (self$design$sim_prm$logs) private$time_mark("End of parallelisation")
+
+        } else { # if multicore = FALSE
           if (self$design$sim_prm$logs)
             private$time_mark("Start of single-core run")
 
@@ -864,6 +866,21 @@ Simulation <-
 
         if (length(fl) > 0 && self$design$sim_prm$logs)
           message("Parf files deleted.")
+
+        invisible(self)
+      },
+
+      # del_RR_cache ----
+      #' @description Delete all files in the ./simulation/rr folder.
+      #' @return The invisible self for chaining.
+      del_RR_cache = function() {
+
+        fl <- list.files("./simulation/rr", full.names = TRUE)
+
+        file.remove(fl)
+
+        if (length(fl) > 0 && self$design$sim_prm$logs)
+          message("RR cache files deleted.")
 
         invisible(self)
       },

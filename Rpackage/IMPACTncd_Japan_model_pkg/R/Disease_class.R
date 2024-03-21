@@ -272,6 +272,7 @@ cl <-
           xps_dt <- foreach(
             mc_iter = seq(1, (popsize / 10L)),
             .inorder = FALSE,
+            .options.multicore = list(preschedule = FALSE),
             .verbose = design_$sim_prm$logs,
             .packages = c(
               "R6",
@@ -1541,19 +1542,12 @@ cl <-
           if (self$name %in% c("breast_ca", "prostate_ca") && anyNA(tbl))
             setnafill(tbl, "c", fill = 0, cols = val)
 
-          # if (!self$name %in% c("breast_ca", "prostate_ca") &&  anyNA(tbl))
-          if (anyNA(tbl))
-            stop("NAs in ", private$filenams[[i]])
 
           # If mc is in tbl then set "mc" as first key, else year is first key
           if ("mc" %in% names(tbl)){
             setkeyv(tbl, c("mc", com))
           } else {
             setkeyv(tbl, com)
-          }
-
-          if (!is_valid_lookup_tbl(tbl, com)) {
-            stop("Not a valid lookup table.")
           }
 
           # Estimate the parameters of a beta distr
@@ -1577,9 +1571,23 @@ cl <-
             p = c(0.5, 0.975, 0.025),
             tolerance = 0.01
           )]
+          } else {
+          tbl[is.na(shape1) | is.na(shape2), c("shape1", "shape2") := private$fit_beta_vec(
+            q = list(mu, mu_upper, mu_lower),
+            p = c(0.5, 0.975, 0.025),
+            tolerance = 0.01
+          )]
           }
 
           if (flag) setnames(tbl, "mu", "mu2")
+
+          if (!is_valid_lookup_tbl(tbl, com)) {
+            stop("Not a valid lookup table.")
+          }
+          # if (!self$name %in% c("breast_ca", "prostate_ca") &&  anyNA(tbl))
+          if (anyNA(tbl)) {
+            stop("NAs in ", private$filenams[[i]])
+          }
 
           if (!identical(read_fst(private$filenams[[i]], as.data.table = TRUE), tbl))
             write_fst(tbl, private$filenams[[i]])

@@ -11,7 +11,7 @@ export_PARF: no
 n_synthpop_aggregation: 2 # number of synthpops to aggregate together
 # n_primers: 10 # better be some multiple of n_synthpop_aggregation
 init_year_long: 2001  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007.
-sim_horizon_max: 2050 # population projections do not support longer horizon corresponding to CJ function
+sim_horizon_max: 2040 # population projections do not support longer horizon corresponding to CJ function
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass
 ageH: 99 # This was based on observed exposure data and observed population size
 apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incidence? NOTE it affects nonmodelled as well

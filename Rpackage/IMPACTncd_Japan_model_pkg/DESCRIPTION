@@ -25,11 +25,13 @@ Imports: Rcpp (>= 1.0.2),
          shinythemes,
          foreach,
          BH,
-         igraph
+         igraph,
+         parallelly,
+         parallel
 Suggests: roxygen2
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,
            BH,
            data.table
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1

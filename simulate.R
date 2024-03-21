@@ -5,6 +5,9 @@
 source("./global.R")
 IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 
+# IMPACTncd$del_parfs()
+# IMPACTncd$del_synthpops()
+
 # g <- IMPACTncd$get_causal_structure(print_plot = TRUE)
 # g <- IMPACTncd$get_causal_structure(processed = FALSE, print_plot = TRUE, focus = "chd")
 

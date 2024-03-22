@@ -173,7 +173,7 @@ tbl_smmrs <- function(
                         }
 
                         setkey(d, "type")
-                        d <- d[, fquantile_byid(QALYs, prbl, id = as.character(type), rounding = what == "pop"),
+                        d <- d[, fquantile_byid(QALYs, prbl, id = as.character(type), rounding = TRUE),
                                         keyby = eval(setdiff(x, "mc"))
                                 ]
                         setnames(d, c(

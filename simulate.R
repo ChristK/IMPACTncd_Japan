@@ -34,7 +34,7 @@ IMPACTncd$export_summaries(
   type = c(
     "le", "hle", "dis_char", "prvl",
     "incd", "dis_mrtl", "mrtl",
-    "allcause_mrtl_by_dis", "cms"
+    "allcause_mrtl_by_dis", "cms", "qalys"
   )
 )
 

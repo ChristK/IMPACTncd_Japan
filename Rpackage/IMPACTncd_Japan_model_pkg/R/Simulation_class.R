@@ -562,7 +562,7 @@ Simulation <-
       export_summaries = function(multicore = TRUE,
                                   type = c("le", "hle", "dis_char", "prvl",
                                            "incd", "dis_mrtl", "mrtl",
-                                           "allcause_mrtl_by_dis", "cms"),
+                                           "allcause_mrtl_by_dis", "cms", "qalys"),
                                   single_year_of_age = FALSE) {
 
         fl <- list.files(private$output_dir("lifecourse"), full.names = TRUE)
@@ -577,7 +577,9 @@ Simulation <-
                   if ("dis_char" %in% type) file_pth <- private$output_dir("summaries/dis_characteristics_scaled_up.csv.gz") else
                     if ("incd" %in% type) file_pth <- private$output_dir("summaries/incd_scaled_up.csv.gz") else
                       if ("prvl" %in% type) file_pth <- private$output_dir("summaries/prvl_scaled_up.csv.gz") else
-                        if ("allcause_mrtl_by_dis" %in% type) file_pth <- private$output_dir("summaries/all_cause_mrtl_by_dis_scaled_up.csv.gz")
+                        if ("allcause_mrtl_by_dis" %in% type) file_pth <- private$output_dir("summaries/all_cause_mrtl_by_dis_scaled_up.csv.gz") else
+                          if ("qalys" %in% type) file_pth <- private$output_dir("summaries/qalys_scaled_up.csv.gz") else
+                            stop("Unknown type of summary")
 
 
         if (file.exists(file_pth)) {
@@ -720,6 +722,10 @@ Simulation <-
           if ("allcause_mrtl_by_dis" %in% type) {
             private$collect_files("summaries", "_all_cause_mrtl_by_dis_scaled_up.csv$", to_mc_aggr = FALSE)
             private$collect_files("summaries", "_all_cause_mrtl_by_dis_esp.csv$", to_mc_aggr = FALSE)
+          }
+          if ("qalys" %in% type) {
+            private$collect_files("summaries", "_qalys_scaled_up.csv$", to_mc_aggr = FALSE)
+            private$collect_files("summaries", "_qalys_esp.csv$", to_mc_aggr = FALSE)
           }
 
            if (self$design$sim_prm$logs)
@@ -1595,7 +1601,7 @@ Simulation <-
       # export_summaries_hlpr ----
       export_summaries_hlpr = function(lc, type = c("le", "hle", "dis_char",
                                                     "prvl", "incd", "mrtl",  "dis_mrtl",
-                                                    "allcause_mrtl_by_dis", "cms"),
+                                                    "allcause_mrtl_by_dis", "cms", "qalys"),
                                       single_year_of_age = FALSE) {
         if (self$design$sim_prm$logs) message("Exporting summaries...")
 
@@ -1986,6 +1992,29 @@ Simulation <-
                       )))
         }
 
+         # QALYs ----
+         if ("qalys" %in% type) {
+          calc_QALYs(lc, include_non_significant = FALSE) # create cols EQ5D5L and HUI3
+           fwrite_safe(
+             lc[, c(
+              # "popsize" = sum(wt),
+               lapply(.SD, function(x, wt) sum(x * wt), wt)
+             ),
+             .SDcols = patterns("^EQ5D5L$|^HUI3$"), keyby = strata
+             ],
+             private$output_dir(paste0("summaries/", mcaggr, "qalys_scaled_up", ext))
+           )
+           fwrite_safe(
+             lc[, c(
+              # "popsize" = sum(wt_esp),
+               lapply(.SD, function(x, wt) sum(x * wt), wt_esp)
+             ),
+             .SDcols = patterns("^EQ5D5L$|^HUI3$"), keyby = strata
+             ],
+             private$output_dir(paste0("summaries/", mcaggr, "qalys_esp", ext))
+           )
+         }
+
         if (!self$design$sim_prm$keep_lifecourse) file.remove(pth)
 
         return(invisible(self))
@@ -2005,10 +2034,86 @@ Simulation <-
         }
       },
 
+# Calculate QALYs based on Table 4 of the paper, Shiroiwa 2021, titled with
+# "Japanese Population Norms of EQ-5D-5L and Health Utilities Index Mark 3:
+# Disutility Catalog by Disease and Symptom in Community Settings"
+
+# NOTE an implementation with join is slower because the prvl cols need to be transformed to 0 and 1
+# Even with lc[, lapply(.SD, fclamp_int, inplace = TRUE), .SDcols = patterns("_prvl")] this is slow,
+# and destrucive to the original data
+
+# lc = a lifecourse file
+# include_non_significant = whether to include non-significant desreaments (obesity, sbp, ldl) in the calculation
+calc_QALYs = function(lc, include_non_significant = FALSE) {
+  lc[, `:=`(
+    EQ5D5L = 0.989 +
+      fcase( # age decreaments
+        # Scores for 90-99 years old were assumed to be same as those for 80-89.
+        agegrp == "20-24", -0.018,
+        agegrp == "25-29", -0.018,
+        agegrp == "30-34", -0.019,
+        agegrp == "35-39", -0.019,
+        agegrp == "40-44", -0.018,
+        agegrp == "45-49", -0.018,
+        agegrp == "50-54", -0.028,
+        agegrp == "55-59", -0.028,
+        agegrp == "60-64", -0.021,
+        agegrp == "65-69", -0.021,
+        agegrp == "70-74", -0.057,
+        agegrp == "75-79", -0.057,
+        agegrp == "80-84", -0.129,
+        agegrp == "85-89", -0.129,
+        agegrp == "90-94", -0.129,
+        agegrp == "95-99", -0.129,
+        default = 0
+      ) +
+      fifelse(sex == "women", -0.011, 0) +
+      fifelse(chd_prvl == 0L, 0, -0.073) +
+      fifelse(stroke_prvl == 0L, 0, -0.265) +
+      fifelse(t2dm_prvl == 0L, 0, -0.046),
+    HUI3 = 0.897 +
+      fcase( # age decreaments
+        # Scores for 90-99 years old were assumed to be same as those for 80-89.
+        agegrp == "20-24", -0.023,
+        agegrp == "25-29", -0.023,
+        agegrp == "30-34", -0.018,
+        agegrp == "35-39", -0.018,
+        agegrp == "40-44", -0.004,
+        agegrp == "45-49", -0.004,
+        agegrp == "50-54", -0.021,
+        agegrp == "55-59", -0.021,
+        agegrp == "60-64", -0.013,
+        agegrp == "65-69", -0.013,
+        agegrp == "70-74", -0.042,
+        agegrp == "75-79", -0.042,
+        agegrp == "80-84", -0.145,
+        agegrp == "85-89", -0.145,
+        agegrp == "90-94", -0.145,
+        agegrp == "95-99", -0.145,
+        default = 0
+      ) +
+      fifelse(sex == "women", 0.011, 0) +
+      fifelse(chd_prvl == 0L, 0, -0.081) +
+      fifelse(stroke_prvl == 0L, 0, -0.293) +
+      fifelse(t2dm_prvl == 0L, 0, -0.055)
+  )]
+
+  # TODO add hyperlipidaemia
+  if (!include_non_significant == TRUE) {
+    lc[, `:=`(
+      EQ5D5L = EQ5D5L + fifelse(htn_prvl == 0L, 0, -0.005) +
+        fifelse(obesity_prvl == 0L, 0, -0.034),
+      HUI3 = HUI3 + fifelse(htn_prvl == 0L, 0, -0.006) +
+        fifelse(obesity_prvl == 0L, 0, 0.019)
+    )]
+  }
+},
+
+
       # collect_files ----
       # Collect files written by mc_aggr or mc_aggr_mc in a folder and combine
       # them into one file
-            collect_files = function(folder_name, pattern = NULL, to_mc_aggr = FALSE) {
+      collect_files = function(folder_name, pattern = NULL, to_mc_aggr = FALSE) {
         if (self$design$sim_prm$logs) message("Collecting mc files...")
         if (to_mc_aggr) {
          string1 <- "_[0-9]+_"

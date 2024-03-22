@@ -4,7 +4,7 @@ outcome: t2dm
 lag: 0
 distribution: lognormal
 source: ???
-notes: 6.5 mmHG cut-off
+notes: 6.5 % cut-off
 apply_rr_extra_fn: >
   function(sp) {
     if (!inherits(sp, 'SynthPop')) stop('Argument sp needs to be a SynthPop object.')

@@ -9,7 +9,7 @@ IMPACTncd$
   del_outputs()
   
 # Run validation if TRUE. 
-if (FALSE) {
+if (TRUE) {
   IMPACTncd$
     run(1:100, multicore = TRUE, "sc0")$
     export_summaries(

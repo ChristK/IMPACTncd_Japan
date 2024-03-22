@@ -11,10 +11,10 @@ baseline_year_for_change_outputs <- 2001L
 theme_set(new = theme_economist())
 theme_update(axis.text.x = element_text(size = 9), plot.title = element_text(hjust = 0.5))
 
-what <- "dis_mrtl"
-type <- "ons"
-strata <- "year"
-baseline_year <- baseline_year_for_change_outputs
+# what <- "qalys"
+# type <- "ons"
+# strata <- "year"
+# baseline_year <- baseline_year_for_change_outputs
 
 # Prvl not standardised----
 simulationParameters <- read_yaml(base::normalizePath("./inputs/sim_design.yaml", mustWork = TRUE))
@@ -29,7 +29,7 @@ tbl_smmrs <- function(
             "dis_mrtl", "dis_mrtl_change",
             "cms_score", "cms_score_change", "cms_score_age",
             "cms_score_age_change", "cms_count", "cms_count_change",
-            "pop"
+            "pop", "qalys"
     ),
     type = c("ons", "esp"),
     strata,
@@ -59,6 +59,7 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "cms_score_by_age",
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
+                "qalys" = "qalys",
                 "pop" = "prvl"
         )
         str1 <- c("ons" = "_scaled_up.csv.gz", "esp" = "_esp.csv.gz")
@@ -85,6 +86,7 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "cms_score",
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
+                "qalys" = "^EQ5D5L$|^HUI3$",
                 "pop" = "^popsize$"
         ) # used in grep
         str3 <- c(
@@ -104,6 +106,7 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "mean_cms_score_",
                 "cms_count" = "mean_cms_count_",
                 "cms_count_change" = "mean_cms_count_",
+                "qalys" = "qalys_",
                 "pop" = "pop_size_"
         ) # used to col name output
         str4 <- c(
@@ -123,6 +126,7 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "mean CMS score change by ",
                 "cms_count" = "mean CMS count by ",
                 "cms_count_change" = "mean CMS count change by ",
+                "qalys" = "QALYs by ",
                 "pop" = "pop size by "
         ) # used in output filenames
 
@@ -153,7 +157,34 @@ tbl_smmrs <- function(
                         }
                         d <- d[, as.list(fquantile(value, prbl)), keyby = eval(setdiff(x, "mc"))]
                         setnames(d, c(setdiff(x, "mc"), percent(prbl, prefix = str3[[what]])))
-                } else { # if not cms...
+                        setkeyv(d, setdiff(x, "mc"))
+                        setcolorder(d, setdiff(x, "mc"))
+                } else if (grepl("^qalys", what)) {
+                        d <- tt[, .("EQ5D5L" = sum(EQ5D5L),
+                                    "HUI3" = sum(HUI3)
+                                   ),
+                                keyby = eval(x)
+                        ]
+                        d <- melt(d, id.vars = x, variable.name = "type", value.name = "QALYs")
+
+                        if (grepl("_change$", what)) { # when calculating change
+                                d19 <- d[year == baseline_year][, year := NULL]
+                                d[d19, on = c(setdiff(x, "year"), "type"), QALYs := QALYs / i.QALYs]
+                        }
+
+                        setkey(d, "type")
+                        d <- d[, fquantile_byid(QALYs, prbl, id = as.character(type), rounding = what == "pop"),
+                                        keyby = eval(setdiff(x, "mc"))
+                                ]
+                        setnames(d, c(
+                                setdiff(x, "mc"),
+                                "type",
+                                percent(prbl, prefix = str3[[what]])
+                        ))
+                        setkeyv(d, c("type", setdiff(x, "mc")))
+                        setcolorder(d, setdiff(x, "mc"))
+
+                } else { # if not cms or qalys..
                         d <- tt[, lapply(.SD, sum),
                                 .SDcols = patterns(str2[[what]]),
                                 keyby = x
@@ -204,9 +235,9 @@ tbl_smmrs <- function(
                         } else {
                                 d <- d[disease != "popsize"]
                         }
+                  setkeyv(d, setdiff(x, "mc"))
+                  setcolorder(d, setdiff(x, "mc"))
                 }
-                setkeyv(d, setdiff(x, "mc"))
-                setcolorder(d, setdiff(x, "mc"))
                 str5 <- c(
                         "ons" = " (not standardised).csv",
                         "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
@@ -230,7 +261,7 @@ outperm <- expand.grid(
         what = c(
                 "prvl", "prvl_change", "incd", "incd_change",
                 "ftlt", "ftlt_change", "mrtl", "mrtl_change",
-                "dis_mrtl", "dis_mrtl_change",
+                "dis_mrtl", "dis_mrtl_change", "qalys",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
                 "pop"
@@ -563,7 +594,6 @@ xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
 outstrata <- c("mc", "year", "agegrp20", "sex", "scenario")
 d <- xps_tab[sex != "All" & agegrp20 != "All"] # This should depend on outstrata
-
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
@@ -574,7 +604,6 @@ fwrite(d, file.path(sTablesSubDirPath, "exposures by year-agegroup-sex (not stan
 
 outstrata <- c("mc", "year", "scenario")
 d <- xps_tab[sex == "All" & agegrp20 == "All"] # This should depend on outstrata
-
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
@@ -593,25 +622,65 @@ setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year-agegroup (not standardised).csv"))
 
-outstrata <- c("mc", "year", "agegrp20", "sex", "scenario")
-d <- xps_tab[sex != "All" & agegrp20 != "All"] # This should depend on outstrata
+# Soshiro added programs from here 2023 12 22 due to missing the exposure file by "year-sex" (not standardised).vs 
+outstrata <- c("mc", "year", "sex", "scenario")
+d <- xps_tab[sex != "All"] # This should depend on outstrata
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
 d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
-fwrite(d, file.path(sTablesSubDirPath, "exposures by year-agegroup-sex (not standardised).csv"))
+fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (not standardised).csv"))
+# Soshiro added programs until here 2023 12 22
 
-outstrata <- c("mc", "year", "scenario")
-d <- xps_tab[sex == "All" & agegrp20 == "All"] # This should depend on outstrata
-d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
-d <- melt(d, id.vars = outstrata)
-setkey(d, "variable")
-d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
-setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
-setkeyv(d, setdiff(outstrata, "mc"))
-fwrite(d, file.path(sTablesSubDirPath, "exposures by year (not standardised).csv"))
+
+
+
+## Soshiro commented out codes from here 2023 12 22 due to the duplication
+# outstrata <- c("mc", "year", "agegrp20", "sex", "scenario")
+# d <- xps_tab[sex != "All" & agegrp20 != "All"] # This should depend on outstrata
+# d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+# d <- melt(d, id.vars = outstrata)
+# setkey(d, "variable")
+# d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+# setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+# setkeyv(d, setdiff(outstrata, "mc"))
+# fwrite(d, file.path(sTablesSubDirPath, "exposures by year-agegroup-sex (not standardised).csv"))
+# 
+# outstrata <- c("mc", "year", "scenario")
+# d <- xps_tab[sex == "All" & agegrp20 == "All"] # This should depend on outstrata
+# d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+# d <- melt(d, id.vars = outstrata)
+# setkey(d, "variable")
+# d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+# setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+# setkeyv(d, setdiff(outstrata, "mc"))
+# fwrite(d, file.path(sTablesSubDirPath, "exposures by year (not standardised).csv"))
+# 
+# outstrata <- c("mc", "year", "agegrp20", "scenario")
+# d <- xps_tab[sex == "All" & agegrp20 != "All"] # This should depend on outstrata
+# d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+# d <- melt(d, id.vars = outstrata)
+# setkey(d, "variable")
+# d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+# setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+# setkeyv(d, setdiff(outstrata, "mc"))
+# fwrite(d, file.path(sTablesSubDirPath, "exposures by year-agegroup (not standardised).csv"))
+# 
+# outstrata <- c("mc", "year", "sex", "scenario")
+# d <- xps_tab[sex != "All"] # This should depend on outstrata
+# d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+# d <- melt(d, id.vars = outstrata)
+# setkey(d, "variable")
+# d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+# setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+# setkeyv(d, setdiff(outstrata, "mc"))
+# fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (not standardised).csv"))
+## Soshiro commented out codes untill here 2023 12 22
+ 
+
+
 
 # XPS standardised ----
 xps_tab <- fread(file.path(simulationParameters$output_dir, "xps/xps_esp.csv.gz"))
@@ -619,28 +688,6 @@ xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
 outstrata <- c("mc", "year", "sex", "scenario")
 d <- xps_tab[sex != "All"] # This should depend on outstrata
-
-d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
-d <- melt(d, id.vars = outstrata)
-setkey(d, "variable")
-d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
-setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
-setkeyv(d, setdiff(outstrata, "mc"))
-fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (age standardised).csv"))
-
-outstrata <- c("mc", "year", "scenario")
-d <- xps_tab[sex == "All"] # This should depend on outstrata
-
-d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
-d <- melt(d, id.vars = outstrata)
-setkey(d, "variable")
-d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
-setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
-setkeyv(d, setdiff(outstrata, "mc"))
-fwrite(d, file.path(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
-
-outstrata <- c("mc", "year", "sex", "scenario")
-d <- xps_tab[sex != "All"] # This should depend on outstrata
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
@@ -658,3 +705,26 @@ d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
+
+# ## Soshiro commented out codes from here 2023 12 22 due to the duplication
+# outstrata <- c("mc", "year", "sex", "scenario")
+# d <- xps_tab[sex != "All"] # This should depend on outstrata
+# d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+# d <- melt(d, id.vars = outstrata)
+# setkey(d, "variable")
+# d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+# setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+# setkeyv(d, setdiff(outstrata, "mc"))
+# fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (age standardised).csv"))
+# 
+# outstrata <- c("mc", "year", "scenario")
+# d <- xps_tab[sex == "All"] # This should depend on outstrata
+# d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+# d <- melt(d, id.vars = outstrata)
+# setkey(d, "variable")
+# d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+# setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+# setkeyv(d, setdiff(outstrata, "mc"))
+# fwrite(d, file.path(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
+# ## Soshiro commented out codes untill here 2023 12 22
+

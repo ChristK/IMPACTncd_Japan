@@ -29,7 +29,7 @@ tbl_smmrs <- function(
             "dis_mrtl", "dis_mrtl_change",
             "cms_score", "cms_score_change", "cms_score_age",
             "cms_score_age_change", "cms_count", "cms_count_change",
-            "pop", "qalys"
+            "pop", "qalys", "costs"
     ),
     type = c("ons", "esp"),
     strata,
@@ -60,6 +60,7 @@ tbl_smmrs <- function(
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
                 "qalys" = "qalys",
+                "costs" = "costs",
                 "pop" = "prvl"
         )
         str1 <- c("ons" = "_scaled_up.csv.gz", "esp" = "_esp.csv.gz")
@@ -87,6 +88,7 @@ tbl_smmrs <- function(
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
                 "qalys" = "^EQ5D5L$|^HUI3$",
+                "costs" = "_costs$", 
                 "pop" = "^popsize$"
         ) # used in grep
         str3 <- c(
@@ -107,6 +109,7 @@ tbl_smmrs <- function(
                 "cms_count" = "mean_cms_count_",
                 "cms_count_change" = "mean_cms_count_",
                 "qalys" = "qalys_",
+                "costs" = "costs_",
                 "pop" = "pop_size_"
         ) # used to col name output
         str4 <- c(
@@ -127,6 +130,7 @@ tbl_smmrs <- function(
                 "cms_count" = "mean CMS count by ",
                 "cms_count_change" = "mean CMS count change by ",
                 "qalys" = "QALYs by ",
+                "costs" = "costs by ",
                 "pop" = "pop size by "
         ) # used in output filenames
 
@@ -184,7 +188,28 @@ tbl_smmrs <- function(
                         setkeyv(d, c("type", setdiff(x, "mc")))
                         setcolorder(d, setdiff(x, "mc"))
 
-                } else { # if not cms or qalys..
+                } else if (grepl("^costs", what)) {
+                        d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]
+                        d <- melt(d, id.vars = x, variable.name = "type", value.name = "costs")
+
+                        if (grepl("_change$", what)) { # when calculating change
+                                d19 <- d[year == baseline_year][, year := NULL]
+                                d[d19, on = c(setdiff(x, "year"), "type"), costs := costs / i.costs]
+                        }
+
+                        setkey(d, "type")
+                        d <- d[, fquantile_byid(costs, prbl, id = as.character(type), rounding = TRUE),
+                                        keyby = eval(setdiff(x, "mc"))
+                                ]
+                        setnames(d, c(
+                                setdiff(x, "mc"),
+                                "type",
+                                percent(prbl, prefix = str3[[what]])
+                        ))
+                        setkeyv(d, c("type", setdiff(x, "mc")))
+                        setcolorder(d, setdiff(x, "mc"))
+
+                } else { # if not cms or qalys or costs...
                         d <- tt[, lapply(.SD, sum),
                                 .SDcols = patterns(str2[[what]]),
                                 keyby = x
@@ -261,7 +286,7 @@ outperm <- expand.grid(
         what = c(
                 "prvl", "prvl_change", "incd", "incd_change",
                 "ftlt", "ftlt_change", "mrtl", "mrtl_change",
-                "dis_mrtl", "dis_mrtl_change", "qalys",
+                "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
                 "pop"

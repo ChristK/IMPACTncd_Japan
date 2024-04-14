@@ -74,7 +74,7 @@ mk_scenario_init2 <- function(scenario_name, diseases_, sp, design_) {
 # ll <- sim$gen_synthpop_demog(design)
 sp  <- SynthPop$new(1L, design)
 
-# lapply(diseases, function(x) x$harmonise_epi_tables(sp))
+lapply(diseases, function(x) x$harmonise_epi_tables(sp))
 
 lapply(diseases, function(x) {
     print(x)
@@ -124,8 +124,8 @@ sp$pop[, mc := sp$mc_aggr]
 # self <- IMPACTncd$.__enclos_env__$self
 # private <- IMPACTncd$.__enclos_env__$private
 
-self <- diseases$chd$.__enclos_env__$self
-private <- diseases$chd$.__enclos_env__$private
+self <- diseases$nonmodelled$.__enclos_env__$self
+private <- diseases$nonmodelled$.__enclos_env__$private
 design_ <- design
 diseases_ <- diseases
 popsize <- 100
@@ -551,3 +551,43 @@ IMPACTncd$
 
 x <- tryCatch(sqrt(5), error=function(e) {list(1, 2)})
 x
+
+library(data.table)
+library(fst)
+tt <- read_fst("inputs/disease_burden/chd_ftlt.fst", as.data.table = T)
+ttt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/chd_ftlt.fst", as.data.table = T)
+ttt[, sex := factor(gsub("/", "", sex))]
+ttt[, cause_name := gsub("/", "", cause_name)]
+setnames(ttt, c("Rate", "Rate_lower", "Rate_upper"), c("mu2", "mu_lower", "mu_upper"))
+ttt <- ttt[age <=99]
+setkeyv(ttt, c("year", "age",  "sex"))
+write_fst(ttt, "/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/chd_ftlt.fst", 100)
+
+cbind(tt[between(age, 30, 99), mean(mu2), keyby = .(year)],
+ttt[between(age, 30, 99), mean(Rate), keyby = .(year)])
+summary(ttt)
+ttt[between(age, 30, 99), mean(Rate), keyby = .(year)][, plot(year, V1)]
+
+tt <- read_fst("inputs/disease_burden/stroke_ftlt.fst", as.data.table = T)
+ttt <- read_fst("inputs/disease_burden/stroke_ftlt_new.fst", as.data.table = T)
+cbind(
+    tt[between(age, 30, 69), mean(mu2), keyby = .(year)],
+    ttt[between(age, 30, 69), mean(Rate), keyby = .(year)]
+)
+summary(ttt)
+
+
+rr <- cbind(
+    tt[between(age, 30, 99), .(mu2)],
+    ttt[between(age, 30, 99), .(Rate)]
+)
+
+tt[ttt, on = c("age", "year", "sex"), ][year > 2001, table(mu2 == Rate)]
+tt[ttt, on = c("age", "year", "sex"), ][year > 2001, ]
+~
+lc <- fread("/mnt/storage_fast4/IMPACTncd_Japan/outputs/lifecourse/1_lifecourse.csv.gz")
+
+tt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/new_pop/projected_population_japan.fst", as.data.table = T)
+ttt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/pop_projections/projected_population_japan.fst", as.data.table = T)
+View(tt[ttt, on = .(age, year, sex)][year == 2030])
+tt[ttt, on = .(age, year, sex)][, as.list(table(pops == i.pops)), keyby = year]

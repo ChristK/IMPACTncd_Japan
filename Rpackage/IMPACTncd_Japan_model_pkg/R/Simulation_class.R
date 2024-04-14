@@ -2587,6 +2587,7 @@ Simulation <-
       # missing, file filed with 1. If replace = TRUE it overwrites the existin
       # file
       # returns invisible(self)
+      # TODO Automate based on diseases in design.yaml
       create_empty_calibration_prms_file = function(replace = FALSE) {
         if (replace || !file.exists("./simulation/calibration_prms.csv")) {
           clbr <- CJ(

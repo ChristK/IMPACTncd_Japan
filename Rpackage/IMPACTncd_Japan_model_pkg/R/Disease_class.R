@@ -1877,6 +1877,10 @@ cl <-
           xps_dep <- xps_dep[!grepl("_prvl$", xpscol)]
           setkey(xps_dep, xpscol)
 
+# below, for xps the first element is the exposure to be simulated and any other
+# entry are other exposures that require the first exposure to be simulated.
+# I.e., PA_days is the exposure to be simulated, and BMI depends directly to it
+# while HbA1c, LDLc and SBP depend indirectly through BMI.
 
                     # Generate active days ----
                     xps <- c("PA_days", "BMI", "HbA1c", "LDLc", "SBP")
@@ -1917,6 +1921,8 @@ cl <-
                       ff[, `:=` (year = trueyear, trueyear = NULL)]
                       ff[, year := year + lag]
                     }
+
+                     # Generate F&V ----
           xps <- "Fruit_vege"
           if (any(xps %in% xps_dep$xpscol)) {
             if (xps[[1]] %in% xps_dep$xpscol) {

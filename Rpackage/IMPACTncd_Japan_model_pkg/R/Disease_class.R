@@ -668,6 +668,7 @@ cl <-
             ]
             sp$pop[, mu := NULL]
 
+            # For futture 30yo cohorts, we need to project prevalence assuming linear trends
             # NOTE below assumes prvl avail for years 2010 - 2019
             tbl <- self$get_prvl(seq(2010L,
                                      2019L),
@@ -1251,7 +1252,7 @@ cl <-
 
       #' @description Get disease prevalent probability.
       #' @param year_ A vector of years to return. All if missing.
-      #' @param mc_ A scalar to realise the incidence probability. All if missing. The median for mc_ = 0
+      #' @param mc_ A scalar to realise the prevalence probability. All if missing. The median for mc_ = 0
       #' @param design_ A design object.
       #' @return A data.table with disease prevalent probabilities unless
       #'   incidence type: Universal when it returns data.table(NULL).

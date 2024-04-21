@@ -40,3 +40,7 @@ IMPACTncd_Japan.code-workspace
 inputs/exposure_distributions/Table_HbA1c.fst
 inputs/exposure_distributions/Table_LDLc.fst
 inputs/exposure_distributions/Table_SBP.fst
+inputs/sim_design_test.yaml
+simulate2.R
+simulation/calibration_prms_10.csv
+simulation/calibration_prms copy.csv

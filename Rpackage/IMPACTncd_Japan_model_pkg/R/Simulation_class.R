@@ -407,6 +407,11 @@ Simulation <-
           ))
         )
 
+        memedian <- function(x) {
+          out <- median(x)
+          if (out == 0L) out <- mean(x)
+          out
+        }
         if (replace) {
           age_start <- self$design$sim_prm$ageL
         } else { # if replace == FALSE
@@ -433,7 +438,7 @@ Simulation <-
           unclbr <- fread(file.path(self$design$sim_prm$output_dir, "summaries", "incd_scaled_up.csv.gz"),
             select = c("year", "age", "sex", "mc", "popsize", "chd_incd", "stroke_incd")
           )
-          unclbr <- unclbr[age == age_, .(chd_incd = chd_incd / popsize, stroke_incd = stroke_incd / popsize), keyby = .(age, sex, year, mc)][, .(chd_incd = mean(chd_incd), stroke_incd = mean(stroke_incd)), keyby = .(age, sex, year)]
+          unclbr <- unclbr[age == age_, .(chd_incd = chd_incd / popsize, stroke_incd = stroke_incd / popsize), keyby = .(age, sex, year, mc)][, .(chd_incd = memedian(chd_incd), stroke_incd = memedian(stroke_incd)), keyby = .(age, sex, year)]
 
           # for CHD
           # fit a log-log linear model to the uncalibrated results and store the coefficients
@@ -494,9 +499,9 @@ Simulation <-
             stroke_prvl = stroke_prvl / popsize,
             popsize, age, sex, year, mc
           )][, .(
-            chd_prvl = mean(chd_prvl),
-            stroke_prvl = mean(stroke_prvl),
-            popsize = mean(popsize)
+            chd_prvl = memedian(chd_prvl),
+            stroke_prvl = memedian(stroke_prvl),
+            popsize = memedian(popsize)
           ), keyby = .(age, sex, year)]
           prvl[unclbr, on = c("year", "age", "sex"), `:=`(
             chd_prvl_correction = i.chd_prvl_correction, # Note corrections for prvl are rates
@@ -529,10 +534,10 @@ Simulation <-
               nonmodelled_mrtl = nonmodelled_deaths / popsize,
               popsize, age, sex, year, mc
             )][, .(
-              chd_mrtl = mean(chd_mrtl),
-              stroke_mrtl = mean(stroke_mrtl),
-              nonmodelled_mrtl = mean(nonmodelled_mrtl),
-              popsize = mean(popsize)
+              chd_mrtl = memedian(chd_mrtl),
+              stroke_mrtl = memedian(stroke_mrtl),
+              nonmodelled_mrtl = memedian(nonmodelled_mrtl),
+              popsize = memedian(popsize)
             ), keyby = .(age, sex, year)]
             benchmark <- read_fst(file.path("./inputs/disease_burden", "chd_ftlt.fst"), columns = c("age", "sex", "year", "mu2"), as.data.table = TRUE)[age == age_ - 1L, ]
             mrtl[benchmark, on = c("age", "sex", "year"), chd_ftlt_clbr_fctr := mu2 / chd_mrtl]
@@ -1321,13 +1326,20 @@ Simulation <-
       #' It works on Linux and Windows. Untested on Mac.
       #' @return The invisible `Simulation` object.
       split_large_files = function() {
+        # identify large files
         fl <- list.files(".", full.names = TRUE, recursive = TRUE)
         fl <- sort(fl[file.size(fl) / (1024^2) >= 50])
-        fl <- grep("/synthpop/|/outputs/", fl, ignore.case = TRUE, value = TRUE, invert = TRUE)
+        fl <- grep("/synthpop/|/outputs/", fl, ignore.case = TRUE, value = TRUE, invert = TRUE)      
         if (length(fl) == 0) { # no large files. Early escape.
-          invisible(self)
+          return(invisible(self))
         }
 
+        # Merge with existing large files from previous uploads. This ensures
+        # that if any previously large files are now smaller than 50MB, they are
+        # still processed as if they are still more than 50Mb. This is perhaps
+        # inefficient but has less side effects.  Otherwise code for special
+        # case of files above the threshold that shrinked for whatever reason
+        # below the threshold is needed (i.e. remove them from .gitignore).
         if (file.exists("./simulation/large_files_indx.csv")) {
           fl <- sort(unique(c(fread("./simulation/large_files_indx.csv")$pths, fl)))
         }

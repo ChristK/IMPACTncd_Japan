@@ -591,3 +591,8 @@ tt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/ne
 ttt <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/pop_projections/projected_population_japan.fst", as.data.table = T)
 View(tt[ttt, on = .(age, year, sex)][year == 2030])
 tt[ttt, on = .(age, year, sex)][, as.list(table(pops == i.pops)), keyby = year]
+
+tt <- fread("simulation/calibration_prms copy.csv")
+tt[year < 2020, chd_ftlt_clbr_fctr := chd_ftlt_clbr_fctr * 1.1]
+tt[year >= 2020, chd_ftlt_clbr_fctr := chd_ftlt_clbr_fctr * 1.2]
+fwrite(tt, "simulation/calibration_prms.csv")

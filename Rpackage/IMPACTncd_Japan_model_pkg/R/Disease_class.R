@@ -656,7 +656,11 @@ cl <-
             tbl <- self$get_prvl(design_$sim_prm$init_year_long, mc_ = sp$mc_aggr, design_
             )[between(age, design_$sim_prm$ageL, design_$sim_prm$ageH)]
 
+            tt <- self$get_incd(design_$sim_prm$init_year_long, mc_ = sp$mc_aggr, design_
+            )[between(age, design_$sim_prm$ageL, design_$sim_prm$ageH)]
+
             strata <- setdiff(names(tbl), c("mu"))
+            tbl[tt, on = strata, mu := mu - i.mu]
 
             #lookup_dt(sp$pop, tbl, check_lookup_tbl_validity = FALSE) #TODO: lookup_dt
             absorb_dt(sp$pop, tbl)
@@ -668,7 +672,7 @@ cl <-
             ]
             sp$pop[, mu := NULL]
 
-            # For futture 30yo cohorts, we need to project prevalence assuming linear trends
+            # For future 30yo cohorts, we need to project prevalence assuming linear trends
             # NOTE below assumes prvl avail for years 2010 - 2019
             tbl <- self$get_prvl(seq(2010L,
                                      2019L),

@@ -360,7 +360,7 @@ Get disease prevalent probability.
 \describe{
 \item{\code{year_}}{A vector of years to return. All if missing.}
 
-\item{\code{mc_}}{A scalar to realise the incidence probability. All if missing. The median for mc_ = 0}
+\item{\code{mc_}}{A scalar to realise the prevalence probability. All if missing. The median for mc_ = 0}
 
 \item{\code{design_}}{A design object.}
 }

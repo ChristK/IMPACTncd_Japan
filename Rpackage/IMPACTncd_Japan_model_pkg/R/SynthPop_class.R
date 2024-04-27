@@ -248,22 +248,29 @@ SynthPop <-
 
           fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
 
-          x <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
-
           t0 <- fread(fnam,
             select = list(integer = c("pid", "year"), character = "scenario", numeric = "wt"),
             key = c("scenario", "pid", "year")
           )[scenario == "sc0", ] # wt for sc0
 
           # For some reason pid and year get read incorrectly as character sometimes
-          t0[, pid := as.integer(pid)]
-          self$pop[, pid := as.integer(pid)]
-          t0[, year := as.integer(year)]
-          self$pop[, year := as.integer(year)]
-
+          # TODO check if this is still necessary
+          if (!is.integer(t0$pid))        t0[, pid := as.integer(pid)]
+          if (!is.integer(self$pop$pid))  self$pop[, pid := as.integer(pid)]
+          if (!is.integer(t0$year))       t0[, year := as.integer(year)]
+          if (!is.integer(self$pop$year)) self$pop[, year := as.integer(year)]
+          
+          setkeyv(t0, c("pid", "year"))
           self$pop[t0, on = c("pid", "year"), wt := i.wt]
+          
+          # New way of calculating policy scenario population weights   
+          setkeyv(self$pop, c("pid", "year"))       
+          setnafill(self$pop, type = "locf", cols = "wt")
           self$pop[is.na(all_cause_mrtl), wt := 0]
-          self$pop[is.na(wt), wt := wt_immrtl]
+
+          # Old way of calculating policy scenario population weights
+          # self$pop[is.na(all_cause_mrtl), wt := 0]
+          # self$pop[is.na(wt), wt := wt_immrtl]
         } else {
           stop("The baseline scenario need to be named 'sc0' and simulated first, before any policy scenarios.") # TODO more informative message
         }

@@ -7,9 +7,8 @@ logs: yes
 export_xps: yes
 keep_lifecourse: yes
 export_PARF: no
-'n': 50000 #100000 when testing, n can be small
-n_synthpop_aggregation: 4 # number of synthpops to aggregate together
-# n_primers: 10 # better be some multiple of n_synthpop_aggregation
+'n': 100000 #100000 when testing, n can be small
+n_synthpop_aggregation: 2 # number of synthpops to aggregate together
 init_year_long: 2001  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007. Need to be <= 2016 for costs to work.
 sim_horizon_max: 2040 # population projections do not support longer horizon corresponding to CJ function
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass

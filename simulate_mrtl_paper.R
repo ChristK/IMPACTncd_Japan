@@ -189,14 +189,14 @@ IMPACTncd$update_primary_prevention_scn(
         tbl[, sex := factor(sex, 0:1, c("men", "women"))]
 
         ### Make PA days category
-        synthpop$pop[, PA_3cat := fifelse(
+        synthpop$pop[, pa_3cat := fifelse(
             PA_days_curr_xps %in% as.character(0:1), 1L,
             fifelse(
                 PA_days_curr_xps %in% as.character(2:4), 2L,
                 fifelse(PA_days_curr_xps %in% as.character(5:7), 3L, NA_integer_)
             )
         )]
-        synthpop$pop[, PA_3cat := factor(PA_3cat)]
+        synthpop$pop[, pa_3cat := factor(pa_3cat)]
 
 
         col_nam <-
@@ -207,7 +207,7 @@ IMPACTncd$update_primary_prevention_scn(
         synthpop$pop[BMI_curr_xps < 10, BMI_curr_xps := 10] # Truncate BMI predictions to avoid unrealistic values.
         synthpop$pop[BMI_curr_xps > 70, BMI_curr_xps := 70] # Truncate BMI predictions to avoid unrealistic values.
 
-        synthpop$pop[, c(col_nam, "PA_3cat") := NULL]
+        synthpop$pop[, c(col_nam, "pa_3cat") := NULL]
         NULL
     }
 )
@@ -232,7 +232,7 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear, Med_DM_curr_xps := qbinom(rankstat_Med_DM, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+        synthpop$pop[year > setyear, Med_DM_curr_xps := as.integer(rankstat_Med_DM > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
         synthpop$pop[, c(col_nam) := NULL]
 
         # then do the HbA1c
@@ -276,7 +276,7 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear, Med_HL_curr_xps := qbinom(rankstat_Med_HL, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+        synthpop$pop[year > setyear, Med_HL_curr_xps := as.integer(rankstat_Med_HL > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
         synthpop$pop[, c(col_nam) := NULL]
 
         # then do the LDLc
@@ -320,7 +320,7 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear, Med_HT_curr_xps := qbinom(rankstat_Med_HT, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+        synthpop$pop[year > setyear, Med_HT_curr_xps := as.integer(rankstat_Med_HT > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
         synthpop$pop[, c(col_nam) := NULL]
 
         # then do the SBPs
@@ -507,14 +507,14 @@ IMPACTncd$update_primary_prevention_scn(
         tbl[, sex := factor(sex, 0:1, c("men", "women"))]
 
         ### Make PA days category
-        synthpop$pop[, PA_3cat := fifelse(
+        synthpop$pop[, pa_3cat := fifelse(
             PA_days_curr_xps %in% as.character(0:1), 1L,
             fifelse(
                 PA_days_curr_xps %in% as.character(2:4), 2L,
                 fifelse(PA_days_curr_xps %in% as.character(5:7), 3L, NA_integer_)
             )
         )]
-        synthpop$pop[, PA_3cat := factor(PA_3cat)]
+        synthpop$pop[, pa_3cat := factor(pa_3cat)]
 
 
         col_nam <-
@@ -524,7 +524,7 @@ IMPACTncd$update_primary_prevention_scn(
         synthpop$pop[year > setyear, BMI_curr_xps := qBCTo(rank_BMI, mu, sigma, nu, tau)]
         synthpop$pop[BMI_curr_xps < 10, BMI_curr_xps := 10] # Truncate BMI predictions to avoid unrealistic values.
         synthpop$pop[BMI_curr_xps > 70, BMI_curr_xps := 70] # Truncate BMI predictions to avoid unrealistic values.
-        synthpop$pop[, c(col_nam, "PA_3cat") := NULL]
+        synthpop$pop[, c(col_nam, "pa_3cat") := NULL]
 
 
         # med_DM
@@ -539,7 +539,7 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear, Med_DM_curr_xps := qbinom(rankstat_Med_DM, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+        synthpop$pop[year > setyear, Med_DM_curr_xps := as.integer(rankstat_Med_DM > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
         synthpop$pop[, c(col_nam) := NULL]
 
         synthpop$pop[, BMI_round := as.integer(round(10 * BMI_curr_xps, 0))]
@@ -573,7 +573,7 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear, Med_HL_curr_xps := qbinom(rankstat_Med_HL, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+        synthpop$pop[year > setyear, Med_HL_curr_xps := as.integer(rankstat_Med_HL > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
         synthpop$pop[, c(col_nam) := NULL]
 
         # then do the LDLc
@@ -606,7 +606,7 @@ IMPACTncd$update_primary_prevention_scn(
             setdiff(names(tbl), intersect(names(synthpop$pop), names(tbl)))
         absorb_dt(synthpop$pop, tbl)
         if (anyNA(synthpop$pop[, ..col_nam])) stop("NA in the exposure distribution")
-        synthpop$pop[year > setyear, Med_HT_curr_xps := qbinom(rankstat_Med_HT, 1L, mu)] # , n_cpu = design_$sim_prm$n_cpu)]
+        synthpop$pop[year > setyear, Med_HT_curr_xps := as.integer(rankstat_Med_HT > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
         synthpop$pop[, c(col_nam) := NULL]
 
         # then do the SBPs

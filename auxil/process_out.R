@@ -29,13 +29,15 @@ tbl_smmrs <- function(
             "dis_mrtl", "dis_mrtl_change",
             "cms_score", "cms_score_change", "cms_score_age",
             "cms_score_age_change", "cms_count", "cms_count_change",
-            "pop", "qalys", "costs"
+            "pop", "qalys", "costs", "cypp", "cpp", "dpp"
     ),
     type = c("ons", "esp"),
     strata,
     output_dir = output_dir,
     prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
-    baseline_year = 2019L # only used for prvl_change etc.
+    baseline_year = 2001L, # only used for prvl_change etc.
+    comparator_scenario = "sc0",
+    comparison_starting_year = baseline_year
     ) {
         strata <- lapply(strata, function(x) {
                 c("mc", "scenario", x)
@@ -61,6 +63,9 @@ tbl_smmrs <- function(
                 "cms_count_change" = "cms_count",
                 "qalys" = "qalys",
                 "costs" = "costs",
+                "cypp" = "prvl",
+                "cpp" = "incd",
+                "dpp" = "mrtl",
                 "pop" = "prvl"
         )
         str1 <- c("ons" = "_scaled_up.csv.gz", "esp" = "_esp.csv.gz")
@@ -88,7 +93,10 @@ tbl_smmrs <- function(
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
                 "qalys" = "^EQ5D5L$|^HUI3$",
-                "costs" = "_costs$", 
+                "costs" = "_costs$",
+                "cypp" = "_prvl$",
+                "cpp" = "_incd$", 
+                "dpp" = "_mrtl$",
                 "pop" = "^popsize$"
         ) # used in grep
         str3 <- c(
@@ -110,6 +118,9 @@ tbl_smmrs <- function(
                 "cms_count_change" = "mean_cms_count_",
                 "qalys" = "qalys_",
                 "costs" = "costs_",
+                "cypp" = "cypp_",
+                "cpp" = "cpp_",
+                "dpp" = "dpp_",
                 "pop" = "pop_size_"
         ) # used to col name output
         str4 <- c(
@@ -122,7 +133,7 @@ tbl_smmrs <- function(
                 "mrtl" = "mortality by ",
                 "mrtl_change" = "mortality change by ",
                 "dis_mrtl" = "disease mortality by ",
-                "dis_mrtl_change" = "disease mortality change by ",                
+                "dis_mrtl_change" = "disease mortality change by ",
                 "cms_score" = "mean CMS score by ",
                 "cms_score_change" = "mean CMS score change by ",
                 "cms_score_age" = "mean CMS score by ",
@@ -131,10 +142,24 @@ tbl_smmrs <- function(
                 "cms_count_change" = "mean CMS count change by ",
                 "qalys" = "QALYs by ",
                 "costs" = "costs by ",
+                "cypp" = "case-years prevented or postponed by ",
+                "cpp" = "cases prevented or postponed by ",
+                "dpp" = "deaths prevented or postponed by ",
                 "pop" = "pop size by "
         ) # used in output filenames
 
+        str5 <- c(
+                "ons" = " (not standardised).csv",
+                "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
+                        collapse = "-"
+                ), " standardised).csv")
+        )
 
+        str6 <- paste0(
+                str4[[what]],
+                paste(setdiff(x, c("mc", "scenario", "type")), collapse = "-"),
+                str5[[type]]
+        ) # used for output file name/path
 
         tt <- fread(fpth) # numerator data
 
@@ -214,8 +239,11 @@ tbl_smmrs <- function(
                                 .SDcols = patterns(str2[[what]]),
                                 keyby = x
                         ]
-
-
+                        # convert int cols to numeric (avoids warning with melt())
+                        is_int <- sapply(d[, .SD, .SDcols = -x], is.integer)
+                        is_int <- names(is_int[is_int])
+                        d[, (is_int) := lapply(.SD, as.numeric), .SDcols = is_int]
+                        
                         if (grepl("^ftlt", what)) {
                                 nm <- names(d)
                                 nm <- grep("_deaths$", nm, value = TRUE)
@@ -232,11 +260,12 @@ tbl_smmrs <- function(
                                 nm <- grep("_deaths$|_prvl$", nm, value = TRUE)
                                 d[, (nm) := NULL]
                                 setnafill(d, "const", 0, cols = grep("_ftlt$", names(d), value = TRUE))
-                        } else if (what != "pop") { # if not ftlt related and not pop
+                        } else if (!what %in% c("pop", "cypp", "cpp", "dpp")) { # avoid calculating rates for pop, cypp, cpp, dpp
                                 d <- d[, lapply(.SD, function(y) {
                                         y / popsize
                                 }), keyby = x]
                         }
+                        
 
                         d <- melt(d, id.vars = x)
 
@@ -245,36 +274,40 @@ tbl_smmrs <- function(
                                 d[d19, on = c(setdiff(x, "year"), "variable"), value := value / i.value]
                         }
 
-                        setkey(d, "variable")
-                        d <-
-                                d[, fquantile_byid(value, prbl, id = as.character(variable), rounding = what == "pop"),
-                                        keyby = eval(setdiff(x, "mc"))
-                                ]
-                        setnames(d, c(
-                                setdiff(x, "mc"),
-                                "disease",
-                                percent(prbl, prefix = str3[[what]])
-                        ))
+                        if (grepl("^cypp$|^cpp$|^dpp$", what)) {
+                                d_sc0 <- d[scenario == comparator_scenario & year >= comparison_starting_year][, scenario := NULL]
+                                d <- d[scenario != comparator_scenario & year >= comparison_starting_year][d_sc0, on = c(setdiff(x, "scenario"), "variable"), value := i.value - value] # positive numbers for prevention
+                                d[, variable := gsub(paste0("_", paste0(str0[[what]])), "", variable)]
+                                setkeyv(d, c(x[x != "year"], "variable", "year"))
+                                d[, cumulative := cumsum(value), keyby = c(setdiff(x, "year"), "variable")]
+                                d <- melt(d, id.vars = c(x, "variable"), variable.name = "type")
+                                d[, type := fifelse(type == "cumulative", paste0(what, "_cuml"), what)]
+
+                                setkey(d, "type", "variable")
+                                d <-
+                                        d[, fquantile_byid(value, prbl, id = as.character(variable), rounding = (what %in% c("pop", "cypp", "cpp", "dpp"))),
+                                                keyby = eval(setdiff(c(x, "type"), "mc"))
+                                        ]
+                                x <- c(x, "type")
+                                setnames(d, c(setdiff(x, "mc"), "disease", percent(prbl, prefix = str3[[what]])))
+                        } else {
+                                setkey(d, "variable")
+                                d <-
+                                        d[, fquantile_byid(value, prbl, id = as.character(variable), rounding = what == "pop"),
+                                                keyby = eval(setdiff(x, "mc"))
+                                        ]
+                                setnames(d, c(setdiff(x, "mc"), "disease", percent(prbl, prefix = str3[[what]])))
+                        }
+
                         if (what == "pop") {
                                 d[, disease := NULL]
                         } else {
-                                d <- d[disease != "popsize"]
+                             if ("popsize" %in% d$disease) d <- d[disease != "popsize"]
                         }
                   setkeyv(d, setdiff(x, "mc"))
                   setcolorder(d, setdiff(x, "mc"))
                 }
-                str5 <- c(
-                        "ons" = " (not standardised).csv",
-                        "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
-                                collapse = "-"
-                        ), " standardised).csv")
-                )
 
-                str6 <- paste0(
-                        str4[[what]],
-                        paste(setdiff(x, c("mc", "scenario")), collapse = "-"),
-                        str5[[type]]
-                ) # used for output file name/path
                 fwrite(d, file.path(
                         output_dir, "tables", str6
                 ))
@@ -289,7 +322,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
-                "pop"
+                "cypp", "cpp", "dpp", "pop"
         ),
         type = c("ons", "esp")
 )

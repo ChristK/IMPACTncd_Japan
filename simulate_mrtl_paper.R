@@ -645,7 +645,7 @@ IMPACTncd$export_summaries(
         "le", "hle", "dis_char", "prvl",
         "incd", "dis_mrtl", "mrtl",
         "allcause_mrtl_by_dis", "cms", 
-        "qalys", "costs", "cypp", "cpp", "dpp"
+        "qalys", "costs"
     )
 )
 

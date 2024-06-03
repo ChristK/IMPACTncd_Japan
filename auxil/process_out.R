@@ -12,7 +12,7 @@ theme_set(new = theme_economist())
 theme_update(axis.text.x = element_text(size = 9), plot.title = element_text(hjust = 0.5))
 
 # what <- "qalys"
-# type <- "ons"
+# population <- "ons"
 # strata <- "year"
 # baseline_year <- baseline_year_for_change_outputs
 
@@ -29,9 +29,10 @@ tbl_smmrs <- function(
             "dis_mrtl", "dis_mrtl_change",
             "cms_score", "cms_score_change", "cms_score_age",
             "cms_score_age_change", "cms_count", "cms_count_change",
-            "pop", "qalys", "costs", "cypp", "cpp", "dpp"
+            "pop", "qalys", "costs", "cypp", "cpp", "dpp",
+            "net_qalys", "net_costs"
     ),
-    type = c("ons", "esp"),
+    population = c("ons", "esp"),
     strata,
     output_dir = output_dir,
     prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
@@ -62,18 +63,17 @@ tbl_smmrs <- function(
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
                 "qalys" = "qalys",
+                "net_qalys" = "qalys",
                 "costs" = "costs",
+                "net_costs" = "costs",
                 "cypp" = "prvl",
                 "cpp" = "incd",
                 "dpp" = "mrtl",
                 "pop" = "prvl"
         )
+
         str1 <- c("ons" = "_scaled_up.csv.gz", "esp" = "_esp.csv.gz")
-        fpth <- file.path(output_dir, "summaries", paste0(str0[[what]], str1[[type]]))
-        if (!file.exists(fpth)) {
-                message(fpth, " doesn't exist")
-                return(NULL)
-        }
+
         # other useful strings
         str2 <- c(
                 "prvl" = "_prvl$|^popsize$",
@@ -93,7 +93,9 @@ tbl_smmrs <- function(
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
                 "qalys" = "^EQ5D5L$|^HUI3$",
+                "net_qalys" = "^EQ5D5L$|^HUI3$",
                 "costs" = "_costs$",
+                "net_costs" = "_costs$",
                 "cypp" = "_prvl$",
                 "cpp" = "_incd$", 
                 "dpp" = "_mrtl$",
@@ -117,7 +119,9 @@ tbl_smmrs <- function(
                 "cms_count" = "mean_cms_count_",
                 "cms_count_change" = "mean_cms_count_",
                 "qalys" = "qalys_",
+                "net_qalys" = "net_qalys_",
                 "costs" = "costs_",
+                "net_costs" = "net_costs_",
                 "cypp" = "cypp_",
                 "cpp" = "cpp_",
                 "dpp" = "dpp_",
@@ -141,31 +145,26 @@ tbl_smmrs <- function(
                 "cms_count" = "mean CMS count by ",
                 "cms_count_change" = "mean CMS count change by ",
                 "qalys" = "QALYs by ",
+                "net_qalys" = "net QALYs by ",
                 "costs" = "costs by ",
+                "net_costs" = "net costs by ",
                 "cypp" = "case-years prevented or postponed by ",
                 "cpp" = "cases prevented or postponed by ",
                 "dpp" = "deaths prevented or postponed by ",
                 "pop" = "pop size by "
         ) # used in output filenames
 
-        str5 <- c(
-                "ons" = " (not standardised).csv",
-                "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
-                        collapse = "-"
-                ), " standardised).csv")
-        )
-
-        str6 <- paste0(
-                str4[[what]],
-                paste(setdiff(x, c("mc", "scenario", "type")), collapse = "-"),
-                str5[[type]]
-        ) # used for output file name/path
+        fpth <- file.path(output_dir, "summaries", paste0(str0[[what]], str1[[population]]))
+        if (!file.exists(fpth)) {
+                message(fpth, " doesn't exist")
+                return(NULL)
+        }
 
         tt <- fread(fpth) # numerator data
 
         # For ftlt I need prvl for the denominator
         if (grepl("^ftlt", what)) {
-                fpth <- file.path(output_dir, "summaries", paste0(str0[["prvl"]], str1[[type]]))
+                fpth <- file.path(output_dir, "summaries", paste0(str0[["prvl"]], str1[[population]]))
                 if (!file.exists(fpth)) stop(fpth, " doesn't exist")
 
                 t1 <- fread(fpth)
@@ -188,31 +187,52 @@ tbl_smmrs <- function(
                         setnames(d, c(setdiff(x, "mc"), percent(prbl, prefix = str3[[what]])))
                         setkeyv(d, setdiff(x, "mc"))
                         setcolorder(d, setdiff(x, "mc"))
-                } else if (grepl("^qalys", what)) {
+                } else if (grepl("^qalys$", what)) {
                         d <- tt[, .("EQ5D5L" = sum(EQ5D5L),
                                     "HUI3" = sum(HUI3)
                                    ),
                                 keyby = eval(x)
                         ]
-                        d <- melt(d, id.vars = x, variable.name = "type", value.name = "QALYs")
+                        d <- melt(d, id.vars = x, variable.name = "scale", value.name = "QALYs")
 
-                        if (grepl("_change$", what)) { # when calculating change
-                                d19 <- d[year == baseline_year][, year := NULL]
-                                d[d19, on = c(setdiff(x, "year"), "type"), QALYs := QALYs / i.QALYs]
-                        }
+                        # if (grepl("_change$", what)) { # when calculating change
+                        #         d19 <- d[year == baseline_year][, year := NULL]
+                        #         d[d19, on = c(setdiff(x, "year"), "scale"), QALYs := QALYs / i.QALYs]
+                        # }
 
-                        setkey(d, "type")
-                        d <- d[, fquantile_byid(QALYs, prbl, id = as.character(type), rounding = TRUE),
+                        setkey(d, "scale")
+                        d <- d[, fquantile_byid(QALYs, prbl, id = as.character(scale), rounding = TRUE),
                                         keyby = eval(setdiff(x, "mc"))
                                 ]
                         setnames(d, c(
                                 setdiff(x, "mc"),
-                                "type",
+                                "scale",
                                 percent(prbl, prefix = str3[[what]])
                         ))
-                        setkeyv(d, c("type", setdiff(x, "mc")))
+                        setkeyv(d, c("scale", setdiff(x, "mc")))
                         setcolorder(d, setdiff(x, "mc"))
-
+                } else if (grepl("^net_qalys$", what)) {
+                        d <- tt[, .("EQ5D5L" = sum(EQ5D5L),
+                                    "HUI3" = sum(HUI3)
+                                   ),
+                                keyby = eval(x)
+                        ]
+                        d <- melt(d, id.vars = x, variable.name = "scale", value.name = "QALYs")
+                        d_sc0 <- d[scenario == comparator_scenario & year >= comparison_starting_year][, scenario := NULL]
+                        d <- d[scenario != comparator_scenario & year >= comparison_starting_year][d_sc0, on = c(setdiff(x, "scenario"), "scale"), net_QALYs := QALYs - i.QALYs] # positive numbers for prevention
+                        d[, QALYs := NULL]
+                        setkeyv(d, c(x[x != "year"], "scale", "year"))
+                        d[, cumulative := cumsum(net_QALYs), keyby = c(setdiff(x, "year"), "scale")]
+                        d <- melt(d, id.vars = c(x, "scale"), variable.name = "type")
+                        d[type == "cumulative", type := "net_QALYs_cuml"]
+                        setkey(d, "type", "scale")
+                        d <-
+                          d[, fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
+                          keyby = eval(setdiff(c(x, "scale"), "mc"))]
+                        x <- c(x, "scale")
+                        setnames(d, c(setdiff(x, "mc"), "type", percent(prbl, prefix = str3[[what]])))
+                        setkeyv(d, c("type", setdiff(x, "mc")))
+                        setcolorder(d, setdiff(x, "mc"))                        
                 } else if (grepl("^costs", what)) {
                         d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]
                         d <- melt(d, id.vars = x, variable.name = "type", value.name = "costs")
@@ -226,6 +246,30 @@ tbl_smmrs <- function(
                         d <- d[, fquantile_byid(costs, prbl, id = as.character(type), rounding = TRUE),
                                         keyby = eval(setdiff(x, "mc"))
                                 ]
+                        setnames(d, c(
+                                setdiff(x, "mc"),
+                                "type",
+                                percent(prbl, prefix = str3[[what]])
+                        ))
+                        setkeyv(d, c("type", setdiff(x, "mc")))
+                        setcolorder(d, setdiff(x, "mc"))
+
+                } else if (grepl("^net_costs", what)) {
+                        d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]
+                        d <- melt(d, id.vars = x, variable.name = "costs_type", value.name = "value")
+                        d_sc0 <- d[scenario == comparator_scenario & year >= comparison_starting_year][, scenario := NULL]
+                        d <- d[scenario != comparator_scenario & year >= comparison_starting_year][d_sc0, on = c(setdiff(x, "scenario"), "costs_type"), net_costs := value - i.value] # negative numbers for prevention
+                        d[, value := NULL]
+                        setkeyv(d, c(x[x != "year"], "costs_type", "year"))
+                        d[, cumulative := cumsum(net_costs), keyby = c(setdiff(x, "year"), "costs_type")]
+                        d <- melt(d, id.vars = c(x, "costs_type"), variable.name = "type")
+                        d[type == "cumulative", type := "net_costs_cuml"]
+                        setkey(d, "type", "costs_type")
+                        d <-
+                                d[, fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
+                                        keyby = eval(setdiff(c(x, "costs_type"), "mc"))
+                                ]
+                        x <- c(x, "costs_type")
                         setnames(d, c(
                                 setdiff(x, "mc"),
                                 "type",
@@ -277,11 +321,11 @@ tbl_smmrs <- function(
                         if (grepl("^cypp$|^cpp$|^dpp$", what)) {
                                 d_sc0 <- d[scenario == comparator_scenario & year >= comparison_starting_year][, scenario := NULL]
                                 d <- d[scenario != comparator_scenario & year >= comparison_starting_year][d_sc0, on = c(setdiff(x, "scenario"), "variable"), value := i.value - value] # positive numbers for prevention
-                                d[, variable := gsub(paste0("_", paste0(str0[[what]])), "", variable)]
+                                d[, variable := gsub(paste0("_", str0[[what]]), "", variable)]
                                 setkeyv(d, c(x[x != "year"], "variable", "year"))
                                 d[, cumulative := cumsum(value), keyby = c(setdiff(x, "year"), "variable")]
                                 d <- melt(d, id.vars = c(x, "variable"), variable.name = "type")
-                                d[, type := fifelse(type == "cumulative", paste0(what, "_cuml"), what)]
+                                d[type == "cumulative", type := paste0(what, "_cuml")]
 
                                 setkey(d, "type", "variable")
                                 d <-
@@ -307,7 +351,18 @@ tbl_smmrs <- function(
                   setkeyv(d, setdiff(x, "mc"))
                   setcolorder(d, setdiff(x, "mc"))
                 }
-
+                str5 <- c(
+                        "ons" = " (not standardised).csv",
+                        "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
+                                collapse = "-"
+                        ), " standardised).csv")
+                )
+        
+                str6 <- paste0(
+                        str4[[what]],
+                        paste(setdiff(x, c("mc", "scenario", "type", "scale", "costs_type")), collapse = "-"),
+                        str5[[type]]
+                ) # used for output file name/path
                 fwrite(d, file.path(
                         output_dir, "tables", str6
                 ))
@@ -322,22 +377,22 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
-                "cypp", "cpp", "dpp", "pop"
+                "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
-        type = c("ons", "esp")
+        population = c("ons", "esp")
 )
 
 for (i in seq_len(nrow(outperm))) {
         what <- as.character(outperm$what[[i]])
-        type <- as.character(outperm$type[[i]])
-        if (type == "ons") {
+        population <- as.character(outperm$population[[i]])
+        if (population == "ons") {
                 strata <- list(
                         "year",
                         c("year", "sex"),
                         c("year", "agegrp"),
                         c("year", "agegrp", "sex")
                 )
-        } else if (type == "esp") {
+        } else if (population == "esp") {
                 strata <- list(
                         "year",
                         c("year", "sex")
@@ -353,18 +408,24 @@ for (i in seq_len(nrow(outperm))) {
                 })
         }
 
-        if ((what == "pop" && type == "esp") || (grepl("_age", what) && type == "esp")) next()
+        if ((what == "pop" && population == "esp") || (grepl("_age", what) && population == "esp")) next()
 
-        print(paste0(what, "-", type))
-        tbl_smmrs(what, type, strata, output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs)
+        print(paste0(what, "-", population))
+        tbl_smmrs(what, population, strata, output_dir,
+                prbl = prbl, baseline_year = baseline_year_for_change_outputs,
+                comparator_scenario = "sc0",
+                comparison_starting_year = baseline_year_for_change_outputs
+        )
 }
 
-tbl_smmrs("pop", "ons", list(
+tbl_smmrs(what = "pop", population = "ons", list(
         "year",
         c("year", "sex"),
         c("year", "agegrp"),
         c("year", "agegrp", "sex")
-), output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs)
+), output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs,
+   comparator_scenario = "sc0",
+   comparison_starting_year = baseline_year_for_change_outputs)
 
 
 # All-cause mortality by disease not standardised----

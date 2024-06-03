@@ -361,7 +361,7 @@ tbl_smmrs <- function(
                 str6 <- paste0(
                         str4[[what]],
                         paste(setdiff(x, c("mc", "scenario", "type", "scale", "costs_type")), collapse = "-"),
-                        str5[[type]]
+                        str5[[population]]
                 ) # used for output file name/path
                 fwrite(d, file.path(
                         output_dir, "tables", str6
@@ -411,7 +411,7 @@ for (i in seq_len(nrow(outperm))) {
         if ((what == "pop" && population == "esp") || (grepl("_age", what) && population == "esp")) next()
 
         print(paste0(what, "-", population))
-        tbl_smmrs(what, population, strata, output_dir,
+        tbl_smmrs(what = what, population = population, strata = strata, output_dir = output_dir,
                 prbl = prbl, baseline_year = baseline_year_for_change_outputs,
                 comparator_scenario = "sc0",
                 comparison_starting_year = baseline_year_for_change_outputs

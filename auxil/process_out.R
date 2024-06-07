@@ -199,18 +199,31 @@ tbl_smmrs <- function(
                         #         d19 <- d[year == baseline_year][, year := NULL]
                         #         d[d19, on = c(setdiff(x, "year"), "scale"), QALYs := QALYs / i.QALYs]
                         # }
+                        setkeyv(d, c(x[x != "year"], "scale", "year"))
+                        d[, cumulative := cumsum(QALYs), keyby = c(setdiff(x, "year"), "scale")]
+                        d <- melt(d, id.vars = c(x, "scale"), variable.name = "type")
+                        d[, type := fifelse(type == "cumulative", "QALYs_cuml", "QALYs")]
 
-                        setkey(d, "scale")
-                        d <- d[, fquantile_byid(QALYs, prbl, id = as.character(scale), rounding = TRUE),
-                                        keyby = eval(setdiff(x, "mc"))
+                        setkey(d, "type", "scale")
+                        d <-
+                                d[, fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
+                                        keyby = eval(setdiff(c(x, "scale"), "mc"))
                                 ]
-                        setnames(d, c(
-                                setdiff(x, "mc"),
-                                "scale",
-                                percent(prbl, prefix = str3[[what]])
-                        ))
-                        setkeyv(d, c("scale", setdiff(x, "mc")))
-                        setcolorder(d, setdiff(x, "mc"))
+                        setnames(d, c(setdiff(c(x, "scale"), "mc"), "type", percent(prbl, prefix = str3[[what]])))
+                        setkeyv(d, c("type", setdiff(c(x, "scale"), "mc")))
+                        setcolorder(d, setdiff(c(x, "scale"), "mc"))
+
+                        # setkey(d, "scale")
+                        # d <- d[, fquantile_byid(QALYs, prbl, id = as.character(scale), rounding = TRUE),
+                        #                 keyby = eval(setdiff(x, "mc"))
+                        #         ]
+                        # setnames(d, c(
+                        #         setdiff(x, "mc"),
+                        #         "scale",
+                        #         percent(prbl, prefix = str3[[what]])
+                        # ))
+                        # setkeyv(d, c("scale", setdiff(x, "mc")))
+                        # setcolorder(d, setdiff(x, "mc"))
                 } else if (grepl("^net_qalys$", what)) {
                         d <- tt[, .("EQ5D5L" = sum(EQ5D5L),
                                     "HUI3" = sum(HUI3)

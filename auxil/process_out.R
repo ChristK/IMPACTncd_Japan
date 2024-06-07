@@ -213,17 +213,7 @@ tbl_smmrs <- function(
                         setkeyv(d, c("type", setdiff(c(x, "scale"), "mc")))
                         setcolorder(d, setdiff(c(x, "scale"), "mc"))
 
-                        # setkey(d, "scale")
-                        # d <- d[, fquantile_byid(QALYs, prbl, id = as.character(scale), rounding = TRUE),
-                        #                 keyby = eval(setdiff(x, "mc"))
-                        #         ]
-                        # setnames(d, c(
-                        #         setdiff(x, "mc"),
-                        #         "scale",
-                        #         percent(prbl, prefix = str3[[what]])
-                        # ))
-                        # setkeyv(d, c("scale", setdiff(x, "mc")))
-                        # setcolorder(d, setdiff(x, "mc"))
+
                 } else if (grepl("^net_qalys$", what)) {
                         d <- tt[, .("EQ5D5L" = sum(EQ5D5L),
                                     "HUI3" = sum(HUI3)
@@ -248,24 +238,27 @@ tbl_smmrs <- function(
                         setcolorder(d, setdiff(x, "mc"))                        
                 } else if (grepl("^costs", what)) {
                         d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]
-                        d <- melt(d, id.vars = x, variable.name = "type", value.name = "costs")
+                        d <- melt(d, id.vars = x, variable.name = "costs_type", value.name = "costs")
 
-                        if (grepl("_change$", what)) { # when calculating change
-                                d19 <- d[year == baseline_year][, year := NULL]
-                                d[d19, on = c(setdiff(x, "year"), "type"), costs := costs / i.costs]
-                        }
-
-                        setkey(d, "type")
-                        d <- d[, fquantile_byid(costs, prbl, id = as.character(type), rounding = TRUE),
-                                        keyby = eval(setdiff(x, "mc"))
+                        # if (grepl("_change$", what)) { # when calculating change
+                        #         d19 <- d[year == baseline_year][, year := NULL]
+                        #         d[d19, on = c(setdiff(x, "year"), "type"), costs := costs / i.costs]
+                        # }
+                        d[, cumulative := cumsum(costs), keyby = c(setdiff(x, "year"), "costs_type")]
+                        d <- melt(d, id.vars = c(x, "costs_type"), variable.name = "type")
+                        d[type == "cumulative", type := "costs_cuml"]
+                        setkey(d, "type", "costs_type")
+                        d <-
+                                d[, fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
+                                        keyby = eval(setdiff(c(x, "costs_type"), "mc"))
                                 ]
                         setnames(d, c(
-                                setdiff(x, "mc"),
+                                setdiff(c(x, "costs_type"), "mc"),
                                 "type",
                                 percent(prbl, prefix = str3[[what]])
                         ))
-                        setkeyv(d, c("type", setdiff(x, "mc")))
-                        setcolorder(d, setdiff(x, "mc"))
+                        setkeyv(d, c("type", setdiff(c(x, "costs_type"), "mc")))
+                        setcolorder(d, setdiff(c(x, "costs_type"), "mc"))
 
                 } else if (grepl("^net_costs", what)) {
                         d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]

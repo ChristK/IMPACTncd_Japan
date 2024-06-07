@@ -325,8 +325,7 @@ tbl_smmrs <- function(
                                 setkeyv(d, c(x[x != "year"], "variable", "year"))
                                 d[, cumulative := cumsum(value), keyby = c(setdiff(x, "year"), "variable")]
                                 d <- melt(d, id.vars = c(x, "variable"), variable.name = "type")
-                                d[type == "cumulative", type := paste0(what, "_cuml")]
-
+                                d[, type := fifelse(type == "cumulative", paste0(what, "_cuml"), what)]
                                 setkey(d, "type", "variable")
                                 d <-
                                         d[, fquantile_byid(value, prbl, id = as.character(variable), rounding = (what %in% c("pop", "cypp", "cpp", "dpp"))),

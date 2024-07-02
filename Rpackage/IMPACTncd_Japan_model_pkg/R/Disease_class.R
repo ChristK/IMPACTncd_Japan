@@ -124,7 +124,7 @@ Disease <-
 
                private$chksum <-
           digest(list(
-            design_$sim_prm[c("init_year", "ageL", "ageH", "apply_RR_to_mrtl2",
+            design_$sim_prm[c("init_year", "sim_horizon_max", "ageL", "ageH", "apply_RR_to_mrtl2",
                               "model_trends_in_redidual_incd")],
             lapply(private$rr, function(x)
               x$get_input_rr()),
@@ -205,9 +205,14 @@ Disease <-
         if (file.exists(private$parf_filenam)) return(NULL) # nothing to do
 
         tmpfile <- file.path(private$parf_dir,
-                             paste0("PARF_", self$name, "_", digest(sort(
-                               sapply(private$rr, `[[`, "name")
-                             )), ".qs"))
+                             paste0("PARF_", self$name, "_", digest(
+                              list(
+                                    lapply(private$rr, function(x)
+                                      x$get_input_rr()),
+                                    lapply(private$rr, `[[`, "lag"),
+                                    lapply(private$rr, `[[`, "distribution")
+                                  )
+                             ), ".qs"))
 
         if (file.exists(tmpfile)) {
           if (design_$sim_prm$logs) message("Reading file from cache.")

@@ -68,6 +68,12 @@ mk_scenario_init2 <- function(scenario_name, diseases_, sp, design_) {
     )
 }
 
+sp <- qs::qread("./simulation/tmp_spfor test.qs")
+l <- mk_scenario_init2("", diseases, sp, design)
+simcpp(sp$pop, l, sp$mc)
+qs::qsave(sp, "./simulation/tmp_spfor testafternewsim.qs")
+
+
 # sim <- SynthPop$new(0L, design)
 # sim$write_synthpop(1:500)
 # sim$delete_synthpop(NULL)
@@ -114,7 +120,8 @@ lapply(diseases, function(x) {
 # # new[, c("mu", "mu_lower", "mu_upper") := list(mu/1e5, mu_lower/1e5, mu_upper/1e5)]
 # setnames(new, c("Rate", "Rate_lower", "Rate_upper"), c("mu2", "mu_lower", "mu_upper"))
 # write_fst(new, "/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/nonmodelled_ftlt.fst")
-
+# qs::qsave(sp, "./simulation/tmp_spfor test.qs")
+# sp <- qs::qread("./simulation/tmp_spfor test.qs")
 l <- mk_scenario_init2("", diseases, sp, design)
 simcpp(sp$pop, l, sp$mc)
 

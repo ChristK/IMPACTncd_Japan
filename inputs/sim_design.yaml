@@ -119,7 +119,10 @@ diseases:
     diagnosis:
       type: ~ # NULL
     mortality:
-      type: 1
+      type: 3 # influenced by
+      influenced_by_disease_name:
+        - t2dm
+      # type: 1
       code: 1
   notes: .na
 maxlag: 6 # To allow init year of 2001. 

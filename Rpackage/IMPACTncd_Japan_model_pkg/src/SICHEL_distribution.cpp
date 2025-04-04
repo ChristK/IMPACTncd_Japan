@@ -23,9 +23,10 @@
 #include <math.h>
 #include <Rmath.h>
 #include <algorithm>
-// [[Rcpp::plugins(cpp11)]]
+// [[Rcpp::plugins(cpp17)]]
 // [[Rcpp::plugins(openmp)]]
 #include <omp.h>
+#include <vector>
 
 using namespace Rcpp;
 
@@ -48,8 +49,8 @@ NumericVector my_cdfSICHEL(const IntegerVector& y,
     cvec = exp(log(R::bessel_k(1/sigma[i], nu[i]+1, 1)) - log(R::bessel_k(1/sigma[i], nu[i], 1)) );
     alpha = sqrt(1 + 2*sigma[i]*mu[i]/cvec)/sigma[i];
     lbes = log(R::bessel_k(alpha, nu[i]+1, 1)) - log(R::bessel_k(alpha, nu[i], 1));
-    double tynew[lyp1];
-    double lpnew[lyp1];
+    std::vector<double> tynew(lyp1);
+    std::vector<double> lpnew(lyp1);
     tynew[0] = (mu[i]/cvec)*pow(1+2*sigma[i]*mu[i]/cvec,-0.5)*exp(lbes);
     lpnew[0] = -nu[i]*log(sigma[i]*alpha) +  log(R::bessel_k(alpha,nu[i],1)) - log(R::bessel_k(1/sigma[i],nu[i],1));
     for (j = 1; j < lyp1; j++)
@@ -75,9 +76,9 @@ double my_cdfSICHEL_scalar(const int& y,
     cvec = exp(log(R::bessel_k(1/sigma, nu+1, 1)) - log(R::bessel_k(1/sigma, nu, 1)) );
     alpha = sqrt(1 + 2*sigma*mu/cvec)/sigma;
     lbes = log(R::bessel_k(alpha, nu+1, 1)) - log(R::bessel_k(alpha, nu, 1));
-    double tynew[lyp1];
-    double lpnew[lyp1];
-    tynew[0] = (mu/cvec)*pow(1+2*sigma*mu/cvec,-0.5)*exp(lbes);
+    std::vector<double> tynew(lyp1);
+    std::vector<double> lpnew(lyp1);
+    tynew[0] = (mu / cvec) * pow(1 + 2 * sigma * mu / cvec, -0.5) * exp(lbes);
     lpnew[0] = -nu*log(sigma*alpha) +  log(R::bessel_k(alpha,nu,1)) - log(R::bessel_k(1/sigma,nu,1));
     for (j = 1; j < lyp1; j++)
     {
@@ -98,7 +99,7 @@ NumericVector my_tofySICHEL2 (const NumericVector& y, const NumericVector& mu,
   int maxyp1 = max(y) + 2;
   int ny = y.length();
   NumericVector ans(ny);
-  double tofY[maxyp1];
+  std::vector<double> tofY(maxyp1);
   int iy, i, j;
   double alpha, sumT;
   for (i = 0; i < ny; i++)
@@ -122,8 +123,8 @@ double my_tofySICHEL2_scalar (const int& y, const double& mu,
                               const double& nu, const double& lbes,
                               const double& cvec)
 {
-  double tofY[y + 2];
-  int iy = y+1;
+  std::vector<double> tofY(y + 2);
+  int iy = y + 1;
   tofY[0] = (mu/cvec)*pow(1+2*sigma*mu/cvec,-0.5)*exp(lbes);
   double alpha = sqrt(1 + 2*sigma*mu/cvec)/sigma;
   double sumT = 0.0;

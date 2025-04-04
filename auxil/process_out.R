@@ -38,7 +38,8 @@ tbl_smmrs <- function(
     prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
     baseline_year = 2001L, # only used for prvl_change etc.
     comparator_scenario = "sc0",
-    comparison_starting_year = baseline_year
+    comparison_starting_year = baseline_year,
+    two_agegrps = FALSE # if TRUE, agegrp is 30-64 and 65-99
     ) {
         strata <- lapply(strata, function(x) {
                 c("mc", "scenario", x)
@@ -162,6 +163,15 @@ tbl_smmrs <- function(
 
         tt <- fread(fpth) # numerator data
 
+		if (two_agegrps) {
+                sTablesSubDirPath <- file.path(simulationParameters$output_dir, "tables2agegrps/")
+                if (!dir.exists(sTablesSubDirPath)) dir.create(sTablesSubDirPath)
+                if ("agegrp" %in% names(tt)) {
+                        tt[agegrp %in% c("30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64"), agegrp := "30-64"]
+                        tt[agegrp %in% c("65-69", "70-74", "75-79", "80-84", "85-89", "90-94", "95-99"), agegrp := "65-99"]
+                }
+        }
+
         # For ftlt I need prvl for the denominator
         if (grepl("^ftlt", what)) {
                 fpth <- file.path(output_dir, "summaries", paste0(str0[["prvl"]], str1[[population]]))
@@ -169,6 +179,10 @@ tbl_smmrs <- function(
 
                 t1 <- fread(fpth)
                 setnames(t1, "popsize", "nonmodelled_prvl")
+				if (two_agegrps && "agegrp" %in% names(t1)) {
+                        t1[agegrp %in% c("30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64"), agegrp := "30-64"]
+                        t1[agegrp %in% c("65-69", "70-74", "75-79", "80-84", "85-89", "90-94", "95-99"), agegrp := "65-99"]
+                }
                 absorb_dt(tt, t1)
                 tt <- tt[nonmodelled_prvl > 0] # This is the denom. Cannot be 0 and it is meaningless anyway
         }
@@ -369,7 +383,7 @@ tbl_smmrs <- function(
                         str5[[population]]
                 ) # used for output file name/path
                 fwrite(d, file.path(
-                        output_dir, "tables", str6
+                        output_dir, ifelse(two_agegrps, "tables2agegrps", "tables"), str6
                 ))
         })
 }
@@ -430,7 +444,66 @@ tbl_smmrs(what = "pop", population = "ons", list(
         c("year", "agegrp", "sex")
 ), output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs,
    comparator_scenario = "sc0",
-   comparison_starting_year = baseline_year_for_change_outputs)
+   comparison_starting_year = baseline_year_for_change_outputs,
+   two_agegrps = FALSE)
+
+# 2 agegroups ----
+outperm <- expand.grid(
+        what = c(
+                "prvl", "prvl_change", "incd", "incd_change",
+                "ftlt", "ftlt_change", "mrtl", "mrtl_change",
+                "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
+                # "cms_score", "cms_score_change", "cms_score_age",
+                # "cms_score_age_change", "cms_count", "cms_count_change",
+                "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
+        ),
+        population = "ons")
+for (i in seq_len(nrow(outperm))) {
+        what <- as.character(outperm$what[[i]])
+        population <- as.character(outperm$population[[i]])
+        if (population == "ons") {
+                strata <- list(
+                        c("year", "agegrp"),
+                        c("year", "agegrp", "sex")
+                )
+        } else if (population == "esp") {
+                strata <- list(
+                        "year",
+                        c("year", "sex")
+                )
+        } else {
+                stop()
+        }
+
+        if (grepl("_age", what)) {
+                strata <- lapply(strata, function(st) {
+                        st[st == "agegrp"] <- "age"
+                        st
+                })
+        }
+
+
+		if ((what == "pop" && population == "esp") || (grepl("_age", what) && population == "esp")) next()
+
+
+        print(paste0(what, "-", population))
+        tbl_smmrs(what = what, population = population, strata = strata, output_dir = output_dir,
+                prbl = prbl, baseline_year = baseline_year_for_change_outputs,
+                comparator_scenario = "sc0",
+                comparison_starting_year = baseline_year_for_change_outputs,
+                two_agegrps = TRUE
+        )
+}
+
+tbl_smmrs(what = "pop", population = "ons", list(
+        "year",
+        c("year", "sex"),
+        c("year", "agegrp"),
+        c("year", "agegrp", "sex")
+), output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs,
+   comparator_scenario = "sc0",
+   comparison_starting_year = baseline_year_for_change_outputs,
+   two_agegrps = TRUE)
 
 
 # All-cause mortality by disease not standardised----

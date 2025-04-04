@@ -202,7 +202,8 @@ Disease <-
 		  # delete disease PARF file and update snapshot if necessary
 		  if (bUpdateExistingDiseaseSnapshot)
         private$UpdateDiseaseSnapshotIfInvalid(TRUE, function() self$del_parf_file())
-        if (file.exists(private$parf_filenam)) return(NULL) # nothing to do
+      
+      if (file.exists(private$parf_filenam)) return(NULL) # nothing to do
 
         tmpfile <- file.path(private$parf_dir,
                              paste0("PARF_", self$name, "_", digest(
@@ -242,7 +243,7 @@ Disease <-
 
           # NOTE future and mclapply do not work here for some reason
           if (.Platform$OS.type == "windows") {
-cl <-
+            cl <-
               makeClusterPSOCK(
                 design_$sim_prm$clusternumber,
                 dryrun = FALSE,
@@ -296,8 +297,7 @@ cl <-
 
           if (design_$sim_prm$logs) message("End of parallelisation for PARF.")
 
-          ans <- list()
-          setattr(ans, "class", "SynthPop") # to dispatch
+          ans <- SynthPop$new(mc = 0L, design_)
           ans$pop <- rbindlist(xps_dt)
           ans$pop [, `:=` (pid = .I, pid_mrk = TRUE)] # TODO add check to avoid intmax limit
           ans$mc <- 0L
@@ -494,7 +494,7 @@ cl <-
         } # end if file not exist
 
         # Update p0 and m0 using stochastic incidence incd and mrtl
-        if (sum(dim(private$incd_indx)) > 0) {
+        if (sum(dim(private$incd_indx)) > 0) { # This excludes nonmodelled diseases
           if (design_$sim_prm$logs) message("Estimating p0.")
 
           yrs <- design_$sim_prm$init_year_long
@@ -504,22 +504,32 @@ cl <-
 
           absorb_dt(parf_dt, tt) # now mu is incd
           setnafill(parf_dt, "c", fill = 0, cols = "mu") # fix for prostate and breast cancer
-          
-        if (self$name != "nonmodelled") {
+
+          # Nonmodelled is excluded in this branch
           absorb_dt(parf_dt, fread("./simulation/calibration_prms.csv",
             select =
               c("year", "age", "sex", paste0(self$name, "_incd_clbr_fctr"))
           ))
-        }
 
-        if (self$name == "nonmodelled" || !design_$sim_prm$calibrate_to_incd_trends) 
-          parf_dt[, paste0(self$name, "_incd_clbr_fctr") := 1]
 
+          if (!design_$sim_prm$calibrate_to_incd_trends) {
+            parf_dt[, paste0(self$name, "_incd_clbr_fctr") := 1]
+          }
+
+          # TODO check if this is correct, Rony is using the commented code further below as a fix
           setnames(parf_dt, paste0(self$name, "_incd_clbr_fctr"), "incd_clbr_fctr")
-         
+
           parf_dt[, p0 := incd_clbr_fctr * mu * (1 - parf)] # now p0 incorporates the calibration
           parf_dt[, c("mu", "incd_clbr_fctr") := NULL]
+
+          # if (self$name * "nonmodelled") {
+          #   absorb_dt(parf_dt, fread("./simulation/calibration_prms.csv",
+          #     select = c("year", "age", "sex", paste0(self$name, "_incd_clbr_fctr"))
+          #   ))
+          # }
         }
+
+
 
         if (sum(dim(private$ftlt_indx)) > 0) {
           if (design_$sim_prm$logs) message("Estimating m0.")
@@ -1471,10 +1481,11 @@ cl <-
       #'   population and the incidence/prevalence/fatality tables. It saves the
       #'   harmonised table to disk, overwriting the existing one.
       #' @param sp A synthetic population.
+      #' @param verbose Logical. If TRUE, print the row number of the table that is processed to estimate shape1 and shape2.
       #' @return The invisible self for chaining.
 
       # harmonise_epi_tables ----
-      harmonise_epi_tables = function(sp) {
+      harmonise_epi_tables = function(sp, verbose = FALSE) {
         if (!inherits(sp, "SynthPop")) {
           stop("Argument sp needs to be a SynthPop object.")
         }
@@ -1579,15 +1590,18 @@ cl <-
           tbl[, c("shape1", "shape2") := private$fit_beta_vec(
             q = list(mu, mu_upper, mu_lower),
             p = c(0.5, 0.975, 0.025),
-            tolerance = 0.01
+            tolerance = 0.01,
+            verbose = verbose
           )]
           } else {
           tbl[is.na(shape1) | is.na(shape2), c("shape1", "shape2") := private$fit_beta_vec(
             q = list(mu, mu_upper, mu_lower),
             p = c(0.5, 0.975, 0.025),
-            tolerance = 0.01
+            tolerance = 0.01,
+            verbose = verbose
           )]
           }
+        
 
           if (flag) setnames(tbl, "mu", "mu2")
 
@@ -2329,7 +2343,7 @@ fit_beta = # NOT VECTORISED
         # summary(rbeta(1e6, runif(1e6, 0, 10), runif(1e6, 0, 1e6)))
         rel_error <- x / qbeta(x_p, exp(sol$estimate)[1], exp(sol$estimate)[2])
 
-        # print(c(sol$code, rel_error, x))
+        if (verbose) print(c(sol$code, rel_error, x))
         flag <- (sol$code > 2L || any(!between(rel_error, 1 - tolerance, 1 + tolerance)))
         if (is.na(flag)) flag <- TRUE
         max_it <- max_it + 1L

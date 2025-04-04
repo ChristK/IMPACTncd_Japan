@@ -91,7 +91,6 @@ my_qDPO <- function(p, mu, sigma, lower_tail = TRUE, log_p = FALSE, max_value = 
     .Call('_IMPACTncdJapan_my_qDPO', PACKAGE = 'IMPACTncdJapan', p, mu, sigma, lower_tail, log_p, max_value, n_cpu)
 }
 
-#' @export
 simcpp <- function(dt, l, mc) {
     invisible(.Call('_IMPACTncdJapan_simcpp', PACKAGE = 'IMPACTncdJapan', dt, l, mc))
 }

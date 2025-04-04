@@ -249,6 +249,7 @@ Exposure <-
       #' af_stroke <- Exposure$new("af", "stroke")
       #' af_stroke$read_xps_prm("./inputs/RR/af_stroke.csvy", design)
       #' af_stroke$gen_stochastic_effect(design, TRUE)
+      # gen_stochastic_effect ----
       gen_stochastic_effect = function(design_ = design,
         overwrite = FALSE, smooth, ...) {
         if (!inherits(design_, "Design"))
@@ -300,6 +301,7 @@ Exposure <-
       #' @param invert If TRUE keeps the  file with the current checksum and deletes
       #'   all other files for this exposure~outcome.
       #' @return The invisible self for chaining.
+      # del_stochastic_effect ----
       del_stochastic_effect = function(invert = FALSE) {
         stopifnot(is.logical(invert))
 
@@ -330,7 +332,8 @@ Exposure <-
       #'   common for all age groups and both sexes. Otherwise, a data.table.
       #' @param plot_rr If TRUE, plots the relative risk
       #' @return A data.table with the stochastic relative risks, if stochastic
-      #'   = TRUE; else, the deterministic relative risks.
+      #'   = TRUE or mc > 0; else, the deterministic relative risks.
+      # get_rr ----
       get_rr =
         function(mc,
           design_ = design,
@@ -339,12 +342,12 @@ Exposure <-
           if (!inherits(design_, "Design"))
             stop("Argument design_ needs to be a Design object.")
 
-          stopifnot(length(mc) == 1L, between(mc, 1L, design_$sim_prm$iteration_n_max))
+          stopifnot(length(mc) == 1L, between(mc, 0L, design_$sim_prm$iteration_n_max))
           mc <- as.integer(ceiling(mc))
           if (identical(mc, private$cache_mc)) {
             out <- copy(private$cache) # copy for safety
           } else {
-            if (design_$sim_prm$stochastic) {
+            if (mc > 0 && design_$sim_prm$stochastic) {
               indx <-
                 read_fst(
                   private$filenam_indx,
@@ -361,7 +364,7 @@ Exposure <-
                 )
               out[, mc := NULL]
             } else {
-              # if deterministic
+              # if deterministic or mc == 0
               out <- copy(private$input_rr)
               setnames(out, "rr", private$nam_rr)
             }
@@ -385,6 +388,9 @@ Exposure <-
               col = private$input_rr$sex)
           }
 
+          if (all(c("age", "agegroup") %in% names(out))) {
+            out[, agegroup := NULL]
+          }
 
           if (drop && uniqueN(out[[private$nam_rr]]) == 1L)
             out <- unique(out[[private$nam_rr]])
@@ -427,14 +433,17 @@ Exposure <-
 
           xps_tolag <- paste0(self$name, "_curr_xps")
 
-          if (self$name %in% names(sp_$pop)) {
-            # To prevent overwriting t2dm_prvl, af_prvl etc.
-            if (!xps_tolag %in% names(sp_$pop)) {
-              set(sp_$pop, NULL, xps_tolag, 0L) # Assume only missing for diseases
-              sp_$pop[get(self$name) > 0, (xps_tolag) := 1L]
-            }
-            setnames(sp_$pop, self$name, paste0(self$name, "____"))
+          if (!xps_tolag %in% names(sp_$pop)) {
+            set(sp_$pop, NULL, xps_tolag, 0L) # Assume only missing for diseases
           }
+
+          if (self$name %in% names(sp_$pop)) { #TODO: check that self$name is correct rather than paste0(self$name, "_prvl")
+            # To prevent overwriting t2dm_prvl, af_prvl etc.
+            sp_$pop[get(self$name) > 0, (xps_tolag) := 1L] # xps_tolag always present because of code 6 lines above
+
+            setnames(sp_$pop, self$name, paste0(self$name, "____"))
+          } # if not (like with t2dm) xps_tolag remains 0 for now. TODO is this desired?
+
 
           if (forPARF) {
             set(sp_$pop, NULL, self$name, sp_$pop[[xps_tolag]])
@@ -486,6 +495,7 @@ Exposure <-
 
       #' @description Get relative risks from disk.
       #' @return A plot with the input and stochastic relative risks.
+      # validate_rr ----
       validate_rr =
         function() {
           layout(matrix(1:2))
@@ -534,12 +544,14 @@ Exposure <-
 
       #' @description Get original metadata.
       #' @return A list with the original metadata.
+      # get_metadata ----
       get_metadata = function() {private$metadata},
 
 
       #' @description Get seed for RNG.
       #' @return A seed for the RNG that is produced by the digest of exposure
       #'   name and outcome.
+      # get_seed ----
       get_seed = function() {private$seed},
 
 
@@ -547,6 +559,7 @@ Exposure <-
       #' @param file_path Path including file name and .csvy extension to write the
       #'   file with placeholder exposure parameters.
       #' @return The `Exposure` object.
+      # write_xps_tmplte_file ----
       write_xps_tmplte_file =
         function(file_path = "./inputs/RR/template.csvy") {
           file_path <- normalizePath(file_path, mustWork = FALSE)
@@ -582,6 +595,7 @@ Exposure <-
       #'   second element of `estimates` is interpreted like a p-value for ratio
       #'   rather than a CI.
       #' @return The `Exposure` object.
+      # convert_from_old_format ----
       convert_from_old_format =
         function(old_file, metadata, file_path, estimates = NULL, second_estimate_is_p = FALSE) {
           file_path <- normalizePath(file_path, mustWork = FALSE)
@@ -658,6 +672,7 @@ Exposure <-
       #' @description Get exposure lag.
       #' @param mc_ A vector of Monte Carlo iterations. If missing or 0 return median (= mean).
       #' @return An integer vector with exposure~disease lag.
+      # get_lag ----
       get_lag = function(mc_) {
         if (missing(mc_) || mc_ == 0) {
           self$lag
@@ -670,6 +685,7 @@ Exposure <-
       #' @param mc_ A vector of Monte Carlo iterations. If missing or 0 return
       #'   the user input lag.
       #' @return An integer vector with exposure~disease lag.
+      # get_ideal_xps_lvl ----
       get_ideal_xps_lvl = function(mc_) {
         if (missing(mc_) || mc_ == 0) {
           mean(private$ideal_xps_lvl_mc)
@@ -680,11 +696,13 @@ Exposure <-
 
       #' @description Get name of the object.
       #' @return An string.
+      # get_name ----
       get_name = function() {private$suffix},
 
 
       #' @description Print the simulation parameters.
       #' @return The `Exposure` object.
+      # print ----
       print = function() {
         print(paste0("Exposure name:      ", self$name))
         print(paste0("Outcome influenced: ", self$outcome))

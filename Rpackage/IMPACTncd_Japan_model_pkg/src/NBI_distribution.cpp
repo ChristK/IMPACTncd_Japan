@@ -270,7 +270,7 @@ IntegerVector my_qZANBI(const NumericVector& p,
     omp_set_num_threads(n_cpu); // Use n_cpu threads for all
 
     // consecutive parallel regions
-#pragma omp parallel for simd default(shared)
+#pragma omp parallel for default(shared)
     for (int i = 0; i < n; i++)
     {
       out[i] = my_qZANBI_scalar(p[i], mu_[i], sigma_[i], nu_[i], lower_tail, log_p, false);

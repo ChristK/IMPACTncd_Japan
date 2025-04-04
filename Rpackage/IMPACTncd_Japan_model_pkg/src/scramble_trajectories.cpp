@@ -24,7 +24,7 @@
 // #include <boost/integer/integer_log2.hpp>
 // [[Rcpp::depends(dqrng)]]
 // for an R package use LinkingTo: dqrng and remove above
-// [[Rcpp::plugins(cpp11)]]
+// [[Rcpp::plugins(cpp17)]]
 // [[Rcpp::plugins(openmp)]]
 #include <omp.h>
 #include <dqrng.h>
@@ -35,15 +35,12 @@ using namespace Rcpp;
 // helper function that makes a double jump within x - jump and x + jump
 // special care to avoid values outside (0, 1)
 // seed and RNG type are defined in R side with dqset.seed(1234L); dqRNGkind("pcg64")
-double fscramble_hlp (const double& x, const double& jump)
+inline double fscramble_hlp(double x, double jump)
 {
-  // dqrng::dqRNGkind("pcg64");
-  // dqrng::dqset_seed(IntegerVector::create(42));
-  // if (jumpiness <= 0.0) stop("Jumpiness should be > 0"); //not necessary as I test the exported functions
-  double out = dqrng::runif(x - jump, x + jump);
-  if ((out <= 0.0) || (out >= 1.0)) out = x;
-
-  return out;
+  double lower = x - jump;
+  double upper = x + jump;
+  double out = dqrng::dqrunif(1, lower, upper)[0];
+  return (out <= 0.0 || out >= 1.0) ? x : out;
 }
 
 //' @export
@@ -75,6 +72,76 @@ NumericVector fscramble_trajectories (NumericVector& x, const LogicalVector& pid
   }
 }
 
+// a parallel version of the above function
+// Replace the entire fscramble_trajectories function in scramble_trajectories.cpp with the following:
+
+// // [[Rcpp::export]]
+// NumericVector fscramble_trajectories(NumericVector &x, const LogicalVector &pid,
+//                                      const double &jumpiness = 1.0,
+//                                      const bool &inplace = true)
+// {
+//   // Ensure jumpiness is positive
+//   if (jumpiness <= 0.0)
+//     stop("Jumpiness should be positive");
+//   int n = x.size();
+
+//   // Generate random jumps for each element
+//   NumericVector jump = dqrng::dqrexp(n, 50.0 / jumpiness); // mean jump = 0.02 with defaults
+
+//   // Identify the starting indices of each trajectory block
+//   std::vector<int> block_starts;
+//   for (int i = 0; i < n; i++)
+//   {
+//     if (pid[i])
+//     {
+//       block_starts.push_back(i);
+//     }
+//   }
+
+//   // Check that we have at least one trajectory start; if not, signal an error
+//   if (block_starts.empty())
+//     stop("No trajectory start (pid == TRUE) found in the input vector.");
+
+//   if (inplace)
+//   {
+// // Process each block independently in parallel
+// #pragma omp parallel for
+//     for (int b = 0; b < (int)block_starts.size(); b++)
+//     {
+//       int start = block_starts[b];
+//       int end = (b + 1 < (int)block_starts.size()) ? block_starts[b + 1] : n;
+//       // For each block, the first element remains unchanged
+//       for (int i = start + 1; i < end; i++)
+//       {
+//         x[i] = fscramble_hlp(x[i - 1], jump[i]);
+//       }
+//     }
+//     return R_NilValue; // Return NULL (R_NilValue) for in-place processing
+//   }
+//   else
+//   {
+//     // Allocate output vector and initialize block starting values
+//     NumericVector out(n);
+//     for (int i = 0; i < n; i++)
+//     {
+//       if (pid[i])
+//         out[i] = x[i];
+//     }
+
+// // Process each block in parallel
+// #pragma omp parallel for
+//     for (int b = 0; b < (int)block_starts.size(); b++)
+//     {
+//       int start = block_starts[b];
+//       int end = (b + 1 < (int)block_starts.size()) ? block_starts[b + 1] : n;
+//       for (int i = start + 1; i < end; i++)
+//       {
+//         out[i] = fscramble_hlp(out[i - 1], jump[i]);
+//       }
+//     }
+//     return out;
+//   }
+// }
 
 // NumericVector fscramble_trajectories_inplace (NumericVector& x, const LogicalVector& pid, const double& jumpiness = 1.0) {
 //   // pid should be sorted and same length as x

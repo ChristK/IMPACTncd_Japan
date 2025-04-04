@@ -23,9 +23,10 @@
 #include <math.h>
 #include <Rmath.h>
 #include <algorithm>
-// [[Rcpp::plugins(cpp11)]]
+// [[Rcpp::plugins(cpp17)]]
 // [[Rcpp::plugins(openmp)]]
 #include <omp.h>
+#include <vector>
 using namespace Rcpp;
 
 // dPO (necessary for dDL)
@@ -54,7 +55,7 @@ NumericVector my_tofydel2(const NumericVector &y, const NumericVector &mu,
   int maxyp1 = max(y) + 2;
   int ny = y.length();
   NumericVector ans(ny);
-  double tofY[maxyp1];
+  std::vector<double> tofY(maxyp1);
   int iy, i, j;
   double sumT, dum;
   for (i = 0; i < ny; i++)
@@ -77,7 +78,7 @@ double my_tofydel2_scalar(const int &y, const double &mu,
                           const double &sigma,
                           const double &nu)
 {
-  double tofY[y + 2];
+  std::vector<double> tofY(y + 2);
   int iy, j;
   double sumT, dum;
   iy = y + 1;

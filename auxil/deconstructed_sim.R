@@ -68,11 +68,11 @@ mk_scenario_init2 <- function(scenario_name, diseases_, sp, design_) {
     )
 }
 
-sp <- qs::qread("./simulation/tmp_spfor test.qs")
-l <- mk_scenario_init2("", diseases, sp, design)
-simcpp(sp$pop, l, sp$mc)
-qs::qsave(sp, "./simulation/tmp_spfor testafternewsim.qs")
-
+# sp <- qs::qread("./simulation/tmp_spfor test.qs")
+# l <- mk_scenario_init2("", diseases, sp, design)
+# simcpp(sp$pop, l, sp$mc)
+# sp2 <- qs::qread("simulation/tmp_spfor testold.qs")
+# all.equal(sp$pop, sp2$pop)
 
 # sim <- SynthPop$new(0L, design)
 # sim$write_synthpop(1:500)
@@ -80,7 +80,28 @@ qs::qsave(sp, "./simulation/tmp_spfor testafternewsim.qs")
 # ll <- sim$gen_synthpop_demog(design)
 sp  <- SynthPop$new(1L, design)
 
-lapply(diseases, function(x) x$harmonise_epi_tables(sp))
+# lapply(diseases, function(x) x$harmonise_epi_tables(sp, verbose = TRUE))
+
+# tt <- read_fst("inputs/disease_burden/chd_prvl.fst", as.data.table = T)
+# anyNA(tt)
+# self <- diseases$nonmodelled$.__enclos_env__$self
+# private <- diseases$nonmodelled$.__enclos_env__$private
+# self <- diseases$chd$.__enclos_env__$self
+# private <- diseases$chd$.__enclos_env__$private
+# self <- RR$`Med_DM~t2dm`$.__enclos_env__$self
+# private <- RR$`Med_DM~t2dm`$.__enclos_env__$private
+# private$fit_beta(c(tt[3500, c(mu, mu_lower, mu_upper)]), verbose = TRUE)
+# private$fit_beta(c(tt[3500, c(mu, mu_upper)]), c(0.5, 0.975), verbose = TRUE)
+
+# tt[is.na(shape1), c("shape1", "shape2") := private$fit_beta_vec(
+#     q = list(mu, mu_upper, mu_lower),
+#     p = c(0.5, 0.975, 0.025),
+#     tolerance = 0.01,
+#     verbose = TRUE
+# )]
+# anyNA(tt)
+# write_fst(tt, "inputs/disease_burden/chd_prvl.fst")
+
 
 lapply(diseases, function(x) {
     print(x)
@@ -95,6 +116,8 @@ lapply(diseases, function(x) {
     print(x)
     x$set_init_prvl(sp, design)
 })
+
+# primary_prevention_scn
 
 lapply(diseases, function(x) {
     print(x)
@@ -114,6 +137,8 @@ lapply(diseases, function(x) {
     x$set_mrtl_prb(sp, design)
 })
 
+
+# secondary_prevention_scn
 
 # old <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/backup_inputs_sep23/disease_burden/nonmodelled_ftlt.fst", as.data.table = T)
 # new <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/nonmodelled_ftlt.fst", as.data.table = T)
@@ -603,3 +628,20 @@ tt <- fread("simulation/calibration_prms copy.csv")
 tt[year < 2020, chd_ftlt_clbr_fctr := chd_ftlt_clbr_fctr * 1.1]
 tt[year >= 2020, chd_ftlt_clbr_fctr := chd_ftlt_clbr_fctr * 1.2]
 fwrite(tt, "simulation/calibration_prms.csv")
+
+
+tt <- copy(sp$pop)
+tt[cvd_prvl > 0 , cvd_prvl := 1]
+tt[t2dm_prvl > 0 , t2dm_prvl := 1]
+to_agegrp(tt, 10L, 99L, "age", "agegrp", min_age = 30, to_factor = TRUE)
+summary(lm(SBP_curr_xps ~ agegrp + sex + cvd_prvl, tt[year == 2011 & all_cause_mrtl == 0]))
+summary(lm(LDLc_curr_xps ~ agegrp + sex + cvd_prvl, tt[year == 2011 & all_cause_mrtl == 0]))
+summary(lm(BMI_curr_xps ~ agegrp + sex + cvd_prvl, tt[year == 2011 & all_cause_mrtl == 0]))
+
+summary(lm(SBP_curr_xps ~ agegrp + sex + t2dm_prvl, tt[year == 2011 & all_cause_mrtl == 0]))
+summary(lm(LDLc_curr_xps ~ agegrp + sex + t2dm_prvl, tt[year == 2011 & all_cause_mrtl == 0]))
+summary(lm(BMI_curr_xps ~ agegrp + sex + t2dm_prvl, tt[year == 2011 & all_cause_mrtl == 0]))
+
+summary(glm(Med_HT_curr_xps ~ agegrp + sex + cvd_prvl, tt[year == 2011 & all_cause_mrtl == 0], family = "binomial")) 
+summary(glm(Med_HL_curr_xps ~ agegrp + sex + cvd_prvl, tt[year == 2011 & all_cause_mrtl == 0], family = "binomial"))
+summary(glm(BMI_curr_xps ~ agegrp + sex + cvd_prvl, tt[year == 2011 & all_cause_mrtl == 0]))

@@ -478,13 +478,15 @@ Harmonises classes and levels between the synthetic
   population and the incidence/prevalence/fatality tables. It saves the
   harmonised table to disk, overwriting the existing one.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Disease$harmonise_epi_tables(sp)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Disease$harmonise_epi_tables(sp, verbose = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{sp}}{A synthetic population.}
+
+\item{\code{verbose}}{Logical. If TRUE, print the row number of the table that is processed to estimate shape1 and shape2.}
 }
 \if{html}{\out{</div>}}
 }

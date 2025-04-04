@@ -184,7 +184,7 @@ common for all age groups and both sexes. Otherwise, a data.table.}
 }
 \subsection{Returns}{
 A data.table with the stochastic relative risks, if stochastic
-  = TRUE; else, the deterministic relative risks.
+  = TRUE or mc > 0; else, the deterministic relative risks.
 }
 }
 \if{html}{\out{<hr>}}

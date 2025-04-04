@@ -4,7 +4,7 @@ outcome: t2dm
 lag: 0
 distribution: normal # because of 0s in rr & ci
 source: Common sense.
-notes: On antihypertension medication.
+notes: On antidiabetes medication.
 ---
 agegroup,sex,Med_DM,rr,ci_rr
 <1,men,0,0,0

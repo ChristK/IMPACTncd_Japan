@@ -1,7 +1,8 @@
-# History files
-.Rhistory
-.Rapp.history
-/.history
+# Ignore all hidden files and folders
+.*
+# But keep these
+!.gitignore
+!.gitattributes
 # Session Data files
 .RData
 # User-specific files
@@ -12,8 +13,6 @@
 /*.tar.gz
 # Output files from R CMD check
 /*.Rcheck/
-# RStudio files
-.Rproj.user/
 # produced vignettes
 vignettes/*.html
 vignettes/*.pdf
@@ -30,12 +29,10 @@ Rpackage/IMPACTncd_Japan_model_pkg/src/*.o
 Rpackage/IMPACTncd_Japan_model_pkg/src/*.so
 Rpackage/IMPACTncd_Japan_model_pkg/src/*.dll
 # R Environment Variables
-.Renviron
 validation_internal
 /inputs/synthpop
 /outputs
 IMPACTncd_Japan.code-workspace
-/.vscode
 inputs/exposure_distributions/Table_HbA1c.fst
 inputs/exposure_distributions/Table_LDLc.fst
 inputs/exposure_distributions/Table_SBP.fst
@@ -43,4 +40,3 @@ inputs/sim_design_test.yaml
 simulate2.R
 simulation/calibration_prms_10.csv
 simulation/calibration_prms copy.csv
-Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.rds

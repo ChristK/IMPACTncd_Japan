@@ -22,7 +22,6 @@
 # If you get an execution policy error, run: 
 # Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 # -----------------------------------------------------------------------------
-
 param (
     [string]$SimDesignYaml = "..\inputs\sim_design.yaml"
 )
@@ -84,10 +83,9 @@ function Get-YamlPathValue {
         [string]$YamlPath,
         [string]$Key
     )
-    # Extract the value, ignoring anything after a '#' comment
     $line = Select-String "^$Key\s*:" $YamlPath | Select-Object -First 1
     if ($line) {
-        $value = ($line.Line -replace ".*?:", "").Split("#")[0].Trim()
+        $value = ($line.Line -split ":\s*", 2)[1].Split("#")[0].Trim()
         return (Resolve-Path $value).Path
     }
     return $null

@@ -54,8 +54,12 @@ if (dev_mode) {
 options(datatable.verbose = FALSE)
 options(datatable.showProgress = FALSE)
 
-dependencies(yaml::read_yaml("./dependencies.yaml"), update = FALSE)
-
+# install missing packages
+pkg_list <- readLines("docker_setup/r-packages.txt", warn = FALSE)
+pkg_list <- trimws(pkg_list)
+pkg_list <- pkg_list[nzchar(pkg_list) & !grepl("^#", pkg_list)]
+dependencies(pkg_list, update = FALSE)
+rm(pkg_list)
 
 installLocalPackageIfChanged(
   pkg_path = "./Rpackage/IMPACTncd_Japan_model_pkg/",

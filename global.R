@@ -30,14 +30,14 @@ if (!file.exists("/.dockerenv")) {
 
 cat("Initialising IMPACTncd_Japan model...\n\n")
 
-# Ensure 'pak' is installed
+# Ensure 'remotes' is installed
 if (!requireNamespace("remotes", quietly = TRUE)) {
   install.packages("remotes")
 }
 
 # Ensure 'CKutils' is installed from GitHub if missing
 if (!requireNamespace("CKutils", quietly = TRUE)) {
-  remotes::install_github("ChristK/CKutils", upgrade = "never", force = TRUE)
+  remotes::install_github("ChristK/CKutils", upgrade = "ask", force = TRUE)
 }
 library(CKutils)
 
@@ -54,7 +54,7 @@ if (dev_mode) {
 options(datatable.verbose = FALSE)
 options(datatable.showProgress = FALSE)
 
-dependencies(yaml::read_yaml("./dependencies.yaml"))
+dependencies(yaml::read_yaml("./dependencies.yaml"), update = FALSE)
 
 
 installLocalPackageIfChanged(

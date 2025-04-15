@@ -34,7 +34,6 @@ Rpackage/IMPACTncd_Japan_model_pkg/src/*.dll
 validation_internal
 /inputs/synthpop
 /outputs
-Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.qs
 IMPACTncd_Japan.code-workspace
 /.vscode
 inputs/exposure_distributions/Table_HbA1c.fst
@@ -44,3 +43,4 @@ inputs/sim_design_test.yaml
 simulate2.R
 simulation/calibration_prms_10.csv
 simulation/calibration_prms copy.csv
+Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.rds

@@ -3,6 +3,10 @@
 # -----------------------------------------------------------------------------
 # create_env.sh
 #
+# Optional argument: path to YAML file
+# Default: ../inputs/sim_design.yaml
+# Usage: ./create_env.sh [path_to_yaml]
+#
 # Builds and runs a Docker container for the IMPACTncd Japan project.
 # Rebuilds the image only if relevant input files have changed.
 # This script is designed to be run from the docker_setup directory, and binds 
@@ -13,6 +17,34 @@
 IMAGE_NAME="impactncd-japan-r-prerequisite:latest"
 DOCKERFILE="Dockerfile.prerequisite"
 HASH_FILE=".docker_build_hash"
+
+YAML_FILE="${1:-../inputs/sim_design.yaml}"
+
+if [ ! -f "$YAML_FILE" ]; then
+  echo "Error: YAML file not found at $YAML_FILE"
+  exit 1
+fi
+
+echo "Using configuration from: $YAML_FILE"
+
+# Path to the YAML file (adjust if needed)
+SIM_DESIGN_FILE="$YAML_FILE"
+
+# Extract output_dir and synthpop_dir using grep + sed
+OUTPUT_DIR=$(grep '^output_dir:' "$SIM_DESIGN_FILE" | sed -E 's/output_dir:[[:space:]]*([^#]*).*/\1/' | xargs)
+SYNTHPOP_DIR=$(grep '^synthpop_dir:' "$SIM_DESIGN_FILE" | sed -E 's/synthpop_dir:[[:space:]]*([^#]*).*/\1/' | xargs)
+# Convert Windows-style or escaped paths if needed (only if using this in mixed environments)
+# Make sure the paths are absolute
+if [[ "$OUTPUT_DIR" != /* ]]; then
+  OUTPUT_DIR="$(realpath "$OUTPUT_DIR")"
+fi
+
+if [[ "$SYNTHPOP_DIR" != /* ]]; then
+  SYNTHPOP_DIR="$(realpath "$SYNTHPOP_DIR")"
+fi
+
+echo "Mounting output_dir: $OUTPUT_DIR"
+echo "Mounting synthpop_dir: $SYNTHPOP_DIR"
 
 # Detect OS and choose hash command
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -61,5 +93,7 @@ fi
 # Run Docker container interactively with bind mount
 docker run -it \
   --mount type=bind,source="$(pwd)/..",target=/IMPACTncd_Japan \
+  --mount type=bind,source="$OUTPUT_DIR",target=/IMPACTncd_Japan/outputs \
+  --mount type=bind,source="$SYNTHPOP_DIR",target=/IMPACTncd_Japan/synthpop \
   "$IMAGE_NAME" \
   bash

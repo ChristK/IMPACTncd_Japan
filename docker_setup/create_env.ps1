@@ -3,6 +3,18 @@
 #
 # PowerShell script for building and running a Docker container for the
 # IMPACTncd Japan project on Windows.
+#
+# Features:
+# - Accepts optional path to sim_design.yaml as argument
+# - Extracts `output_dir` and `synthpop_dir` from YAML
+# - Rebuilds Docker image only if build inputs have changed
+# - Mounts project root, output_dir, and synthpop_dir into container
+#
+# Usage:
+#   .\create_env.ps1 [path\to\sim_design.yaml]
+#
+# PowerShell script for building and running a Docker container for the
+# IMPACTncd Japan project on Windows.
 # Rebuilds the Docker image only if Dockerfile.prerequisite, apt-packages.txt,
 # or r-packages.txt have changed.
 # This script is designed to be run from the docker_setup directory, and binds 
@@ -11,15 +23,27 @@
 # Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 # -----------------------------------------------------------------------------
 
+param (
+    [string]$SimDesignYaml = "..\inputs\sim_design.yaml"
+)
+
 $ImageName = "impactncd-japan-r-prerequisite:latest"
 $Dockerfile = "Dockerfile.prerequisite"
 $HashFile = ".docker_build_hash"
 
-# Resolve full paths
+# Resolve script directory
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Push-Location $ScriptDir
 
-# Read files and compute hash
+# Validate YAML path
+if (-not (Test-Path $SimDesignYaml)) {
+    Write-Host "Error: YAML file not found at '$SimDesignYaml'"
+    Exit 1
+}
+
+Write-Host "Using configuration file: $SimDesignYaml"
+
+# Compute build hash from key input files
 $FilesToHash = @(
     Get-Content "$Dockerfile" -Raw
     Get-Content "apt-packages.txt" -Raw
@@ -30,12 +54,9 @@ $Bytes = [System.Text.Encoding]::UTF8.GetBytes($FilesToHash -join "`n")
 $HashBytes = $HashAlgorithm.ComputeHash($Bytes)
 $BuildHash = [BitConverter]::ToString($HashBytes) -replace "-", ""
 
-# Check if image exists
-$ImageExists = docker image inspect $ImageName > $null 2>&1
-
 # Determine if rebuild is needed
 $NeedsBuild = $false
-if (-not $ImageExists) {
+if (-not (docker image inspect $ImageName > $null 2>&1)) {
     Write-Host "Docker image does not exist. Need to build."
     $NeedsBuild = $true
 } elseif (-not (Test-Path $HashFile)) {
@@ -51,19 +72,56 @@ if (-not $ImageExists) {
     }
 }
 
-# Build image if needed
+# Build Docker image if needed
 if ($NeedsBuild) {
     docker build --no-cache -f $Dockerfile -t $ImageName .
     $BuildHash | Set-Content $HashFile
 }
 
-# Determine parent directory to mount
-$ParentDir = Resolve-Path "$ScriptDir\.."
-$ParentDir = $ParentDir.Path -replace '\\', '/'
+# Extract output_dir and synthpop_dir from YAML
+function Get-YamlPathValue {
+    param (
+        [string]$YamlPath,
+        [string]$Key
+    )
+    # Extract the value, ignoring anything after a '#' comment
+    $line = Select-String "^$Key\s*:" $YamlPath | Select-Object -First 1
+    if ($line) {
+        $value = ($line.Line -replace ".*?:", "").Split("#")[0].Trim()
+        return (Resolve-Path $value).Path
+    }
+    return $null
+}
+
+$outputDir = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "output_dir"
+$synthpopDir = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "synthpop_dir"
+
+if (-not $outputDir -or -not (Test-Path $outputDir)) {
+    Write-Host "Error: output_dir path not found or invalid: $outputDir"
+    Exit 1
+}
+
+if (-not $synthpopDir -or -not (Test-Path $synthpopDir)) {
+    Write-Host "Error: synthpop_dir path not found or invalid: $synthpopDir"
+    Exit 1
+}
+
+Write-Host "Mounting output_dir:    $outputDir"
+Write-Host "Mounting synthpop_dir: $synthpopDir"
+
+# Resolve project root directory (one level up)
+$ProjectRoot = Resolve-Path "$ScriptDir\.."
+$ProjectRoot = $ProjectRoot.Path -replace '\\', '/'
+
+# Format other mount paths for Docker
+$outputDir = $outputDir -replace '\\', '/'
+$synthpopDir = $synthpopDir -replace '\\', '/'
 
 # Run Docker container
 docker run -it `
-  --mount type=bind,source="$ParentDir",target=/IMPACTncd_Japan `
+  --mount type=bind,source="$ProjectRoot",target=/IMPACTncd_Japan `
+  --mount type=bind,source="$outputDir",target=/IMPACTncd_Japan/outputs `
+  --mount type=bind,source="$synthpopDir",target=/IMPACTncd_Japan/synthpop `
   $ImageName `
   bash
 

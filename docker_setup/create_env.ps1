@@ -42,16 +42,27 @@ if (-not (Test-Path $SimDesignYaml)) {
 
 Write-Host "Using configuration file: $SimDesignYaml"
 
-# Compute build hash from key input files
+# Compute build hash from key input files with normalized newlines
 $FilesToHash = @(
-    Get-Content "$Dockerfile" -Raw
-    Get-Content "apt-packages.txt" -Raw
-    Get-Content "r-packages.txt" -Raw
+    (Get-Content "$Dockerfile" -Raw).Replace("`r`n", "`n")
+    (Get-Content "apt-packages.txt" -Raw).Replace("`r`n", "`n")
+    (Get-Content "r-packages.txt" -Raw).Replace("`r`n", "`n")
 )
 $HashAlgorithm = [System.Security.Cryptography.SHA256]::Create()
 $Bytes = [System.Text.Encoding]::UTF8.GetBytes($FilesToHash -join "`n")
 $HashBytes = $HashAlgorithm.ComputeHash($Bytes)
 $BuildHash = [BitConverter]::ToString($HashBytes) -replace "-", ""
+
+if (Test-Path $HashFile) {
+    $LastHash = Get-Content $HashFile -Raw
+    Write-Host "Previous build hash: $LastHash"
+    Write-Host "Current build hash:  $BuildHash"
+    if ($LastHash -ne $BuildHash) {
+        Write-Host "Build hash mismatch — rebuild required."
+    } else {
+        Write-Host "Build hash match — no rebuild needed."
+    }
+}
 
 # Determine if rebuild is needed
 $NeedsBuild = $false
@@ -73,8 +84,11 @@ if (-not (docker image inspect $ImageName > $null 2>&1)) {
 
 # Build Docker image if needed
 if ($NeedsBuild) {
+    Write-Host "Building Docker image using --no-cache..."
     docker build --no-cache -f $Dockerfile -t $ImageName .
     $BuildHash | Set-Content $HashFile
+} else {
+    Write-Host "Docker image is up to date. Skipping build."
 }
 
 # Extract output_dir and synthpop_dir from YAML
@@ -83,11 +97,22 @@ function Get-YamlPathValue {
         [string]$YamlPath,
         [string]$Key
     )
+
     $line = Select-String "^$Key\s*:" $YamlPath | Select-Object -First 1
     if ($line) {
         $value = ($line.Line -split ":\s*", 2)[1].Split("#")[0].Trim()
-        return (Resolve-Path $value).Path
+
+        # Resolve absolute path from YAML value
+        $resolved = Resolve-Path $value -ErrorAction Stop
+
+        # Convert to Docker-compatible mount path
+        $dockerPath = $resolved.Path -replace '^([A-Za-z]):', {
+            "/run/desktop/mnt/host/$($args[0].Groups[1].Value.ToLower())"
+        } -replace '\\', '/'
+
+        return $dockerPath
     }
+
     return $null
 }
 

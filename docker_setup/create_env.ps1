@@ -59,7 +59,8 @@ $BuildHash = [BitConverter]::ToString($HashBytes) -replace "-", ""
 
 $NeedsBuild = $false
 
-if (-not (docker image inspect $ImageName > $null 2>&1)) {
+docker image inspect $ImageName > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
     Write-Host "Docker image does not exist. Need to build."
     $NeedsBuild = $true
 } elseif (-not (Test-Path $HashFile)) {

@@ -13,22 +13,17 @@
 # Usage:
 #   .\create_env.ps1 [path\to\sim_design.yaml]
 #
-# PowerShell script for building and running a Docker container for the
-# IMPACTncd Japan project on Windows.
-# Rebuilds the Docker image only if Dockerfile.prerequisite, apt-packages.txt,
-# or r-packages.txt have changed.
-# This script is designed to be run from the docker_setup directory, and binds 
-# its parent directory to /IMPACTncd_Japan in the container.
 # If you get an execution policy error, run: 
 # Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 # -----------------------------------------------------------------------------
+
 param (
     [string]$SimDesignYaml = "..\inputs\sim_design.yaml"
 )
 
-$ImageName = "impactncd-japan-r-prerequisite:latest"
-$Dockerfile = "Dockerfile.prerequisite"
-$HashFile = ".docker_build_hash"
+$ImageName   = "impactncd-japan-r-prerequisite:latest"
+$Dockerfile  = "Dockerfile.prerequisite"
+$HashFile    = ".docker_build_hash"
 
 # Resolve script directory
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -42,30 +37,28 @@ if (-not (Test-Path $SimDesignYaml)) {
 
 Write-Host "Using configuration file: $SimDesignYaml"
 
-# Compute build hash from key input files with normalized newlines
+# Helper function to normalize file contents
+function Get-NormalizedContent {
+    param([string]$Path)
+    $content = Get-Content -Raw -Encoding UTF8 $Path
+    return ($content -replace "`r`n", "`n").TrimEnd()
+}
+
+# Compute robust build hash
 $FilesToHash = @(
-    (Get-Content "$Dockerfile" -Raw).Replace("`r`n", "`n")
-    (Get-Content "apt-packages.txt" -Raw).Replace("`r`n", "`n")
-    (Get-Content "r-packages.txt" -Raw).Replace("`r`n", "`n")
+    Get-NormalizedContent -Path $Dockerfile
+    Get-NormalizedContent -Path "apt-packages.txt"
+    Get-NormalizedContent -Path "r-packages.txt"
 )
+
 $HashAlgorithm = [System.Security.Cryptography.SHA256]::Create()
-$Bytes = [System.Text.Encoding]::UTF8.GetBytes($FilesToHash -join "`n")
+$JoinedContent = ($FilesToHash -join "`n")
+$Bytes = [System.Text.Encoding]::UTF8.GetBytes($JoinedContent)
 $HashBytes = $HashAlgorithm.ComputeHash($Bytes)
 $BuildHash = [BitConverter]::ToString($HashBytes) -replace "-", ""
 
-if (Test-Path $HashFile) {
-    $LastHash = Get-Content $HashFile -Raw
-    Write-Host "Previous build hash: $LastHash"
-    Write-Host "Current build hash:  $BuildHash"
-    if ($LastHash -ne $BuildHash) {
-        Write-Host "Build hash mismatch — rebuild required."
-    } else {
-        Write-Host "Build hash match — no rebuild needed."
-    }
-}
-
-# Determine if rebuild is needed
 $NeedsBuild = $false
+
 if (-not (docker image inspect $ImageName > $null 2>&1)) {
     Write-Host "Docker image does not exist. Need to build."
     $NeedsBuild = $true
@@ -73,7 +66,7 @@ if (-not (docker image inspect $ImageName > $null 2>&1)) {
     Write-Host "No previous build hash found. Need to build."
     $NeedsBuild = $true
 } else {
-    $LastHash = Get-Content $HashFile -Raw
+    $LastHash = (Get-Content -Raw -Encoding UTF8 $HashFile).Trim()
     if ($LastHash -ne $BuildHash) {
         Write-Host "Detected changes in build inputs. Rebuilding Docker image..."
         $NeedsBuild = $true
@@ -86,7 +79,7 @@ if (-not (docker image inspect $ImageName > $null 2>&1)) {
 if ($NeedsBuild) {
     Write-Host "Building Docker image using --no-cache..."
     docker build --no-cache -f $Dockerfile -t $ImageName .
-    $BuildHash | Set-Content $HashFile
+    $BuildHash | Set-Content -NoNewline -Encoding UTF8 $HashFile
 } else {
     Write-Host "Docker image is up to date. Skipping build."
 }
@@ -101,14 +94,19 @@ function Get-YamlPathValue {
     $line = Select-String "^$Key\s*:" $YamlPath | Select-Object -First 1
     if ($line) {
         $value = ($line.Line -split ":\s*", 2)[1].Split("#")[0].Trim()
-
-        # Resolve absolute path from YAML value
         $resolved = Resolve-Path $value -ErrorAction Stop
 
-        # Convert to Docker-compatible mount path
-        $dockerPath = $resolved.Path -replace '^([A-Za-z]):', {
-            "/run/desktop/mnt/host/$($args[0].Groups[1].Value.ToLower())"
-        } -replace '\\', '/'
+        # Check if Docker uses WSL2 backend
+        $dockerBackend = docker info --format '{{.OperatingSystem}}' 2>$null
+        if ($dockerBackend -and $dockerBackend -match 'WSL') {
+            # Docker Desktop with WSL2
+            $dockerPath = $resolved.Path -replace '^([A-Za-z]):', '/mnt/$($args[0].Groups[1].Value.ToLower())'
+        } else {
+            # Docker Desktop with Hyper-V backend
+            $dockerPath = $resolved.Path -replace '^([A-Za-z]):', '/run/desktop/mnt/host/$($args[0].Groups[1].Value.ToLower())'
+        }
+
+        $dockerPath = $dockerPath -replace '\\', '/'
 
         return $dockerPath
     }
@@ -136,17 +134,17 @@ Write-Host "Mounting synthpop_dir: $synthpopDir"
 $ProjectRoot = Resolve-Path "$ScriptDir\.."
 $ProjectRoot = $ProjectRoot.Path -replace '\\', '/'
 
-# Format other mount paths for Docker
+# Format paths for Docker
 $outputDir = $outputDir -replace '\\', '/'
 $synthpopDir = $synthpopDir -replace '\\', '/'
 
 # Run Docker container
 docker run -it `
-  --mount type=bind,source="$ProjectRoot",target=/IMPACTncd_Japan `
-  --mount type=bind,source="$outputDir",target=/IMPACTncd_Japan/output `
-  --mount type=bind,source="$synthpopDir",target=/IMPACTncd_Japan/synthpop `
-  --workdir /IMPACTncd_Japan `
-  $ImageName `
-  bash
+    --mount type=bind,source="$ProjectRoot",target=/IMPACTncd_Japan `
+    --mount type=bind,source="$outputDir",target=/IMPACTncd_Japan/output `
+    --mount type=bind,source="$synthpopDir",target=/IMPACTncd_Japan/synthpop `
+    --workdir /IMPACTncd_Japan `
+    $ImageName `
+    bash
 
 Pop-Location

@@ -95,5 +95,6 @@ docker run -it \
   --mount type=bind,source="$(pwd)/..",target=/IMPACTncd_Japan \
   --mount type=bind,source="$OUTPUT_DIR",target=/IMPACTncd_Japan/outputs \
   --mount type=bind,source="$SYNTHPOP_DIR",target=/IMPACTncd_Japan/synthpop \
+  --workdir /IMPACTncd_Japan \
   "$IMAGE_NAME" \
   bash

@@ -117,12 +117,12 @@ function Get-YamlPathValue {
         if ($dockerBackend -and $dockerBackend -match 'WSL') {
             # WSL2 backend
             $driveLetter = $resolved.Path.Substring(0,1).ToLower()
-            $dockerPath = $resolved.Path -replace "^$driveLetter:", "/mnt/$driveLetter"
+            $dockerPath = $resolved.Path -replace "^${driveLetter}:", "/mnt/$driveLetter"
             Write-Host "[DEBUG] Converted to WSL path: $dockerPath"
         } else {
             # Hyper-V backend
             $driveLetter = $resolved.Path.Substring(0,1).ToLower()
-            $dockerPath = $resolved.Path -replace "^$driveLetter:", "/run/desktop/mnt/host/$driveLetter"
+            $dockerPath = $resolved.Path -replace "^${driveLetter}:", "/run/desktop/mnt/host/$driveLetter"
             Write-Host "[DEBUG] Converted to Hyper-V path: $dockerPath"
         }
 

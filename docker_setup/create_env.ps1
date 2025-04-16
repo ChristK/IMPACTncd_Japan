@@ -92,26 +92,47 @@ function Get-YamlPathValue {
         [string]$Key
     )
 
+    Write-Host "`n[DEBUG] YAML path: $YamlPath"
+    Write-Host "[DEBUG] Key: $Key"
+
     $line = Select-String "^$Key\s*:" $YamlPath | Select-Object -First 1
     if ($line) {
-        $value = ($line.Line -split ":\s*", 2)[1].Split("#")[0].Trim()
-        $resolved = Resolve-Path $value -ErrorAction Stop
+        Write-Host "[DEBUG] Matched line: $($line.Line)"
 
-        # Check if Docker uses WSL2 backend
+        $value = ($line.Line -split ":\s*", 2)[1].Split("#")[0].Trim()
+        Write-Host "[DEBUG] Extracted raw value: $value"
+
+        try {
+            $resolved = Resolve-Path $value -ErrorAction Stop
+            Write-Host "[DEBUG] Resolved path: $($resolved.Path)"
+        } catch {
+            Write-Host "[ERROR] Could not resolve path: $value"
+            return $null
+        }
+
+        # Detect Docker backend
         $dockerBackend = docker info --format '{{.OperatingSystem}}' 2>$null
+        Write-Host "[DEBUG] Docker backend info: $dockerBackend"
+
         if ($dockerBackend -and $dockerBackend -match 'WSL') {
-            # Docker Desktop with WSL2
-            $dockerPath = $resolved.Path -replace '^([A-Za-z]):', '/mnt/$($args[0].Groups[1].Value.ToLower())'
+            # WSL2 backend
+            $driveLetter = $resolved.Path.Substring(0,1).ToLower()
+            $dockerPath = $resolved.Path -replace "^$driveLetter:", "/mnt/$driveLetter"
+            Write-Host "[DEBUG] Converted to WSL path: $dockerPath"
         } else {
-            # Docker Desktop with Hyper-V backend
-            $dockerPath = $resolved.Path -replace '^([A-Za-z]):', '/run/desktop/mnt/host/$($args[0].Groups[1].Value.ToLower())'
+            # Hyper-V backend
+            $driveLetter = $resolved.Path.Substring(0,1).ToLower()
+            $dockerPath = $resolved.Path -replace "^$driveLetter:", "/run/desktop/mnt/host/$driveLetter"
+            Write-Host "[DEBUG] Converted to Hyper-V path: $dockerPath"
         }
 
         $dockerPath = $dockerPath -replace '\\', '/'
+        Write-Host "[DEBUG] Final Docker path: $dockerPath"
 
         return $dockerPath
     }
 
+    Write-Host "[WARN] No matching line found for key: $Key"
     return $null
 }
 

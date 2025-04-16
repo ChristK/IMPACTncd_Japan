@@ -24,17 +24,21 @@ if (file.exists("./simulation/large_files_indx.csv")) {
 # RR ----
 # Create a named list of Exposure objects for the files in ./inputs/RR
 fl <- list.files(path = "./inputs/RR", pattern = ".csvy$", full.names = TRUE)
-RR <- future_lapply(fl, Exposure$new, design, future.seed = 950480304L)
-# RR <- vector("list", length(fl))
-# for (i in seq_along(fl)) {
-#     print(fl[i])
-#     RR[[i]] <- Exposure$new(fl[i], design)
-# }
+# RR <- future_lapply(fl, Exposure$new, design, future.seed = 950480304L)
+RR <- vector("list", length(fl))
+for (i in seq_along(fl)) {
+    print(fl[i])
+    RR[[i]] <- Exposure$new(fl[i], design)
+}
 names(RR) <- sapply(RR, function(x) x$get_name())
-invisible(future_lapply(RR, function(x) {
+# invisible(future_lapply(RR, function(x) {
+#     x$gen_stochastic_effect(design, overwrite = TRUE, smooth = FALSE)
+# },
+# future.seed = 627524136L))
+invisible(lapply(RR, function(x) {
     x$gen_stochastic_effect(design, overwrite = TRUE, smooth = FALSE)
-},
-future.seed = 627524136L))
+}
+))
 # NOTE smooth cannot be exported to Design for now, because the first time
 # this parameter changes we need logic to overwrite unsmoothed files
 rm(fl)

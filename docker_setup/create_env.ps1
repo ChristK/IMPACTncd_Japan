@@ -104,32 +104,13 @@ function Get-YamlPathValue {
 
         try {
             $resolved = Resolve-Path $value -ErrorAction Stop
-            Write-Host "[DEBUG] Resolved path: $($resolved.Path)"
+            $winStyle = $resolved.Path -replace '\\', '/'
+            Write-Host "[DEBUG] Normalized path: $winStyle"
+            return $winStyle
         } catch {
             Write-Host "[ERROR] Could not resolve path: $value"
             return $null
         }
-
-        # Detect Docker backend more reliably
-        $dockerInfo = docker info --format '{{json .}}' | ConvertFrom-Json
-        $dockerBackend = $dockerInfo.OSType
-        Write-Host "[DEBUG] Docker OSType: $dockerBackend"
-        
-        # WSL2 backend detection logic
-        if ($dockerBackend -eq 'linux' -and (Get-Command wsl -ErrorAction SilentlyContinue)) {
-            $driveLetter = $resolved.Path.Substring(0,1).ToLower()
-            $dockerPath = $resolved.Path -replace "^${driveLetter}:", "/mnt/$driveLetter"
-            Write-Host "[DEBUG] Converted to WSL path: $dockerPath"
-        } else {
-            $driveLetter = $resolved.Path.Substring(0,1).ToLower()
-            $dockerPath = $resolved.Path -replace "^${driveLetter}:", "/run/desktop/mnt/host/$driveLetter"
-            Write-Host "[DEBUG] Converted to Hyper-V path: $dockerPath"
-        }
-
-        $dockerPath = $dockerPath -replace '\\', '/'
-        Write-Host "[DEBUG] Final Docker path: $dockerPath"
-
-        return $dockerPath
     }
 
     Write-Host "[WARN] No matching line found for key: $Key"

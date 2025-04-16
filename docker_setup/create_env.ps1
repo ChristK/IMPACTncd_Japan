@@ -110,17 +110,17 @@ function Get-YamlPathValue {
             return $null
         }
 
-        # Detect Docker backend
-        $dockerBackend = docker info --format '{{.OperatingSystem}}' 2>$null
-        Write-Host "[DEBUG] Docker backend info: $dockerBackend"
-
-        if ($dockerBackend -and $dockerBackend -match 'WSL') {
-            # WSL2 backend
+        # Detect Docker backend more reliably
+        $dockerInfo = docker info --format '{{json .}}' | ConvertFrom-Json
+        $dockerBackend = $dockerInfo.OSType
+        Write-Host "[DEBUG] Docker OSType: $dockerBackend"
+        
+        # WSL2 backend detection logic
+        if ($dockerBackend -eq 'linux' -and (Get-Command wsl -ErrorAction SilentlyContinue)) {
             $driveLetter = $resolved.Path.Substring(0,1).ToLower()
             $dockerPath = $resolved.Path -replace "^${driveLetter}:", "/mnt/$driveLetter"
             Write-Host "[DEBUG] Converted to WSL path: $dockerPath"
         } else {
-            # Hyper-V backend
             $driveLetter = $resolved.Path.Substring(0,1).ToLower()
             $dockerPath = $resolved.Path -replace "^${driveLetter}:", "/run/desktop/mnt/host/$driveLetter"
             Write-Host "[DEBUG] Converted to Hyper-V path: $dockerPath"

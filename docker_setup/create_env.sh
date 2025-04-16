@@ -20,6 +20,15 @@ HASH_FILE=".docker_build_hash"
 
 YAML_FILE="${1:-../inputs/sim_design.yaml}"
 
+USE_VOLUMES=false
+
+# Check for --use-volumes argument
+for arg in "$@"; do
+  if [[ "$arg" == "--use-volumes" ]]; then
+    USE_VOLUMES=true
+  fi
+done
+
 if [ ! -f "$YAML_FILE" ]; then
   echo "Error: YAML file not found at $YAML_FILE"
   exit 1
@@ -90,11 +99,49 @@ if [ "$NEEDS_BUILD" = true ]; then
   echo "$BUILD_HASH" > "$HASH_FILE"
 fi
 
-# Run Docker container interactively with bind mount
+
+
+# -----------------------------------------------------------------------------
+# Optionally create and sync volumes
+# -----------------------------------------------------------------------------
+
+if [ "$USE_VOLUMES" = true ]; then
+  echo "Using Docker volumes for outputs and synthpop..."
+
+# Create volumes (safe to run multiple times)
+docker volume create impactncd_japan_output > /dev/null
+docker volume create impactncd_japan_synthpop > /dev/null
+
+# Sync local output_dir to volume
+docker run --rm \
+  -v impactncd_japan_output:/data \
+  -v "$OUTPUT_DIR":/src \
+  alpine sh -c "rm -rf /data/* && cp -r /src/. /data/"
+
+# Sync local synthpop_dir to volume
+docker run --rm \
+  -v impactncd_japan_synthpop:/data \
+  -v "$SYNTHPOP_DIR":/src \
+  alpine sh -c "rm -rf /data/* && cp -r /src/. /data/"
+
+# -----------------------------------------------------------------------------
+# Run Docker container with volume mounts
+# -----------------------------------------------------------------------------
 docker run -it \
   --mount type=bind,source="$(pwd)/..",target=/IMPACTncd_Japan \
-  --mount type=bind,source="$OUTPUT_DIR",target=/IMPACTncd_Japan/outputs \
-  --mount type=bind,source="$SYNTHPOP_DIR",target=/IMPACTncd_Japan/synthpop \
+  --mount type=volume,source=impactncd_output,target=/IMPACTncd_Japan/output \
+  --mount type=volume,source=impactncd_synthpop,target=/IMPACTncd_Japan/synthpop \
   --workdir /IMPACTncd_Japan \
   "$IMAGE_NAME" \
   bash
+  else
+  echo "Using bind mounts for outputs and synthpop..."
+
+  docker run -it \
+    --mount type=bind,source="$(pwd)/..",target=/IMPACTncd_Japan \
+    --mount type=bind,source="$OUTPUT_DIR",target=/IMPACTncd_Japan/output \
+    --mount type=bind,source="$SYNTHPOP_DIR",target=/IMPACTncd_Japan/synthpop \
+    --workdir /IMPACTncd_Japan \
+    "$IMAGE_NAME" \
+    bash
+fi

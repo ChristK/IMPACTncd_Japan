@@ -143,7 +143,7 @@ $synthpopDir = $synthpopDir -replace '\\', '/'
 # Run Docker container
 docker run -it `
   --mount type=bind,source="$ProjectRoot",target=/IMPACTncd_Japan `
-  --mount type=bind,source="$outputDir",target=/IMPACTncd_Japan/outputs `
+  --mount type=bind,source="$outputDir",target=/IMPACTncd_Japan/output `
   --mount type=bind,source="$synthpopDir",target=/IMPACTncd_Japan/synthpop `
   --workdir /IMPACTncd_Japan `
   $ImageName `

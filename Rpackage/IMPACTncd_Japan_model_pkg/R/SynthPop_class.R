@@ -1485,9 +1485,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, BMI := qBCTo(minq + rank_BMI * (maxq-minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
-          dt[BMI < 10, BMI := 10] # Truncate BMI predictions to avoid unrealistic values.
-          dt[BMI > 70, BMI := 70] # Truncate BMI predictions to avoid unrealistic values.
+          dt[, BMI := qBCTo(minq + rank_BMI * (maxq - minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
 
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_BMI")
           dt[, c(col_nam, "pa_3cat") := NULL]

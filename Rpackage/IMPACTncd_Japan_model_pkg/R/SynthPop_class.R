@@ -947,7 +947,6 @@ SynthPop <-
           # rank_mtx <- data.table(rank_mtx)
           # rank_mtx[, colnames(rank_mtx) := lapply(.SD, function(x){x * 0.999 * 0.95 / 0.999}), .SDcols = colnames(rank_mtx)]
 
-          # rank_mtx <- rank_mtx * 0.999
           # rank_mtx[, "Fruit_vege_r"] <- rank_mtx[, "Fruit_vege_r"] * 0.95 / 0.999
           # rank_mtx[, "Smoking_r"] <- rank_mtx[, "Smoking_r"] * 0.95 / 0.999
           # rank_mtx[, "Smoking_number_r"] <- rank_mtx[, "Smoking_number_r"] * 0.95 / 0.999
@@ -993,9 +992,6 @@ SynthPop <-
             Med_DM_r,
             PA_days_r, BMI_r, HbA1c_r, LDLc_r, SBP_r
           ), ]]
-
-          rm(rank_mtx)
-
 
           # ????? 20230206 NOT RW variables to change the variable name for rankstat
           # add non-correlated RNs
@@ -1386,7 +1382,7 @@ SynthPop <-
 
 
 
-          # Generate PA_days
+          # Generate PA_days ----
           # Change-for-IMPACT-NCD-Japan
           # Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "PA_days", ".qs"))
           # Model_gamlss
@@ -1443,7 +1439,7 @@ SynthPop <-
 
 
 
-          # Generate BMI
+          # Generate BMI ----
           # Change-for-IMPACT-NCD-Japan
           # Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "BMI", ".qs"))
           # Model_gamlss$parameters
@@ -1460,7 +1456,7 @@ SynthPop <-
           setnames(tbl, tolower(names(tbl)))
           tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
 
-          ### Make PA days category
+          ### Make PA days category 
           dt[, pa_3cat := fifelse(
             PA_days %in% as.character(0:1), 1L,
             fifelse(
@@ -1473,6 +1469,10 @@ SynthPop <-
 
           dt[, pa_3cat := factor(pa_3cat)]
           # table(dt$PA_3cat, useNA = "always")
+         
+          # simulate trancated distribution
+          tbl[, maxq := (pBCTo(rep(70, .N), mu, sigma, nu, tau))]
+          tbl[, minq := (pBCTo(rep(14, .N), mu, sigma, nu, tau))]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1485,7 +1485,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, BMI := qBCTo(rank_BMI, mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, BMI := qBCTo(minq + rank_BMI * (maxq-minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
           dt[BMI < 10, BMI := 10] # Truncate BMI predictions to avoid unrealistic values.
           dt[BMI > 70, BMI := 70] # Truncate BMI predictions to avoid unrealistic values.
 
@@ -1496,7 +1496,7 @@ SynthPop <-
 
 
 
-          # Generate HbA1c
+          # Generate HbA1c ----
           # Change-for-IMPACT-NCD-Japan
           # Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "HbA1c", ".qs"))
           # Model_gamlss$parameters
@@ -1519,6 +1519,9 @@ SynthPop <-
           dt[, BMI_round := as.integer(round(10 * BMI, 0))]
 
 
+          # simulate trancated distribution
+          tbl[, maxq := (pBCT(rep(18, .N), mu, sigma, nu, tau))]
+          tbl[, minq := (pBCT(rep(0.04, .N), mu, sigma, nu, tau))]
 
 
           col_nam <-
@@ -1533,7 +1536,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, HbA1c := qBCT(rank_HbA1c, mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, HbA1c := qBCT(minq + rank_HbA1c * (maxq - minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_HbA1c")
           dt[, c(col_nam) := NULL]
 
@@ -1541,7 +1544,7 @@ SynthPop <-
 
 
 
-          # Generate LDLc
+          # Generate LDLc ----
           # Change-for-IMPACT-NCD-Japan
           # Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "LDLc", ".qs"))
           # Model_gamlss$parameters
@@ -1559,7 +1562,12 @@ SynthPop <-
           tbl[, sex := factor(sex, 0:1, c("men", "women"))]
 
           tbl[, BMI_round := as.integer(10 * BMI_round)]
-          # dt[, BMI_round := as.integer(round(10 * BMI, 0))] # Created above in HBa1c
+          # dt[, BMI_round := as.integer(round(10 * BMI, 0))] # Created above in HbA1c
+
+
+          # simulate trancated distribution
+          tbl[, maxq := (pBCT(rep(350, .N), mu, sigma, nu, tau))]
+          tbl[, minq := (pBCT(rep(15, .N), mu, sigma, nu, tau))]
 
 
           col_nam <-
@@ -1574,7 +1582,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, LDLc := qBCT(rank_LDLc, mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, LDLc := qBCT(minq + rank_LDLc * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_LDLc")
           dt[, c(col_nam, "BMI_round") := NULL] # del BMI_round because SBP rounds at different precision
 
@@ -1606,6 +1614,11 @@ SynthPop <-
             smoking_tmp = as.integer(Smoking == "3")
           )] # 1 = smoker
 
+                    # simulate trancated distribution
+          tbl[, maxq := (pBCPE(rep(250, .N), mu, sigma, nu, tau))]
+          tbl[, minq := (pBCPE(rep(75, .N), mu, sigma, nu, tau))]
+
+
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
           # if (.Platform$OS.type == "unix") {
@@ -1618,7 +1631,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, SBP := qBCPE(rank_SBP, mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, SBP := qBCPE(minq + rank_SBP * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_SBP")
           dt[, c(col_nam, "BMI_round", "smoking_tmp") := NULL]
 
@@ -1626,8 +1639,7 @@ SynthPop <-
 
 
           ## --------------------------------------------------
-          ## --------------------------------------------------
-          ## --------------------------------------------------
+
           dt[, `:=`(
             pid_mrk = NULL
             # to be recreated when loading synthpop

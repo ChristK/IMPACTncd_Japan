@@ -16,10 +16,11 @@ The main scripts, [`create_env.sh`](./create_env.sh) and [`create_env.ps1`](./cr
 
 ```bash
 cd docker_setup
-./create_env.sh [optional_path_to_sim_design.yaml]
-```
+./create_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]```
 
 If no YAML file is specified, the default path `../inputs/sim_design.yaml` will be used.
+
+Add --use-volumes to use Docker-managed volumes for output_dir and synthpop_dir instead of bind mounts.
 
 > On macOS, install `coreutils` first (if needed):
 > ```bash
@@ -62,17 +63,18 @@ If no path is specified, the script uses the default: `..\inputs\sim_design.yaml
    - The **project root** to `/IMPACTncd_Japan`
    - The `output_dir` to `/IMPACTncd_Japan/outputs`
    - The `synthpop_dir` to `/IMPACTncd_Japan/synthpop`
+   - Accepts a `--use-volumes` flag to mount `output_dir` and `synthpop_dir` as Docker volumes rather than bind mounts.
 7. Launch the container with an interactive shell.
 
 ---
 
 ## 🔍 Directory Mounting Summary
 
-| Host Path (automatically resolved) | Mounted to inside container              |
-|-----------------------------------|------------------------------------------|
-| Project root (`../`)              | `/IMPACTncd_Japan`                       |
-| `output_dir` from YAML            | `/IMPACTncd_Japan/outputs`              |
-| `synthpop_dir` from YAML          | `/IMPACTncd_Japan/synthpop`             |
+| Host Path (automatically resolved)       | Mounted to inside container              |
+|------------------------------------------|------------------------------------------|
+| Project root (`../`)                     | `/IMPACTncd_Japan`                       |
+| `output_dir` from YAML (bind or volume)  | `/IMPACTncd_Japan/outputs`               |
+| `synthpop_dir` from YAML (bind or volume)| `/IMPACTncd_Japan/synthpop`              |
 
 This allows you to run R scripts inside the container like:
 

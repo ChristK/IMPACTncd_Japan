@@ -105,9 +105,23 @@ Design <-
         sim_prm$sim_horizon_fromGUI <- sim_prm$sim_horizon_max
         sim_prm$locality            <- "Japan"
 
-        # Create synthpop_dir_ if it doesn't exists
-        sim_prm$output_dir <-
-          normalizePath(sim_prm$output_dir, mustWork = FALSE)
+        
+
+
+        # change output_dir & synthpop_dir if inside a docker container created by create_env.sh (or ps1)
+        if (private$is_in_docker()) {
+          # if in docker
+          if (sim_prm$logs) 
+            message ("R runs within docker./nSetting output_dir and synthpop_dir to /IMPACTncd_Japan/output and /IMPACTncd_Japan/synthpop.")
+          # set the output_dir and synthpop_dir to the docker container paths
+          sim_prm$output_dir <- "/IMPACTncd_Japan/output"
+          sim_prm$synthpop_dir <- "/IMPACTncd_Japan/synthpop"
+        } else {
+          # if not in docker
+          sim_prm$output_dir <- normalizePath(sim_prm$output_dir, mustWork = FALSE) 
+          sim_prm$synthpop_dir <- normalizePath(sim_prm$synthpop_dir, mustWork = FALSE)
+        }
+        
 
 
         # Reorder the diseases so dependencies are always calculated first
@@ -211,6 +225,25 @@ Design <-
 
     # private ------------------------------------------------------------------
      private = list(
-      mc_aggr = NA
+      mc_aggr = NA,
+
+      # is_in_docker ----
+      # @description
+      # Check whether the R session is running inside a Docker container.
+      #
+      # @details
+      # This method detects whether the current R session is running in a Docker
+      # container by checking for the presence of the special file `/.dockerenv` and
+      # examining the `/proc/1/cgroup` system file for identifiers associated with
+      # Docker or Kubernetes.
+      #
+      # @return A logical value: `TRUE` if inside a Docker container, otherwise `FALSE`.
+      #
+      # @keywords internal
+      is_in_docker = function() {
+        file.exists("/.dockerenv") ||
+          any(grepl("docker|kubepods", readLines("/proc/1/cgroup", warn = FALSE)))
+      }
+
     )
   )

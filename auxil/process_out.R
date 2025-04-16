@@ -4,6 +4,7 @@ library(CKutils)
 library(ggplot2)
 library(ggthemes)
 library(scales)
+library(IMPACTncdJapan)
 
 
 prbl <- c(0.5, 0.025, 0.975, 0.1, 0.9)
@@ -17,10 +18,10 @@ theme_update(axis.text.x = element_text(size = 9), plot.title = element_text(hju
 # baseline_year <- baseline_year_for_change_outputs
 
 # Prvl not standardised----
-simulationParameters <- read_yaml(base::normalizePath("./inputs/sim_design.yaml", mustWork = TRUE))
-sSummariesSubDirPath <- file.path(simulationParameters$output_dir, "summaries")
-sTablesSubDirPath <- file.path(simulationParameters$output_dir, "tables")
-output_dir <- simulationParameters$output_dir
+design <- Design$new("./inputs/sim_design.yaml")
+sSummariesSubDirPath <- file.path(design$sim_prm$output_dir, "summaries")
+sTablesSubDirPath <- file.path(design$sim_prm$output_dir, "tables")
+output_dir <- design$sim_prm$output_dir
 
 tbl_smmrs <- function(
     what = c(
@@ -164,7 +165,7 @@ tbl_smmrs <- function(
         tt <- fread(fpth) # numerator data
 
 		if (two_agegrps) {
-                sTablesSubDirPath <- file.path(simulationParameters$output_dir, "tables2agegrps/")
+                sTablesSubDirPath <- file.path(design$sim_prm$output_dir, "tables2agegrps/")
                 if (!dir.exists(sTablesSubDirPath)) dir.create(sTablesSubDirPath)
                 if ("agegrp" %in% names(tt)) {
                         tt[agegrp %in% c("30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64"), agegrp := "30-64"]
@@ -785,7 +786,7 @@ fwrite(d, file.path(sTablesSubDirPath, "disease characteristics by year-sex (not
 rm(d, tt)
 
 # XPS ----
-xps_tab <- fread(file.path(simulationParameters$output_dir, "xps/xps20.csv.gz"))
+xps_tab <- fread(file.path(design$sim_prm$output_dir, "xps/xps20.csv.gz"))
 
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
@@ -832,7 +833,7 @@ fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (not standardised)
 
 
 # XPS standardised ----
-xps_tab <- fread(file.path(simulationParameters$output_dir, "xps/xps_esp.csv.gz"))
+xps_tab <- fread(file.path(design$sim_prm$output_dir, "xps/xps_esp.csv.gz"))
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
 outstrata <- c("mc", "year", "sex", "scenario")

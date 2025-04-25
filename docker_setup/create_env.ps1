@@ -34,6 +34,9 @@ param (
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Push-Location $ScriptDir
 
+# Resolve project root directory (one level above the current script directory)
+$ProjectRoot = (Resolve-Path "$ScriptDir/..").Path -replace '\\', '/'
+
 # Validate that the YAML file exists
 if (-not (Test-Path $SimDesignYaml)) {
     Write-Host "Error: YAML file not found at '$SimDesignYaml'"
@@ -79,9 +82,13 @@ $HashBytes = $HashAlgorithm.ComputeHash($Bytes)
 $BuildHash = ([BitConverter]::ToString($HashBytes) -replace "-", "")
 
 $NeedsBuild = $false
+Write-Host "Checking for Docker image: '$ImageName'"
 docker image inspect $ImageName > $null 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Docker image does not exist. Need to build."
+$InspectExitCode = $LASTEXITCODE
+Write-Host "docker image inspect exit code: $InspectExitCode"
+
+if ($InspectExitCode -ne 0) {
+    Write-Host "Docker image does not exist or inspect failed. Need to build."
     $NeedsBuild = $true
 } elseif (-not (Test-Path $HashFile)) {
     Write-Host "No previous build hash found. Need to build."
@@ -108,47 +115,99 @@ if ($NeedsBuild) {
 # -----------------------------
 # Extract paths from YAML
 # -----------------------------
+# Helper function to extract and construct potential paths from the YAML file
 function Get-YamlPathValue {
     param (
         [string]$YamlPath,
-        [string]$Key
+        [string]$Key,
+        [string]$BaseDir # Pass ProjectRoot here (already uses forward slashes)
     )
     $line = Select-String -Path $YamlPath -Pattern "^$Key\s*:" | Select-Object -First 1
     if ($line) {
         $value = ($line.Line -split ":\s*", 2)[1].Split("#")[0].Trim()
-        try {
-            $resolved = Resolve-Path $value -ErrorAction Stop
-            # Normalize to forward slashes for Docker
-            $normalized = $resolved.Path -replace '\\', '/'
-            return $normalized
-        } catch {
-            Write-Host "Could not resolve path: $value"
-            return $null
+        $constructedPath = $null
+
+        # Check if the path from YAML is absolute (Windows or Unix-like)
+        if ([System.IO.Path]::IsPathRooted($value) -or $value.StartsWith('/')) {
+            $constructedPath = $value
+            Write-Host "Path '$value' for key '$Key' is absolute."
+        } else {
+            # Construct path relative to the specified BaseDir (ProjectRoot)
+            # Ensure BaseDir and value use consistent slashes for joining
+            $valueNormalized = $value -replace '\\', '/'
+            $constructedPath = "$BaseDir/$valueNormalized" # Simple string concatenation with forward slashes
+            # Clean up potential double slashes, except after protocol like C://
+            $constructedPath = $constructedPath -replace '(?<!:)/{2,}', '/'
+            Write-Host "Path '$value' for key '$Key' is relative. Constructed as '$constructedPath'."
         }
+
+        # Normalize to forward slashes for consistency before returning
+        $normalizedPath = $constructedPath -replace '\\', '/'
+        return $normalizedPath
     }
-    Write-Host "Warning: No matching line found for key: $Key"
+    Write-Host "Warning: No matching line found for key: $Key in '$YamlPath'"
     return $null
 }
 
-$outputDir    = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "output_dir"
-$synthpopDir  = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "synthpop_dir"
+# Call the function passing $ProjectRoot
+$outputDir    = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "output_dir" -BaseDir $ProjectRoot
+$synthpopDir  = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "synthpop_dir" -BaseDir $ProjectRoot
 
-if (-not $outputDir -or -not (Test-Path $outputDir)) {
-    Write-Host "Error: output_dir path not found or invalid: $outputDir"
+# --- Path Validation and Creation ---
+# Helper function to check and create directory
+function Ensure-DirectoryExists {
+    param(
+        [string]$Path,
+        [string]$PathKey # For logging purposes (e.g., "output_dir")
+    )
+    if (-not $Path) {
+        Write-Host "Error: Could not determine $PathKey path from YAML."
+        return $false
+    }
+
+    # Use native path format for Test-Path and New-Item
+    $NativePath = $Path -replace '/', '\\'
+
+    if (-not (Test-Path $NativePath)) {
+        Write-Host "Warning: $PathKey path not found: $NativePath. Creating directory..."
+        try {
+            New-Item -ItemType Directory -Path $NativePath -Force -ErrorAction Stop | Out-Null
+            Write-Host "Successfully created $PathKey directory: $NativePath"
+            return $true
+        } catch {
+            Write-Host "Error: Failed to create $PathKey directory: $NativePath - $($_.Exception.Message)"
+            # Attempt to resolve the path to see if it exists now, maybe a race condition or delay
+            if(Test-Path $NativePath) {
+                 Write-Host "Info: Directory $NativePath seems to exist now despite previous error."
+                 return $true
+            }
+            return $false
+        }
+    } elseif (-not (Get-Item $NativePath).PSIsContainer) {
+        Write-Host "Error: The path specified for $PathKey exists but is a file, not a directory: $NativePath"
+        return $false
+    } else {
+         # Directory exists
+         return $true
+    }
+}
+
+# Validate or create output directory
+if (-not (Ensure-DirectoryExists -Path $outputDir -PathKey "output_dir")) {
     Pop-Location
     Exit 1
 }
-if (-not $synthpopDir -or -not (Test-Path $synthpopDir)) {
-    Write-Host "Error: synthpop_dir path not found or invalid: $synthpopDir"
+
+# Validate or create synthpop directory
+if (-not (Ensure-DirectoryExists -Path $synthpopDir -PathKey "synthpop_dir")) {
     Pop-Location
     Exit 1
 }
+# --- End Path Validation and Creation ---
 
-Write-Host "Mounting output_dir:    $outputDir"
-Write-Host "Mounting synthpop_dir:  $synthpopDir"
 
-# Resolve project root directory (one level above the current script directory)
-$ProjectRoot = (Resolve-Path "$ScriptDir/..").Path -replace '\\', '/'
+Write-Host "Mounting output_dir:    $outputDir"       # Keep using forward slashes for Docker mounts
+Write-Host "Mounting synthpop_dir:  $synthpopDir"      # Keep using forward slashes for Docker mounts
 
 # -----------------------------
 # Run Docker container
@@ -186,32 +245,41 @@ if ($UseVolumes) {
     docker volume create $VolumeSynthpop | Out-Null
 
     # Pre-populate volumes:
-    #
-    # 1. The project volume is populated with the entire project directory.
+    # 1. The project volume is populated with the entire project directory using tar, excluding dot files/folders.
     # 2. The output and synthpop volumes are populated from the respective local folders.
-    Write-Host "Populating project volume from host project directory..."
-    docker run --rm -v "$ProjectRoot":/source -v $VolumeProject:/destination alpine sh -c "cp -a /source/. /destination/"
+    Write-Host "Populating project volume from host project directory (excluding dot files/folders)..."
+    # Use tar to copy project files, excluding folders starting with .
+    docker run --rm -v "${ProjectRoot}:/source" -v "${VolumeProject}:/destination" alpine sh -c "cd /source && tar cf - --exclude='./.*' . | (cd /destination && tar xf -)"
 
     Write-Host "Populating output volume from local folder..."
-    docker run --rm -v "$outputDir":/source -v $VolumeOutput:/volume alpine sh -c "cp -a /source/. /volume/"
+    # Use cp -Rp here as well for consistency, though less likely to cause issues
+    docker run --rm -v "${outputDir}:/source" -v "${VolumeOutput}:/volume" alpine sh -c "cp -Rp /source/. /volume/"
     Write-Host "Populating synthpop volume from local folder..."
-    docker run --rm -v "$synthpopDir":/source -v $VolumeSynthpop:/volume alpine sh -c "cp -a /source/. /volume/"
+    # Use cp -Rp here as well for consistency
+    docker run --rm -v "${synthpopDir}:/source" -v "${VolumeSynthpop}:/volume" alpine sh -c "cp -Rp /source/. /volume/"
 
     # Run the main container with volumes mounted.
     Write-Host "Running the main container using Docker volumes..."
-    docker run -it `
-        --mount type=volume,source=$VolumeProject,target=/IMPACTncd_Japan `
-        --mount type=volume,source=$VolumeOutput,target=/IMPACTncd_Japan/output `
-        --mount type=volume,source=$VolumeSynthpop,target=/IMPACTncd_Japan/synthpop `
-        --workdir /IMPACTncd_Japan `
-        $ImageName `
-        bash
+    # Construct arguments as an array for reliable passing
+    $dockerArgs = @(
+        "run", "-it",
+        # Use -v syntax within the array elements
+        "-v", "${VolumeProject}:/IMPACTncd_Japan",
+        "-v", "${VolumeOutput}:/IMPACTncd_Japan/output",
+        "-v", "${VolumeSynthpop}:/IMPACTncd_Japan/synthpop",
+        "--workdir", "/IMPACTncd_Japan",
+        $ImageName,
+        "bash"
+    )
+    # Execute docker with the arguments array
+    & docker $dockerArgs
 
     # After the container exits:
     # Synchronize the output and synthpop volumes back to the local directories using rsync.
     Write-Host "Container exited. Syncing volumes back to local directories using rsync (checksum mode)..."
-    docker run --rm -v $VolumeOutput:/volume -v "$outputDir":/backup $rsyncImage rsync -avc /volume/ /backup/
-    docker run --rm -v $VolumeSynthpop:/volume -v "$synthpopDir":/backup $rsyncImage rsync -avc /volume/ /backup/
+    # Use ${} to delimit variable name before the colon
+    docker run --rm -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc /volume/ /backup/
+    docker run --rm -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc /volume/ /backup/
 
     # Clean up all the Docker volumes used for the simulation.
     Write-Host "Cleaning up Docker volumes..."
@@ -221,11 +289,41 @@ if ($UseVolumes) {
     docker volume rm $VolumeSynthpop | Out-Null
 
 } else {
+    # Helper function to convert Windows path to Docker Desktop/WSL format
+    function Convert-PathToDockerFormat {
+        param([string]$Path)
+        # Input example: P:/My_Models/IMPACTncd_Japan
+        # Match drive letter (e.g., P) and the rest of the path
+        if ($Path -match '^([A-Za-z]):/(.*)') {
+            $driveLetter = $matches[1].ToLower()
+            $restOfPath = $matches[2]
+            # Construct the Docker path: /<drive_letter>/<rest_of_path>
+            $dockerPath = "/$driveLetter/$restOfPath"
+            # Remove trailing slash if present
+            $dockerPath = $dockerPath -replace '/$', ''
+            return $dockerPath
+        } else {
+            Write-Warning "Path '$Path' did not match expected Windows format (e.g., C:/path/to/dir)"
+            return $Path # Return original path if format is unexpected
+        }
+    }
+
     Write-Host "`nUsing direct bind mounts for project, outputs, and synthpop..."
+
+    # Convert paths for Docker bind mount
+    $DockerProjectRoot = Convert-PathToDockerFormat -Path $ProjectRoot
+    $DockerOutputDir = Convert-PathToDockerFormat -Path $outputDir
+    $DockerSynthpopDir = Convert-PathToDockerFormat -Path $synthpopDir
+
+    Write-Host "Docker Project Root: $DockerProjectRoot"
+    Write-Host "Docker Output Dir:   $DockerOutputDir"
+    Write-Host "Docker Synthpop Dir: $DockerSynthpopDir"
+
+    # Pass mount arguments correctly to docker run
     docker run -it `
-        --mount type=bind,source="$ProjectRoot",target=/IMPACTncd_Japan `
-        --mount type=bind,source="$outputDir",target=/IMPACTncd_Japan/output `
-        --mount type=bind,source="$synthpopDir",target=/IMPACTncd_Japan/synthpop `
+        --mount "type=bind,source=$DockerProjectRoot,target=/IMPACTncd_Japan" `
+        --mount "type=bind,source=$DockerOutputDir,target=/IMPACTncd_Japan/output" `
+        --mount "type=bind,source=$DockerSynthpopDir,target=/IMPACTncd_Japan/synthpop" `
         --workdir /IMPACTncd_Japan `
         $ImageName `
         bash

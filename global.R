@@ -54,16 +54,30 @@ if (dev_mode) {
 options(datatable.verbose = FALSE)
 options(datatable.showProgress = FALSE)
 
-# install missing packages
-pkg_list <- readLines("docker_setup/r-packages.txt", warn = FALSE)
-pkg_list <- trimws(pkg_list)
-pkg_list <- pkg_list[nzchar(pkg_list) & !grepl("^#", pkg_list)]
-dependencies(pkg_list, update = FALSE)
-rm(pkg_list)
+# Install missing packages listed in r-packages.txt
+# Assumes the working directory is the project root
+pkg_list_file <- "docker_setup/r-packages.txt"
+if (file.exists(pkg_list_file)) {
+  pkg_list <- readLines(pkg_list_file, warn = FALSE)
+  pkg_list <- trimws(pkg_list)
+  # Filter out empty lines and comments
+  pkg_list <- pkg_list[nzchar(pkg_list) & !grepl("^#", pkg_list)]
+  if (length(pkg_list) > 0) {
+    # update = FALSE prevents updating already installed packages
+    CKutils::dependencies(pkg_list, update = FALSE)
+  }
+  rm(pkg_list, pkg_list_file) # Clean up
+} else {
+  warning("r-packages.txt not found at: ", pkg_list_file)
+}
 
+# Install the local R package if its source code has changed
+# Uses a snapshot file to track changes
+# Assumes the working directory is the project root
 installLocalPackageIfChanged(
   pkg_path = "./Rpackage/IMPACTncd_Japan_model_pkg/",
   snapshot_path = "./Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.rds"
 )
+
 library(IMPACTncdJapan)
 

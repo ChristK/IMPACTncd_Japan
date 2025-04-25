@@ -246,12 +246,11 @@ SynthPop <-
         } else if (scenario_nam != "sc0" && !"wt" %in% names(self$pop)) {
           # For policy scenarios.
 
-          fnam <- file.path(private$design$sim_prm$output_dir, paste0("lifecourse/", self$mc_aggr, "_lifecourse.csv.gz"))
+          fnam <- file.path(private$design$sim_prm$output_dir, paste0(
+            "lifecourse/scenario=sc0/", "mc=", self$mc_aggr))
 
-          t0 <- fread(fnam,
-            select = list(integer = c("pid", "year"), character = "scenario", numeric = "wt"),
-            key = c("scenario", "pid", "year")
-          )[scenario == "sc0", ] # wt for sc0
+          t0 <- open_dataset(fnam)
+          t0 <- as.data.table(t0[, c("pid", "year", "wt")])
 
           # For some reason pid and year get read incorrectly as character sometimes
           # TODO check if this is still necessary

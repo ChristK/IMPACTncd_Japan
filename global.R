@@ -28,6 +28,42 @@ if (!file.exists("/.dockerenv")) {
   }
 }
 
+# Define and ensure the user library path exists and is writable
+# This is crucial when running in environments (like Docker) where the default
+# system library might not be writable by the current user.
+user_lib <- Sys.getenv("R_LIBS_USER")
+if (user_lib == "") {
+  # Provide a default user library path if R_LIBS_USER is not set
+  # Format: ~/R/<platform>/<major>.<minor>
+  user_lib <- file.path(
+    Sys.getenv("HOME"), "R", paste0(R.version$platform, "-library"),
+    paste0(R.version$major, ".", substr(R.version$minor, 1, 1))
+  )
+}
+
+# Create the directory if it doesn't exist
+if (!dir.exists(user_lib)) {
+  dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
+}
+
+# Check if the user library is writable
+if (file.access(user_lib, mode = 2) != 0) { # mode = 2 checks for write permission
+  stop(paste(
+    "Error: User library path is not writable:", user_lib,
+    "\nPlease check permissions or set the R_LIBS_USER environment variable to a writable path."
+  ))
+}
+
+# Add the user library to the library paths if not already present
+# Prepending ensures it's the default location for installations
+if (!user_lib %in% .libPaths()) {
+  .libPaths(c(user_lib, .libPaths()))
+}
+
+cat("Using library path:", user_lib, "\n")
+
+# --- End: User Library Path Configuration ---
+
 cat("Initialising IMPACTncd_Japan model...\n\n")
 
 # Ensure 'remotes' is installed
@@ -80,4 +116,3 @@ installLocalPackageIfChanged(
 )
 
 library(IMPACTncdJapan)
-

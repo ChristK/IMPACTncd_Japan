@@ -29,29 +29,38 @@
 # Compatible with Linux and macOS (requires coreutils on macOS).
 # -----------------------------------------------------------------------------
 
+# Get the directory where the script is located
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# Get the project root directory (one level above the script directory)
+PROJECT_ROOT=$(realpath "$SCRIPT_DIR/..")
+
 # Variable definitions
 IMAGE_NAME="impactncd-japan-r-prerequisite:latest"
 DOCKERFILE="Dockerfile.prerequisite"
 HASH_FILE=".docker_build_hash"
-YAML_FILE="../inputs/sim_design.yaml"
+YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root
 CURRENT_USER=$(whoami)
 # User-specific Docker volume names to avoid conflicts
 VOLUME_PROJECT="impactncd_japan_project_${CURRENT_USER}"
 VOLUME_OUTPUT_NAME="impactncd_japan_output_${CURRENT_USER}"
 VOLUME_SYNTHPOP_NAME="impactncd_japan_synthpop_${CURRENT_USER}"
 
-# Remove stopped containers referencing volumes to avoid conflicts
-echo "Removing stopped containers referencing volumes..."
-docker container prune -f --filter "volume=$VOLUME_OUTPUT_NAME"
-docker container prune -f --filter "volume=$VOLUME_SYNTHPOP_NAME"
-docker container prune -f --filter "volume=$VOLUME_PROJECT"
+# Remove stopped containers to avoid conflicts before volume operations
+echo "Removing stopped containers..."
+docker container prune -f
 
 # Process command-line arguments for YAML file and volume usage flag
+USE_VOLUMES=false # Default to not using volumes
 for arg in "$@"; do
   if [[ "$arg" == --use-volumes ]]; then
     USE_VOLUMES=true
   elif [[ "$arg" == *.yaml || "$arg" == *.yml ]]; then
-    YAML_FILE="$arg"
+    # If YAML path is relative, resolve it relative to the current execution dir
+    if [[ "$arg" != /* && "$arg" != ~* ]]; then
+        YAML_FILE="$(realpath "$arg")"
+    else
+        YAML_FILE="$arg"
+    fi
   fi
 done
 
@@ -74,15 +83,31 @@ echo "Using configuration from: $YAML_FILE"
 
 # Set simulation design file and extract output directories from YAML
 SIM_DESIGN_FILE="$YAML_FILE"
-OUTPUT_DIR=$(grep '^output_dir:' "$SIM_DESIGN_FILE" | sed -E 's/output_dir:[[:space:]]*([^#]*).*/\1/' | xargs)
-SYNTHPOP_DIR=$(grep '^synthpop_dir:' "$SIM_DESIGN_FILE" | sed -E 's/synthpop_dir:[[:space:]]*([^#]*).*/\1/' | xargs)
+OUTPUT_DIR_RAW=$(grep '^output_dir:' "$SIM_DESIGN_FILE" | sed -E 's/output_dir:[[:space:]]*([^#]*).*/\1/' | xargs)
+SYNTHPOP_DIR_RAW=$(grep '^synthpop_dir:' "$SIM_DESIGN_FILE" | sed -E 's/synthpop_dir:[[:space:]]*([^#]*).*/\1/' | xargs)
 
-# Ensure output paths are absolute
-if [[ "$OUTPUT_DIR" != /* ]]; then
-  OUTPUT_DIR="$(realpath "$OUTPUT_DIR")"
+# Resolve paths relative to the PROJECT_ROOT if they are not absolute
+if [[ "$OUTPUT_DIR_RAW" != /* && "$OUTPUT_DIR_RAW" != ~* ]]; then
+  OUTPUT_DIR="$(realpath "$PROJECT_ROOT/$OUTPUT_DIR_RAW")"
+else
+  OUTPUT_DIR="$(realpath "$OUTPUT_DIR_RAW")" # Resolve even absolute paths to clean them (e.g. remove ..)
 fi
-if [[ "$SYNTHPOP_DIR" != /* ]]; then
-  SYNTHPOP_DIR="$(realpath "$SYNTHPOP_DIR")"
+if [[ "$SYNTHPOP_DIR_RAW" != /* && "$SYNTHPOP_DIR_RAW" != ~* ]]; then
+  SYNTHPOP_DIR="$(realpath "$PROJECT_ROOT/$SYNTHPOP_DIR_RAW")"
+else
+  SYNTHPOP_DIR="$(realpath "$SYNTHPOP_DIR_RAW")" # Resolve even absolute paths
+fi
+
+# Validate resolved paths
+if [ ! -d "$OUTPUT_DIR" ]; then
+    echo "Warning: Resolved output_dir does not exist: $OUTPUT_DIR. Creating it now."
+    mkdir -p "$OUTPUT_DIR"
+    # exit 1 # Decide if you want to exit or create
+fi
+if [ ! -d "$SYNTHPOP_DIR" ]; then
+    echo "Warning: Resolved synthpop_dir does not exist: $SYNTHPOP_DIR. Creating it now."
+    mkdir -p "$SYNTHPOP_DIR"
+    # exit 1 # Decide if you want to exit or create
 fi
 
 echo "Mounting output_dir: $OUTPUT_DIR"
@@ -186,16 +211,18 @@ if [ "$USE_VOLUMES" = true ]; then
   # --------------------------------------------------------------------------
   # Pre-populate volumes:
   #
-  # 1. The project volume is populated with the entire project directory (from 
-  #    one level above the docker_setup folder). This volume serves as the main drive.
+  # 1. The project volume is populated with the entire project directory (from
+  #    one level above the docker_setup folder), excluding dot files/folders.
+  #    This volume serves as the main drive.
   #
   # 2. The output and synthpop volumes are populated from the respective local folders.
   # --------------------------------------------------------------------------
-  echo "Populating project volume from host project directory..."
+  echo "Populating project volume from host project directory (excluding dot files/folders)..."
+  # Use tar to copy, excluding dot files/folders at the root of the source
   docker run --rm \
-    -v "$(pwd)/..":/source \
-    -v "$VOLUME_PROJECT":/destination \
-    alpine sh -c "cp -a /source/. /destination/"
+    -v "${PROJECT_ROOT}":/source \
+    -v "${VOLUME_PROJECT}":/destination \
+    alpine sh -c "tar -C /source --exclude='./.*' -cf - . | tar -C /destination -xf -"
 
   echo "Populating output and synthpop volumes from local folders..."
   docker run --rm \
@@ -239,7 +266,7 @@ else
   echo "Using direct bind mounts for project, outputs, and synthpop..."
 
   docker run -it \
-    --mount type=bind,source="$(pwd)/..",target=/IMPACTncd_Japan \
+    --mount type=bind,source="$PROJECT_ROOT",target=/IMPACTncd_Japan \
     --mount type=bind,source="$OUTPUT_DIR",target=/IMPACTncd_Japan/output \
     --mount type=bind,source="$SYNTHPOP_DIR",target=/IMPACTncd_Japan/synthpop \
     --workdir /IMPACTncd_Japan \

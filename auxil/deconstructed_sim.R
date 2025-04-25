@@ -96,6 +96,8 @@ sp  <- SynthPop$new(1L, design)
 # private <- RR$`Med_DM~t2dm`$.__enclos_env__$private
 # private$fit_beta(c(tt[3500, c(mu, mu_lower, mu_upper)]), verbose = TRUE)
 # private$fit_beta(c(tt[3500, c(mu, mu_upper)]), c(0.5, 0.975), verbose = TRUE)
+# self <- IMPACTncd$.__enclos_env__$self
+# private <- IMPACTncd$.__enclos_env__$private
 
 # tt[is.na(shape1), c("shape1", "shape2") := private$fit_beta_vec(
 #     q = list(mu, mu_upper, mu_lower),

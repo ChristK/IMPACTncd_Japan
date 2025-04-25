@@ -348,8 +348,8 @@ Simulation <-
         }
 
         if (self$design$sim_prm$avoid_appending_csv) {
-          message("Collecting the fragmented lifecourse files. This may take some time. Please be patient...")
-          private$collect_files("lifecourse", "_lifecourse.csv$", to_mc_aggr = TRUE)
+          # message("Collecting the fragmented lifecourse files. This may take some time. Please be patient...")
+          # private$collect_files("lifecourse", "_lifecourse.csv$", to_mc_aggr = TRUE)
 
           if (self$design$sim_prm$export_xps) {
             private$collect_files("xps", "_xps20.csv$", to_mc_aggr = FALSE)
@@ -593,44 +593,59 @@ Simulation <-
                                     "allcause_mrtl_by_dis", "cms", "qalys", "costs"
                                   ),
                                   single_year_of_age = FALSE) {
-        fl <- list.files(private$output_dir("lifecourse"), full.names = TRUE)
+        lc <- open_dataset(private$output_dir("lifecourse"))
+        mc_set <- lc %>%
+          dplyr::select(mc) %>% # Select the mc column (returns an Arrow Table/Dataset reference)
+          dplyr::distinct() %>% # Get distinct rows based on mc (still Arrow)
+          dplyr::pull(mc, as_vector = TRUE)
+        
+        # Connect DuckDB and register the Arrow dataset as a DuckDB view
+        con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+        on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
+        duckdb::duckdb_register_arrow(con, "lc_table", lc)
+        
 
-        # logic to avoid inappropriate dual processing of already processed mcs
+        # logic to avoid inappropriate dual processing of already processed mc iterations
         # TODO take into account scenarios
         if ("le" %in% type) {
-          file_pth <- private$output_dir("summaries/le_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/le_scaled_up.parquet")
         } else if ("hle" %in% type) {
-          file_pth <- private$output_dir("summaries/hle_1st_cond_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/hle_1st_cond_scaled_up.parquet")
         } else if ("cms" %in% type) {
-          file_pth <- private$output_dir("summaries/cms_count_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/cms_count_scaled_up.parquet")
         } else if ("mrtl" %in% type) {
-          file_pth <- private$output_dir("summaries/mrtl_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/mrtl_scaled_up.parquet")
         } else if ("dis_mrtl" %in% type) {
-          file_pth <- private$output_dir("summaries/dis_mrtl_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/dis_mrtl_scaled_up.parquet")
         } else if ("dis_char" %in% type) {
-          file_pth <- private$output_dir("summaries/dis_characteristics_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/dis_characteristics_scaled_up.parquet")
         } else if ("incd" %in% type) {
-          file_pth <- private$output_dir("summaries/incd_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/incd_scaled_up.parquet")
         } else if ("prvl" %in% type) {
-          file_pth <- private$output_dir("summaries/prvl_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/prvl_scaled_up.parquet")
         } else if ("allcause_mrtl_by_dis" %in% type) {
-          file_pth <- private$output_dir("summaries/all_cause_mrtl_by_dis_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/all_cause_mrtl_by_dis_scaled_up.parquet")
         } else if ("qalys" %in% type) {
-          file_pth <- private$output_dir("summaries/qalys_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/qalys_scaled_up.parquet")
         } else if ("costs" %in% type) {
-          file_pth <- private$output_dir("summaries/costs_scaled_up.csv.gz")
+          file_pth <- private$output_dir("summaries/costs_scaled_up.parquet")
         } else {
           stop("Unknown type of summary")
         }
 
 
         if (file.exists(file_pth)) {
-          tt <- unique(fread(file_pth, select = "mc")$mc)
-          for (i in seq_along(tt)) {
-            fl <- grep(paste0("/", tt[[i]], "_lifecourse.csv.gz$"), fl,
-              value = TRUE, invert = TRUE
-            )
+          mc_toexclude <- open_dataset(file_pth, format = "parquet") %>%
+            dplyr::select(mc) %>% # Select the mc column (returns an Arrow Table/Dataset reference)
+            dplyr::distinct() %>% # Get distinct rows based on mc (still Arrow)
+            dplyr::pull(mc, as_vector = TRUE)
+            
+            mc_set <- mc_set[!mc_set %in% mc_toexclude]
           }
+
+        if (length(mc_set) == 0) {
+          message("All required Monte Carlo iterations already processed for type: ", paste(type, collapse = ", "), ". Skipping summary export.")
+          return(invisible(self)) # Exit if nothing left to process
         }
         # end of logic
 
@@ -648,12 +663,9 @@ Simulation <-
                 rscript_startup = quote(local({
                   library(CKutils)
                   library(IMPACTncdJapan)
-                  library(digest)
-                  library(fst)
-                  library(qs)
-                  library(wrswoR)
-                  library(gamlss.dist)
-                  library(dqrng)
+                  library(R6)
+                  library(arrow)
+                  library(duckdb)
                   library(data.table)
                 })),
                 rscript_args = c(
@@ -664,21 +676,20 @@ Simulation <-
                 setup_strategy = "parallel"
               ) # used for clustering. Windows compatible
 
-            on.exit(if (exists("cl")) stopCluster(cl))
+            on.exit(if (exists("cl")) stopCluster(cl), add = TRUE)
 
             parLapplyLB(
               cl = cl,
-              X = seq_along(fl),
+              X = seq_along(mc_set),
               fun = function(i) {
-                lc <- fread(fl[i], stringsAsFactors = TRUE, key = c("scenario", "pid", "year"))
-                private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
+                private$export_summaries_hlpr(con, mc = i, type = type, single_year_of_age = single_year_of_age)
                 NULL
               }
             )
           } else {
             registerDoParallel(self$design$sim_prm$clusternumber_export) # used for forking. Only Linux/OSX compatible
             xps_dt <- foreach(
-              i = seq_along(fl),
+              i = seq_along(mc_set),
               .inorder = TRUE,
               .options.multicore = list(preschedule = FALSE),
               .verbose = self$design$sim_prm$logs,
@@ -691,94 +702,28 @@ Simulation <-
               .export = NULL,
               .noexport = NULL # c("time_mark")
             ) %dopar% {
-              lc <- fread(fl[i], stringsAsFactors = TRUE, key = c("scenario", "pid", "year"))
-              private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
+              private$export_summaries_hlpr(con, mc = i, type = type, single_year_of_age = single_year_of_age)
               NULL
             }
           }
 
-
-
-
-
           if (self$design$sim_prm$logs) {
             private$time_mark("End of exporting summuries")
           }
-        } else {
+        } else { # if multicore = FALSE
           if (self$design$sim_prm$logs) {
-            private$time_mark("Start of single-core run")
+            private$time_mark("Start of single-core summaries export")
           }
 
-          lapply(seq_along(fl), function(i) {
-            lc <- fread(fl[i], stringsAsFactors = TRUE, key = c("pid", "year"))
-            private$export_summaries_hlpr(lc, type = type, single_year_of_age = single_year_of_age)
+          lapply(seq_along(mc_set), function(i) {
+            private$export_summaries_hlpr(con, mc = i, type = type, single_year_of_age = single_year_of_age)
             NULL
           })
 
           if (self$design$sim_prm$logs) {
-            private$time_mark("End of single-core run")
+            private$time_mark("End of single-core summaries export")
           }
-        }
-
-        if (self$design$sim_prm$avoid_appending_csv) {
-          # collect the summary fragmentrd file
-          if ("le" %in% type) {
-            private$collect_files("summaries", "_le_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_le_esp.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_le60_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_le60_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("hle" %in% type) {
-            private$collect_files("summaries", "_hle_1st_cond_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_hle_1st_cond_esp.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_hle_cmsmm1.5_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_hle_cmsmm1.5_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("cms" %in% type) {
-            private$collect_files("summaries", "_cms_score_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_cms_score_esp.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_cms_score_by_age_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_cms_score_by_age_esp.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_cms_count_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_cms_count_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("mrtl" %in% type) {
-            private$collect_files("summaries", "_mrtl_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_mrtl_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("dis_mrtl" %in% type) {
-            private$collect_files("summaries", "_dis_mrtl_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_dis_mrtl_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("dis_char" %in% type) {
-            private$collect_files("summaries", "_dis_characteristics_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_dis_characteristics_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("incd" %in% type) {
-            private$collect_files("summaries", "_incd_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_incd_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("prvl" %in% type) {
-            private$collect_files("summaries", "_prvl_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_prvl_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("allcause_mrtl_by_dis" %in% type) {
-            private$collect_files("summaries", "_all_cause_mrtl_by_dis_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_all_cause_mrtl_by_dis_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("qalys" %in% type) {
-            private$collect_files("summaries", "_qalys_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_qalys_esp.csv$", to_mc_aggr = FALSE)
-          }
-          if ("costs" %in% type) {
-            private$collect_files("summaries", "_costs_scaled_up.csv$", to_mc_aggr = FALSE)
-            private$collect_files("summaries", "_costs_esp.csv$", to_mc_aggr = FALSE)
-          }
-
-          if (self$design$sim_prm$logs) {
-            private$time_mark("End of collecting mc_aggr summary files")
-          }
-        }
+        } # end of multicore = FALSE
 
         while (sink.number() > 0L) sink()
 
@@ -1524,7 +1469,7 @@ Simulation <-
         )
         nam <- grep("^prb_", nam, value = TRUE, invert = TRUE) # exclude prb_ ... _dgns
         sp$pop[, setdiff(names(sp$pop), nam) := NULL]
-        sp$pop[, mc := sp$mc_aggr]
+        # sp$pop[, mc := sp$mc_aggr]
 
 
         # TODO add logic for the years of having MM. Currently 1 is not the real
@@ -1552,23 +1497,19 @@ Simulation <-
           )
         )]
 
-        sp$pop[, scenario := scenario_nam]
+        # sp$pop[, scenario := scenario_nam]
 
         setkeyv(sp$pop, c("pid", "year"))
 
         # Write lifecourse
         if (self$design$sim_prm$logs) message("Exporting lifecourse...")
 
-        if (self$design$sim_prm$avoid_appending_csv) {
-          fnam <- private$output_dir(paste0(
-            "lifecourse/", sp$mc_aggr, "_", sp$mc, "_lifecourse.csv"
-          ))
-        } else {
-          fnam <- private$output_dir(paste0(
-            "lifecourse/", sp$mc_aggr, "_lifecourse.csv.gz"
-          ))
-        }
-        fwrite_safe(sp$pop, fnam)
+        fileformat <- "parquet"
+        fnam <- private$output_dir(paste0(
+          "lifecourse/", "scenario=", scenario_nam, "/", "mc=", sp$mc_aggr, "/", sp$mc, "_lifecourse.", fileformat
+        ))
+        # NOTE parquet format about 30 times smaller but about 50% slower in writting to disk
+        write_dataset(dataset = sp$pop, path = fnam, format = fileformat)
 
 
         if (self$design$sim_prm$logs) {
@@ -1717,10 +1658,11 @@ Simulation <-
       },
 
       # function to export summaries from lifecourse files.
-      # lc is a lifecourse file
+      # duckdb_con is the duckdb connection to the partitioned parquet lifecourse file
+      # mc is the mc itteration
       # single_year_of_age export summaries by single year of age to be used for calibration
       # export_summaries_hlpr ----
-      export_summaries_hlpr = function(lc, type = c(
+      export_summaries_hlpr = function(duckdb_con, mc, type = c(
                                          "le", "hle", "dis_char",
                                          "prvl", "incd", "mrtl", "dis_mrtl",
                                          "allcause_mrtl_by_dis", "cms", "qalys", "costs"
@@ -1737,10 +1679,7 @@ Simulation <-
 
         if (single_year_of_age) strata <- strata_age # used for calibrate_incd_ftlt
 
-        setkeyv(lc, c("scenario", "pid", "year")) # necessary for age_onset
-
-        mcaggr <- ifelse(self$design$sim_prm$avoid_appending_csv, paste0(lc$mc[1], "_"), "")
-        ext <- ifelse(self$design$sim_prm$avoid_appending_csv, ".csv", ".csv.gz")
+        ext <- "parquet"
 
 
         # Life expectancy ----
@@ -1748,35 +1687,79 @@ Simulation <-
         # Also note that currently this ignores the deaths for people younger
         # than min_age so not a true LE at birth
         if ("le" %in% type) {
-          # fwrite_safe(lc[all_cause_mrtl > 0, .("popsize" = (.N), LE = mean(age)),
-          #                keyby = strata_noagegrp],
-          #             private$output_dir(paste0("summaries/", "le_out.csv.gz"
-          #             )))
-          fwrite_safe(
-            lc[all_cause_mrtl > 0, .("popsize" = sum(wt), LE = weighted.mean(age, wt)), keyby = strata_noagegrp],
-            private$output_dir(paste0("summaries/", mcaggr, "le_scaled_up", ext))
-          )
-          fwrite_safe(
-            lc[all_cause_mrtl > 0, .("popsize" = sum(wt_esp), LE = weighted.mean(age, wt_esp)), keyby = strata_noagegrp],
-            private$output_dir(paste0("summaries/", mcaggr, "le_esp", ext))
-          )
-          # Life expectancy at 60 ----
+          dir.create(private$output_dir("summaries/le_scaled_up"), showWarnings = FALSE, recursive = TRUE)
+          dir.create(private$output_dir("summaries/le_esp"), showWarnings = FALSE, recursive = TRUE)
+          dir.create(private$output_dir("summaries/le60_scaled_up"), showWarnings = FALSE, recursive = TRUE)
+          dir.create(private$output_dir("summaries/le60_esp"), showWarnings = FALSE, recursive = TRUE)
 
+          
+          # Life expectancy at minAge ----
+          group_by_cols <- paste(strata_noagegrp, collapse = ", ")
+          query_scaled_up <- sprintf(
+            "SELECT %s, SUM(wt) AS popsize, SUM(age * wt) / SUM(wt) AS LE
+             FROM lc_table
+             WHERE mc == %d AND all_cause_mrtl > 0
+             GROUP BY %s",
+            group_by_cols, mc, group_by_cols
+          )
+
+          dbExecute(duckdb_con, sprintf(
+            "COPY (%s) TO '%s' (FORMAT PARQUET);",
+            query_scaled_up,
+            private$output_dir(paste0("summaries/le_scaled_up/", mc, "_le_scaled_up.", ext))
+          ))
+
+          group_by_cols <- paste(strata_noagegrp, collapse = ", ")
+          query_scaled_up <- sprintf(
+            "SELECT %s, SUM(wt) AS popsize, SUM(age * wt_esp) / SUM(wt_esp) AS LE
+             FROM lc_table
+             WHERE mc == %d AND all_cause_mrtl > 0
+             GROUP BY %s",
+            group_by_cols, mc, group_by_cols
+          )
+
+          # Execute query and write result
+          dbExecute(duckdb_con, sprintf(
+            "COPY (%s) TO '%s' (FORMAT PARQUET);",
+            query_scaled_up,
+            private$output_dir(paste0("summaries/le_esp/", mc, "_le_esp.", ext))
+          ))
+
+
+          # Life expectancy at 60 ----
           if (self$design$sim_prm$ageL < 60L && self$design$sim_prm$ageH > 60L) {
-            # fwrite_safe(lc[all_cause_mrtl > 0 & age > 60, .("popsize" = (.N), LE60 = mean(age)),  keyby = strata_noagegrp],
-            #             private$output_dir(paste0("summaries/", "le60_out", ext
-            #             )))
-            fwrite_safe(
-              lc[all_cause_mrtl > 0 & age > 60, .("popsize" = sum(wt), LE60 = weighted.mean(age, wt)), keyby = strata_noagegrp],
-              private$output_dir(paste0("summaries/", mcaggr, "le60_scaled_up", ext))
-            )
-            fwrite_safe(
-              lc[all_cause_mrtl > 0 & age > 60, .("popsize" = sum(wt_esp), LE60 = weighted.mean(age, wt_esp)), keyby = strata_noagegrp],
-              private$output_dir(paste0("summaries/", mcaggr, "le60_esp", ext))
-            )
+          group_by_cols <- paste(strata_noagegrp, collapse = ", ")
+          query_scaled_up <- sprintf(
+            "SELECT %s, SUM(wt) AS popsize, SUM(age * wt) / SUM(wt) AS LE
+             FROM lc_table
+             WHERE mc == %d AND all_cause_mrtl > 0 AND age > 60
+             GROUP BY %s",
+            group_by_cols, mc, group_by_cols
+          )
+
+          dbExecute(duckdb_con, sprintf(
+            "COPY (%s) TO '%s' (FORMAT PARQUET);",
+            query_scaled_up,
+            private$output_dir(paste0("summaries/le60_scaled_up/", mc, "_le60_scaled_up.", ext))
+          ))
+
+          group_by_cols <- paste(strata_noagegrp, collapse = ", ")
+          query_scaled_up <- sprintf(
+            "SELECT %s, SUM(wt) AS popsize, SUM(age * wt_esp) / SUM(wt_esp) AS LE
+             FROM lc_table
+             WHERE mc == %d AND all_cause_mrtl > 0 AND age > 60
+             GROUP BY %s",
+            group_by_cols, mc, group_by_cols
+          )
+
+          # Execute query and write result
+          dbExecute(duckdb_con, sprintf(
+            "COPY (%s) TO '%s' (FORMAT PARQUET);",
+            query_scaled_up,
+            private$output_dir(paste0("summaries/le60_esp/", mc, "_le60_esp.", ext))
+          ))
+
           }
-          # Note: for less aggregation use wtd.mean with popsize i.e le_out[,
-          # weighted.mean(LE, popsize), keyby = year]
         }
 
         # Healthy life expectancy ----
@@ -2236,7 +2219,7 @@ Simulation <-
           )
         }
 
-        if (!self$design$sim_prm$keep_lifecourse) file.remove(pth)
+        # if (!self$design$sim_prm$keep_lifecourse) file.remove(pth)
 
         return(invisible(self))
       },

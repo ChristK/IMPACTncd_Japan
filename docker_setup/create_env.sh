@@ -37,13 +37,31 @@ PROJECT_ROOT=$(realpath "$SCRIPT_DIR/..")
 # Variable definitions
 IMAGE_NAME="impactncd-japan-r-prerequisite:latest"
 DOCKERFILE="Dockerfile.prerequisite"
-HASH_FILE=".docker_build_hash"
+HASH_FILE="$SCRIPT_DIR/.docker_build_hash" # Store hash file in script directory
 YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root
 CURRENT_USER=$(whoami)
 # User-specific Docker volume names to avoid conflicts
 VOLUME_PROJECT="impactncd_japan_project_${CURRENT_USER}"
 VOLUME_OUTPUT_NAME="impactncd_japan_output_${CURRENT_USER}"
 VOLUME_SYNTHPOP_NAME="impactncd_japan_synthpop_${CURRENT_USER}"
+
+# --- Docker Permission Check ---
+# Check if the user can connect to the Docker daemon
+if ! docker info > /dev/null 2>&1; then
+  echo "---------------------------------------------------------------------"
+  echo "Error: Cannot connect to the Docker daemon."
+  echo "Please ensure Docker is running and you have the necessary permissions."
+  echo "You might need to:"
+  echo "  1. Start the Docker daemon."
+  echo "  2. Add your user to the 'docker' group:"
+  echo "     sudo usermod -aG docker $USER"
+  echo "     (You'll need to log out and back in for this change to take effect)"
+  echo "  3. Or run this script using 'sudo':"
+  echo "     sudo ./create_env.sh [options]"
+  echo "---------------------------------------------------------------------"
+  exit 1
+fi
+# --- End Docker Permission Check ---
 
 # Remove stopped containers to avoid conflicts before volume operations
 echo "Removing stopped containers..."

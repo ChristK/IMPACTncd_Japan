@@ -59,6 +59,26 @@ $VolumeProject   = "impactncd_japan_project_$CurrentUser"
 $VolumeOutput    = "impactncd_japan_output_$CurrentUser"
 $VolumeSynthpop  = "impactncd_japan_synthpop_$CurrentUser"
 
+# --- Docker Permission Check ---
+# Check if the user can connect to the Docker daemon
+Write-Host "Checking Docker daemon connectivity..."
+docker info > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "---------------------------------------------------------------------" -ForegroundColor Red
+    Write-Host "Error: Cannot connect to the Docker daemon." -ForegroundColor Red
+    Write-Host "Please ensure Docker Desktop is running and you have the necessary permissions." -ForegroundColor Yellow
+    Write-Host "You might need to:" -ForegroundColor Yellow
+    Write-Host "  1. Start Docker Desktop." -ForegroundColor Yellow
+    Write-Host "  2. Ensure your user account is part of the 'docker-users' group (if applicable)." -ForegroundColor Yellow
+    Write-Host "  3. Run this script from an elevated (Administrator) PowerShell prompt." -ForegroundColor Yellow
+    Write-Host "---------------------------------------------------------------------" -ForegroundColor Red
+    Pop-Location # Restore original location before exiting
+    Exit 1
+} else {
+    Write-Host "Docker daemon connection successful."
+}
+# --- End Docker Permission Check ---
+
 # -----------------------------
 # Build hash and rebuild logic
 # -----------------------------

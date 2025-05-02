@@ -114,8 +114,8 @@ Design <-
           if (sim_prm$logs) 
             message ("R runs within docker./nSetting output_dir and synthpop_dir to /IMPACTncd_Japan/output and /IMPACTncd_Japan/synthpop.")
           # set the output_dir and synthpop_dir to the docker container paths
-          sim_prm$output_dir <- "/IMPACTncd_Japan/output"
-          sim_prm$synthpop_dir <- "/IMPACTncd_Japan/synthpop"
+          sim_prm$output_dir <- "/output"
+          sim_prm$synthpop_dir <- "/synthpop"
         } else {
           # if not in docker
           sim_prm$output_dir <- normalizePath(sim_prm$output_dir, mustWork = FALSE) 

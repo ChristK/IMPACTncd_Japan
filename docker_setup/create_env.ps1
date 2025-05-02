@@ -66,11 +66,15 @@ docker info > $null 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "---------------------------------------------------------------------" -ForegroundColor Red
     Write-Host "Error: Cannot connect to the Docker daemon." -ForegroundColor Red
-    Write-Host "Please ensure Docker Desktop is running and you have the necessary permissions." -ForegroundColor Yellow
-    Write-Host "You might need to:" -ForegroundColor Yellow
-    Write-Host "  1. Start Docker Desktop." -ForegroundColor Yellow
-    Write-Host "  2. Ensure your user account is part of the 'docker-users' group (if applicable)." -ForegroundColor Yellow
-    Write-Host "  3. Run this script from an elevated (Administrator) PowerShell prompt." -ForegroundColor Yellow
+    Write-Host "This usually means Docker Desktop (Windows/macOS) or the Docker service (Linux) is not running or your user account lacks permission."
+    Write-Host "Please ensure Docker is running and accessible before proceeding."
+    Write-Host "" # Blank line for spacing
+    Write-Host "How to check/fix:" -ForegroundColor Yellow
+    Write-Host "  1. Run 'docker info' in your terminal. If it fails with a similar error, Docker is not accessible."
+    Write-Host "  2. Windows/macOS: Make sure Docker Desktop is running (check the system tray or application list)."
+    Write-Host "  3. Linux: Check service status with 'sudo systemctl status docker'. If inactive, start it with 'sudo systemctl start docker'."
+    Write-Host "     You might also need to add your user to the 'docker' group ('sudo usermod -aG docker $env:USERNAME') and then log out and back in."
+    Write-Host "  4. If running in WSL (Windows Subsystem for Linux), ensure Docker Desktop's WSL integration is enabled for your distribution."
     Write-Host "---------------------------------------------------------------------" -ForegroundColor Red
     Pop-Location # Restore original location before exiting
     Exit 1
@@ -285,8 +289,8 @@ if ($UseVolumes) {
         "run", "-it",
         # Use -v syntax within the array elements
         "-v", "${VolumeProject}:/IMPACTncd_Japan",
-        "-v", "${VolumeOutput}:/IMPACTncd_Japan/output",
-        "-v", "${VolumeSynthpop}:/IMPACTncd_Japan/synthpop",
+        "-v", "${VolumeOutput}:/output",
+        "-v", "${VolumeSynthpop}:/synthpop",
         "--workdir", "/IMPACTncd_Japan",
         $ImageName,
         "bash"
@@ -342,8 +346,8 @@ if ($UseVolumes) {
     # Pass mount arguments correctly to docker run
     docker run -it `
         --mount "type=bind,source=$DockerProjectRoot,target=/IMPACTncd_Japan" `
-        --mount "type=bind,source=$DockerOutputDir,target=/IMPACTncd_Japan/output" `
-        --mount "type=bind,source=$DockerSynthpopDir,target=/IMPACTncd_Japan/synthpop" `
+        --mount "type=bind,source=$DockerOutputDir,target=/output" `
+        --mount "type=bind,source=$DockerSynthpopDir,target=/synthpop" `
         --workdir /IMPACTncd_Japan `
         $ImageName `
         bash

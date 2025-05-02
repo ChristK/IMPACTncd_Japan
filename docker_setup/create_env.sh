@@ -138,8 +138,8 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
   if command -v gsha256sum > /dev/null; then
     HASH_CMD="gsha256sum"
   else
-    echo "Error: gsha256sum not found. Please install coreutils with:"
-    echo "  brew install coreutils"
+    echo "Error: gsha256sum not found. Please install coreutils."
+    echo "If you use Homebrew, run: brew install coreutils"
     exit 1
   fi
 else
@@ -148,7 +148,7 @@ else
 fi
 
 # Compute hash of build inputs (Dockerfile, apt-packages.txt, r-packages.txt)
-BUILD_HASH=$(cat "$DOCKERFILE" apt-packages.txt r-packages.txt | $HASH_CMD | cut -d ' ' -f1)
+BUILD_HASH=$(cat "$SCRIPT_DIR/$DOCKERFILE" "$SCRIPT_DIR/apt-packages.txt" "$SCRIPT_DIR/r-packages.txt" | $HASH_CMD | cut -d ' ' -f1)
 
 # Determine whether rebuild of the Docker image is needed
 NEEDS_BUILD=false
@@ -256,8 +256,8 @@ if [ "$USE_VOLUMES" = true ]; then
   echo "Running the main container using Docker volumes..."
   docker run -it \
     --mount type=volume,source="$VOLUME_PROJECT",target=/IMPACTncd_Japan \
-    --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/IMPACTncd_Japan/output \
-    --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/IMPACTncd_Japan/synthpop \
+    --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
+    --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
     --workdir /IMPACTncd_Japan \
     "$IMAGE_NAME" \
     bash
@@ -285,8 +285,8 @@ else
 
   docker run -it \
     --mount type=bind,source="$PROJECT_ROOT",target=/IMPACTncd_Japan \
-    --mount type=bind,source="$OUTPUT_DIR",target=/IMPACTncd_Japan/output \
-    --mount type=bind,source="$SYNTHPOP_DIR",target=/IMPACTncd_Japan/synthpop \
+    --mount type=bind,source="$OUTPUT_DIR",target=/output \
+    --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
     --workdir /IMPACTncd_Japan \
     "$IMAGE_NAME" \
     bash

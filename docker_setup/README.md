@@ -4,6 +4,19 @@ This repository contains the Dockerfile and the scripts used to build and run th
 
 This Docker container supports the branch **master** of the IMPACTncd Japan model.
 
+## 💾 Installing Docker
+
+Before you can use the setup scripts, you need to have Docker installed on your system. Follow the official instructions for your operating system:
+
+- **Windows:** Install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/).
+- **macOS:** Install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/).
+- **Linux:** Follow the instructions for your specific distribution:
+    - [Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+    - [Debian](https://docs.docker.com/engine/install/debian/)
+    - [Fedora](https://docs.docker.com/engine/install/fedora/)
+    - [CentOS](https://docs.docker.com/engine/install/centos/)
+    - For other distributions, refer to the [Docker Engine installation overview](https://docs.docker.com/engine/install/).
+
 ## 🐳 Docker Setup for IMPACTncd Japan
 
 This directory contains the Docker configuration and helper scripts required to build a containerized environment for the **IMPACTncd Japan** project. Two versions of the setup script are provided:
@@ -22,8 +35,11 @@ Both scripts share the same functionality, with the following workflow:
 
 2. **Operation Modes:**  
    The scripts support two modes:
+
+   - **Bind Mount Mode:**  
+     Default mode using direct bind mounts. This is a flexible mode as it allows realtime interaction between the host and the container. The downside is that it can be slower and less portable, especially on Windows and macOS.
    
-   - **Volume Mode (Recommended for macOS and Windows):**  
+   - **Volume Mode (Recommended for large simulations):**  
      When using the `--use-volumes` (Bash) or `-UseVolumes` (PowerShell) flag:
      - **Project Volume:**  
        The entire project directory (one level above `docker_setup`) is copied into a Docker-managed volume.
@@ -36,8 +52,7 @@ Both scripts share the same functionality, with the following workflow:
      - **Cleanup:**  
        Volumes are removed after syncing.
      
-   - **Bind Mount Mode:**  
-     Default mode using direct bind mounts.
+
 
 ### 🚀 Quick Start
 
@@ -53,13 +68,16 @@ Both scripts share the same functionality, with the following workflow:
 .\create_env.ps1 [-SimDesignYaml <path	o\sim_design.yaml>] [-UseVolumes]
 ```
 
+
+After installation, ensure the Docker service/daemon is running before executing the setup scripts.
+
 ## 🔍 Directory Mounting Summary
 
-| Host Path                               | Mounted to inside Container                |
-|-----------------------------------------|--------------------------------------------|
-| **Project Root** (one level above `docker_setup`) | `/IMPACTncd_Japan` |
-| `output_dir` from `sim_design.yaml`     | `/IMPACTncd_Japan/output`                   |
-| `synthpop_dir` from `sim_design.yaml`   | `/IMPACTncd_Japan/synthpop`                 |
+| Host Path                                         | Mounted to inside Container      |
+|---------------------------------------------------|----------------------------------|
+| **Project Root** (one level above `docker_setup`) | `/IMPACTncd_Japan`               |
+| `output_dir` from `sim_design.yaml`               | `/output`                        |
+| `synthpop_dir` from `sim_design.yaml`             | `/synthpop`                      |
 
 ## 🐳 Docker Image Details
 
@@ -82,7 +100,29 @@ docker rmi impactncd-japan-r-prerequisite:latest
 docker system prune
 ```
 
-## 🛠 Build and Push
+## ❓ Troubleshooting
+
+- **Docker Issues:** Ensure the Docker service (daemon) is running and accessible.
+  - **How to check:** Run `docker info` in your terminal. 
+  - **Expected Output:** You should see detailed information about your Docker installation (Server Version, Storage Driver, etc.) without any error messages.
+  - **Common Errors:** If you see "Cannot connect to the Docker daemon" or similar errors, it means Docker isn't running or your user doesn't have permission to access it.
+  - **What to do:** 
+    - **Windows/macOS:** Make sure Docker Desktop is running (check the system tray or application list).
+    - **Linux:** Check the service status with `sudo systemctl status docker`. If it's inactive, start it with `sudo systemctl start docker`. You might also need to add your user to the `docker` group (`sudo usermod -aG docker $USER`) and then log out and back in for the change to take effect.
+- **macOS Users:** This script requires `gsha256sum` for calculating file hashes. This utility is part of the `coreutils` package. 
+    - **If you have [Homebrew](https://brew.sh/) installed:** Run `brew install coreutils` to install it.
+    - **If you don't have Homebrew:** You can install it by following the instructions on the [official Homebrew website](https://brew.sh/). Typically, you run a command like this in your macOS Terminal:
+      ```bash
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      ```
+      After installing Homebrew, run `brew install coreutils`.
+- **Windows Users:** Prefer using the PowerShell script (`create_env.ps1`). You might need to adjust PowerShell's execution policy to allow running local scripts like this one. If you encounter an error running the script, try executing `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in your PowerShell terminal first. This command temporarily allows running unsigned scripts for the current session.
+
+## 📬 Need Help?
+
+For assistance or issues, contact the project maintainers or open an issue in this repository.
+
+## 🛠 Build and Push to Docker Hub
 
 Use the provided build scripts to build and optionally push the Docker image:
 
@@ -93,16 +133,6 @@ Use the provided build scripts to build and optionally push the Docker image:
 - **IMPACTncd Container:**
   - Linux/macOS: `./build_and_push_IMPACTncd.sh [--push]`
   - Windows: `build_and_push_IMPACTncd.ps1 [-Push]`
-
-## ❓ Troubleshooting
-
-- **Docker Issues:** Ensure Docker Desktop (or Docker Engine) is running.
-- **macOS Users:** Install `coreutils` if encountering hash computation issues.
-- **Windows Users:** Prefer PowerShell and adjust execution policy if needed.
-
-## 📬 Need Help?
-
-For assistance or issues, contact the project maintainers or open an issue in this repository.
 
 ## A note regarding reproducibility
 

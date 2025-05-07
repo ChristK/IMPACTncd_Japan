@@ -14,9 +14,9 @@ RUN mkdir /IMPACTncd_Japan
 # Copy current directory contents into the project directory
 COPY . /IMPACTncd_Japan 
 # Create directories based on configuration file
-RUN mkdir -p $(awk -F ': ' '/^(output_dir|synthpop_dir):/ {gsub(/'\''/, "", $2); print $2}' /IMPACTncd_Engl/inputs/sim_design.yaml)
+RUN mkdir -p $(awk -F ': ' '/^(output_dir|synthpop_dir):/ {gsub(/'\''/, "", $2); print $2}' /IMPACTncd_Japan/inputs/sim_design.yaml)
 # Change working directory to the package directory
-WORKDIR /IMPACTncd_Engl/Rpackage/IMPACTncd_Engl_model_pkg
+WORKDIR /IMPACTncd_Engl/Rpackage/IMPACTncd_Japan_model_pkg
 # Generate documentation using Roxygen 
 RUN roxy.r 
 # Build the package

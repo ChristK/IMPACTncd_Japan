@@ -3,7 +3,9 @@ Type: Package
 Title: Utility Functions for IMPACTncdJapan Model
 Version: 0.0.1
 Date: 2023-01-20
-Author: Chris Kypridemos
+Authors@R: 
+    person("Chris", "Kypridemos", , "christodoulosk@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-0746-9229"))
 Maintainer: Chris Kypridemos <christodoulosk@gmail.com>
 Description: This package contains the functions that are necessary for IMPACTncdJapan model. 
 License: GPL (>=3)

@@ -32,12 +32,14 @@ IMPACTncd$
 IMPACTncd$export_summaries(
   multicore = TRUE,
   type = c(
-    "le", "hle", "dis_char", "prvl",
-    "incd", "dis_mrtl", "mrtl",
-    "allcause_mrtl_by_dis", "cms", 
-    "qalys", "costs"
+    "le", "hle", "dis_char" , 
+     "prvl", "incd", "dis_mrtl", "mrtl",
+     "all_cause_mrtl_by_dis", "cms", 
+     "qalys", "costs"
   )
 )
+
+# IMPACTncd$export_tables(baseline_year_for_change_outputs = 2001L)
 
 source("./auxil/process_out.R")
 

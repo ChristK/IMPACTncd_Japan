@@ -16,7 +16,7 @@ if (TRUE) {
     multicore = TRUE,
     type = c(
       "prvl", "incd", "dis_mrtl", "mrtl",
-      "allcause_mrtl_by_dis"
+      "all_cause_mrtl_by_dis"
     )
   )$
     validate()

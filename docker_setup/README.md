@@ -1,3 +1,10 @@
+---
+title: "IMPACTncd_Japan Prerequisite Dockerfile and Setup"
+format:
+  html:
+    self-contained: true
+---
+
 # IMPACTncd_Japan Prerequisite Dockerfile and Setup
 
 This repository contains the Dockerfile and the scripts used to build and run the prerequisite container for the IMPACTncd Japan project. The container is based on Ubuntu and includes R version 4.4.3 with package versions frozen as of 31/03/2025, using the [RStudio Package Manager](https://packagemanager.posit.co/client/#/). Update R packages by editing `r-packages.txt` and system libraries by editing `apt-packages.txt`, then rebuild the image as needed. You can find the current version of a system library in an ubuntu system using i.e.`apt-cache policy libxml2-dev` or check the version available in the base R image using `docker run --rm rocker/r-ver:4.4.3 bash -c "apt-get update && apt-cache policy libxml2-dev"`.
@@ -145,3 +152,5 @@ Below are the two options for ensuring reproducibility of the system libraries b
 2. Multi-Stage Builds with .deb Files: In a separate Dockerfile stage or a temporary container, install the desired versions.
 Copy the downloaded .deb files (usually found in archives) out of that temporary stage/container.
 Store these .deb files alongside your Dockerfile. In your main Dockerfile, COPY these .deb files in and use dpkg -i /path/to/*.deb || apt-get install -f -y to install them. This forces the specific versions but makes dependency management much harder, as you also need to capture all dependencies. apt-get install -f -y attempts to fix broken dependencies after dpkg -i.
+
+<!-- pandoc README.md -s -o README.html --embed-resources --standalone -->

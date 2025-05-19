@@ -33,11 +33,13 @@ To be completed...
 \item \href{#method-Simulation-run}{\code{Simulation$run()}}
 \item \href{#method-Simulation-calibrate_incd_ftlt}{\code{Simulation$calibrate_incd_ftlt()}}
 \item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
+\item \href{#method-Simulation-export_tables}{\code{Simulation$export_tables()}}
 \item \href{#method-Simulation-get_causal_structure}{\code{Simulation$get_causal_structure()}}
 \item \href{#method-Simulation-get_node_names}{\code{Simulation$get_node_names()}}
 \item \href{#method-Simulation-get_causal_path}{\code{Simulation$get_causal_path()}}
 \item \href{#method-Simulation-update_design}{\code{Simulation$update_design()}}
 \item \href{#method-Simulation-del_outputs}{\code{Simulation$del_outputs()}}
+\item \href{#method-Simulation-del_summaries}{\code{Simulation$del_summaries()}}
 \item \href{#method-Simulation-del_logs}{\code{Simulation$del_logs()}}
 \item \href{#method-Simulation-del_parfs}{\code{Simulation$del_parfs()}}
 \item \href{#method-Simulation-del_RR_cache}{\code{Simulation$del_RR_cache()}}
@@ -195,7 +197,7 @@ Process the lifecourse files
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$export_summaries(
   multicore = TRUE,
   type = c("le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
-    "allcause_mrtl_by_dis", "cms", "qalys", "costs"),
+    "all_cause_mrtl_by_dis", "cms", "qalys", "costs"),
   single_year_of_age = FALSE
 )}\if{html}{\out{</div>}}
 }
@@ -214,6 +216,18 @@ Process the lifecourse files
 \subsection{Returns}{
 The invisible self for chaining.
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-export_tables"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-export_tables}{}}}
+\subsection{Method \code{export_tables()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$export_tables(
+  baseline_year_for_change_outputs = 2019L,
+  prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)
+)}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_causal_structure"></a>}}
@@ -313,6 +327,19 @@ The invisible self for chaining.
 Delete all output files.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$del_outputs()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The invisible self for chaining.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-del_summaries"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-del_summaries}{}}}
+\subsection{Method \code{del_summaries()}}{
+Delete all output summary files.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_summaries()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{

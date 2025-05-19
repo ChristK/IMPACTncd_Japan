@@ -4,6 +4,7 @@ library(CKutils)
 library(ggplot2)
 library(ggthemes)
 library(scales)
+library(arrow)
 library(IMPACTncdJapan)
 
 
@@ -74,7 +75,7 @@ tbl_smmrs <- function(
                 "pop" = "prvl"
         )
 
-        str1 <- c("ons" = "_scaled_up.csv.gz", "esp" = "_esp.csv.gz")
+        str1 <- c("ons" = "_scaled_up", "esp" = "_esp")
 
         # other useful strings
         str2 <- c(
@@ -162,7 +163,7 @@ tbl_smmrs <- function(
                 return(NULL)
         }
 
-        tt <- fread(fpth) # numerator data
+        tt <- as.data.table(open_dataset(fpth)) # numerator data
 
 		if (two_agegrps) {
                 sTablesSubDirPath <- file.path(design$sim_prm$output_dir, "tables2agegrps/")
@@ -178,7 +179,7 @@ tbl_smmrs <- function(
                 fpth <- file.path(output_dir, "summaries", paste0(str0[["prvl"]], str1[[population]]))
                 if (!file.exists(fpth)) stop(fpth, " doesn't exist")
 
-                t1 <- fread(fpth)
+                t1 <- as.data.table(open_dataset(fpth)) # denominator data  
                 setnames(t1, "popsize", "nonmodelled_prvl")
 				if (two_agegrps && "agegrp" %in% names(t1)) {
                         t1[agegrp %in% c("30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64"), agegrp := "30-64"]
@@ -507,8 +508,8 @@ tbl_smmrs(what = "pop", population = "ons", list(
    two_agegrps = TRUE)
 
 
-# All-cause mortality by disease not standardised----
-tt <- fread(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up.csv.gz"))
+# All-cause mortality by disease not standardised ----
+tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up")))
 
 outstrata <- c("mc", "year", "scenario")
 d <- tt[, lapply(.SD, sum),
@@ -571,8 +572,9 @@ setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "all-cause mortality given disease-year-agegroup-sex (not standardised).csv"))
 
 # All-cause mortality by disease not standardised pop denominator----
-tt <- fread(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up.csv.gz"))
-pp <- fread(file.path(sSummariesSubDirPath, "prvl_scaled_up.csv.gz"))
+tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up")))
+pp <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "prvl_scaled_up")))
+
 
 outstrata <- c("mc", "year", "scenario")
 cases <- pp[, lapply(.SD, sum), .SDcols = patterns("^popsize$"), keyby = eval(outstrata)]
@@ -637,7 +639,7 @@ fwrite(d, file.path(sTablesSubDirPath, "all-cause mortality given disease-year-a
 rm(pp)
 
 # All-cause mortality by disease standardised----
-tt <- fread(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_esp.csv.gz"))
+tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_esp")))
 outstrata <- c("mc", "year", "scenario")
 d <- tt[, lapply(.SD, sum),
         .SDcols = patterns("^deaths_|^cases_"),
@@ -701,9 +703,9 @@ rm(cases)
 
 
 # Disease characteristics non standardised ----
-tt <- fread(file.path(sSummariesSubDirPath, "dis_characteristics_scaled_up.csv.gz"))[, `:=`(
-        mean_cms_count_cms1st_cont = as.numeric(mean_cms_count_cms1st_cont)
-)]
+tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "dis_characteristics_scaled_up")))
+
+tt[, `:=`(mean_cms_count_cms1st_cont = as.numeric(mean_cms_count_cms1st_cont))]
 d1 <- tt[, .SD, .SDcols = patterns("mc|scenario|year|sex|^cases_")]
 d1 <- melt(d1, id.vars = c("mc", "year", "scenario", "sex"))
 d1 <- unique(d1, by = c("mc", "year", "scenario", "sex", "variable"))
@@ -786,7 +788,7 @@ fwrite(d, file.path(sTablesSubDirPath, "disease characteristics by year-sex (not
 rm(d, tt)
 
 # XPS ----
-xps_tab <- fread(file.path(design$sim_prm$output_dir, "xps/xps20.csv.gz"))
+xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps", "xps20")))
 
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
@@ -833,7 +835,7 @@ fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (not standardised)
 
 
 # XPS standardised ----
-xps_tab <- fread(file.path(design$sim_prm$output_dir, "xps/xps_esp.csv.gz"))
+xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps", "xps5")))
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
 outstrata <- c("mc", "year", "sex", "scenario")

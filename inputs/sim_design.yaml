@@ -17,7 +17,6 @@ apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incid
 calibrate_to_incd_trends: yes # Use incidance calibration multipliers from file
 calibrate_to_ftlt_trends: yes # Use fatality calibration multipliers from file
 init_year_incd_calibration: no # Indicates whether parf*p0 is calibrated to incd for the initial year
-avoid_appending_csv: yes #  Do not append on existing .csv. Rather write separately and join later. To bypass problems with Docker on windows
 incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
 prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
 ftlt_uncertainty_distr: beta #  The distribution of case fatality uncertainty. Either beta or uniform.

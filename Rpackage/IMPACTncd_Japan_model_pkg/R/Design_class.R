@@ -112,7 +112,7 @@ Design <-
         if (private$is_in_docker()) {
           # if in docker
           if (sim_prm$logs) 
-            message ("R runs within docker./nSetting output_dir and synthpop_dir set to /output and /synthpop.")
+            message ("R runs within docker.\nSetting output_dir and synthpop_dir set to /output and /synthpop.")
           # set the output_dir and synthpop_dir to the docker container paths
           sim_prm$output_dir <- "/output"
           sim_prm$synthpop_dir <- "/synthpop"

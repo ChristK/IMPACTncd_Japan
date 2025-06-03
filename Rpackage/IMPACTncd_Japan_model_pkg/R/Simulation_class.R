@@ -1270,17 +1270,46 @@ Simulation <-
         invisible(self)
       },
 
-      #' @description Delete all output summary files.
+      # del_summaries ----
+      #' @description Delete all output summary files and subdirectories while preserving first-level directory structure.
       #' @return The invisible self for chaining.
       del_summaries = function() {
         pth <- file.path(self$design$sim_prm$output_dir, "summaries")
         if (dir.exists(pth)) {
-          fl <- list.files(pth, full.names = TRUE, recursive = TRUE)
-
-          file.remove(fl)
-
-          if (length(fl) > 0 && self$design$sim_prm$logs) {
-            message("Output summary files deleted.")
+          # Get all items in the summaries directory
+          all_items <- list.files(pth, full.names = TRUE, include.dirs = TRUE)
+          
+          # Separate files and directories
+          files <- all_items[!dir.exists(all_items)]
+          dirs <- all_items[dir.exists(all_items)]
+          
+          files_deleted <- 0
+          subdirs_removed <- 0
+          
+          # Remove all files in the main summaries directory
+          if (length(files) > 0) {
+            file.remove(files)
+            files_deleted <- length(files)
+          }
+          
+          # For each subdirectory, remove it entirely (including all contents)
+          if (length(dirs) > 0) {
+            for (dir_path in dirs) {
+              unlink(dir_path, recursive = TRUE)
+              subdirs_removed <- subdirs_removed + 1
+            }
+          }
+          
+          if (self$design$sim_prm$logs && (files_deleted > 0 || subdirs_removed > 0)) {
+            msg_parts <- character()
+            if (files_deleted > 0) {
+              msg_parts <- c(msg_parts, paste(files_deleted, "files deleted"))
+            }
+            if (subdirs_removed > 0) {
+              msg_parts <- c(msg_parts, paste(subdirs_removed, "subdirectories removed"))
+            }
+            msg_parts <- c(msg_parts, "summaries directory preserved")
+            message("Output summary cleanup: ", paste(msg_parts, collapse = ", "), ".")
           }
         } else {
           message("Output summaries folder doesn't exist.")

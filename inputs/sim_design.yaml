@@ -1,7 +1,7 @@
 iteration_n: 15
 iteration_n_final: 100
 clusternumber: 10 # explicit parallelisation
-clusternumber_export: 4 # NEW: number of clusters for export_summaries
+clusternumber_export: 10 # NEW: number of clusters for export_summaries
 n_cpus: 1 # implicit parallelisation
 logs: yes
 export_xps: yes

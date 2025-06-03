@@ -9,6 +9,14 @@ A simulation environment.
 \details{
 To be completed...
 }
+\examples{
+
+## ------------------------------------------------
+## Method `Simulation$export_tables`
+## ------------------------------------------------
+
+IMPACTncd$export_tables()
+}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
@@ -221,11 +229,49 @@ The invisible self for chaining.
 \if{html}{\out{<a id="method-Simulation-export_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-export_tables}{}}}
 \subsection{Method \code{export_tables()}}{
+Export summary tables for the simulation results.
+
+This method generates and exports summary tables for the main simulation outputs,
+including prevalence, incidence, mortality, disease characteristics, and exposures.
+It calls modular helper methods for each type of summary, ensuring output directories
+are created as needed and that all tables are written to the appropriate locations.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$export_tables(
   baseline_year_for_change_outputs = 2019L,
   prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)
 )}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{baseline_year_for_change_outputs}}{Integer. The baseline year to use for change outputs (default: 2019L).}
+
+\item{\code{prbl}}{Numeric vector. The quantiles to use for summary statistics (default: c(0.5, 0.025, 0.975, 0.1, 0.9)).}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+This method is a high-level wrapper that orchestrates the export of all main summary tables.
+It delegates the actual export logic to the following private helper methods:
+- \code{private$export_main_tables}
+- \code{private$export_all_cause_mrtl_tables}
+- \code{private$export_disease_characteristics_tables}
+- \code{private$export_xps_tables}
+
+Each helper method is responsible for a specific set of outputs and ensures that
+the results are saved in the correct format and location.
+}
+
+\subsection{Returns}{
+The invisible self for chaining.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{IMPACTncd$export_tables()
+}
+\if{html}{\out{</div>}}
+
 }
 
 }
@@ -324,7 +370,7 @@ The invisible self for chaining.
 \if{html}{\out{<a id="method-Simulation-del_outputs"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_outputs}{}}}
 \subsection{Method \code{del_outputs()}}{
-Delete all output files.
+Delete all output files and folders below the first level.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$del_outputs()}\if{html}{\out{</div>}}
 }
@@ -337,7 +383,7 @@ The invisible self for chaining.
 \if{html}{\out{<a id="method-Simulation-del_summaries"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_summaries}{}}}
 \subsection{Method \code{del_summaries()}}{
-Delete all output summary files.
+Delete all output summary files and subdirectories while preserving first-level directory structure.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$del_summaries()}\if{html}{\out{</div>}}
 }

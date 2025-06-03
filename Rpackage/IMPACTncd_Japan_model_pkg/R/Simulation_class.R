@@ -1218,20 +1218,50 @@ Simulation <-
 
       # del_outputs ----
 
-      #' @description Delete all output files.
+      #' @description Delete all output files and folders below the first level.
       #' @return The invisible self for chaining.
       del_outputs = function() {
         if (dir.exists(self$design$sim_prm$output_dir)) {
+          # Get all files in output_dir (including nested files)
           fl <- list.files(
             self$design$sim_prm$output_dir,
             full.names = TRUE,
             recursive = TRUE
           )
-
+          
+          # Remove all files
           file.remove(fl)
+          
+          # Get first-level directories (e.g., summaries/, logs/, tables/)
+          first_level_dirs <- list.dirs(
+            self$design$sim_prm$output_dir,
+            full.names = TRUE,
+            recursive = FALSE
+          )
+          # Remove the output_dir itself from the list
+          first_level_dirs <- first_level_dirs[first_level_dirs != self$design$sim_prm$output_dir]
+          
+          # For each first-level directory, get and remove all subdirectories
+          subdirs_removed <- 0
+          for (dir in first_level_dirs) {
+            subdirs <- list.dirs(
+              dir,
+              full.names = TRUE,
+              recursive = TRUE
+            )
+            # Remove the parent directory itself from the list (keep only subdirectories)
+            subdirs <- subdirs[subdirs != dir]
+            
+            if (length(subdirs) > 0) {
+              unlink(subdirs, recursive = TRUE)
+              subdirs_removed <- subdirs_removed + length(subdirs)
+            }
+          }
 
-          if (length(fl) > 0 && self$design$sim_prm$logs) {
-            message("Output files deleted.")
+          if ((length(fl) > 0 || subdirs_removed > 0) && self$design$sim_prm$logs) {
+            message(paste("Output files deleted:", length(fl), 
+                         "| Subdirectories removed:", subdirs_removed,
+                         "| First-level directories preserved:", length(first_level_dirs)))
           }
         } else {
           message("Output folder doesn't exist.")

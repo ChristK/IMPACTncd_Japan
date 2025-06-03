@@ -2559,7 +2559,7 @@ Simulation <-
         )
       },
 
-      # export xps ----
+      # export_xps ----
       export_xps = function(sp, scenario_nam) {
         # NOTE no need to check validity of inputs here as it is only used
         # internally

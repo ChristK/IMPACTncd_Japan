@@ -17,6 +17,11 @@
 #
 # 2. Using direct bind mounts (less efficient, but useful for interactive access).
 #
+# Security: All containers run as non-root users to prevent permission issues
+# and improve security. On Windows, Docker Desktop runs containers in a Linux VM,
+# so we use standard UID/GID (1000:1000) which works well for most cases.
+# The entrypoint.sh script creates the appropriate user with the Windows username.
+#
 # Usage:
 #   .\create_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
@@ -53,6 +58,14 @@ $HashFile    = ".docker_build_hash"
 
 # Get current user (for user-specific volume names)
 $CurrentUser = $env:USERNAME
+
+# Get user identity information for non-root Docker execution
+# Note: On Windows, Docker Desktop runs containers in a Linux VM, so we use
+# default UID/GID (1000:1000) which works well for most cases
+$UserId = "1000"
+$GroupId = "1000"
+$UserName = $CurrentUser
+$GroupName = "users"
 
 # Define user-specific Docker volume names
 $VolumeProject   = "impactncd_japan_project_$CurrentUser"
@@ -268,25 +281,38 @@ if ($UseVolumes) {
     docker volume create $VolumeOutput | Out-Null
     docker volume create $VolumeSynthpop | Out-Null
 
+    # Fix volume ownership and pre-populate volumes:
+    # Docker volumes are created with root ownership by default. We need to fix
+    # the ownership before we can populate them as the calling user.
+    Write-Host "Setting correct ownership for Docker volumes..."
+    docker run --rm -v "${VolumeProject}:/destination" alpine sh -c "chown ${UserId}:${GroupId} /destination"
+    docker run --rm -v "${VolumeOutput}:/volume" alpine sh -c "chown ${UserId}:${GroupId} /volume"
+    docker run --rm -v "${VolumeSynthpop}:/volume" alpine sh -c "chown ${UserId}:${GroupId} /volume"
+
     # Pre-populate volumes:
     # 1. The project volume is populated with the entire project directory using tar, excluding dot files/folders.
     # 2. The output and synthpop volumes are populated from the respective local folders.
     Write-Host "Populating project volume from host project directory (excluding dot files/folders)..."
     # Use tar to copy project files, excluding folders starting with .
-    docker run --rm -v "${ProjectRoot}:/source" -v "${VolumeProject}:/destination" alpine sh -c "cd /source && tar cf - --exclude='./.*' . | (cd /destination && tar xf -)"
+    docker run --rm --user "${UserId}:${GroupId}" -v "${ProjectRoot}:/source" -v "${VolumeProject}:/destination" alpine sh -c "cd /source && tar cf - --exclude='./.*' . | (cd /destination && tar xf -)"
 
     Write-Host "Populating output volume from local folder..."
-    # Use cp -Rp here as well for consistency, though less likely to cause issues
-    docker run --rm -v "${outputDir}:/source" -v "${VolumeOutput}:/volume" alpine sh -c "cp -Rp /source/. /volume/"
+    # Use permission-tolerant copy with fallback logic
+    docker run --rm --user "${UserId}:${GroupId}" -v "${outputDir}:/source" -v "${VolumeOutput}:/volume" alpine sh -c "cp -r /source/. /volume/ 2>/dev/null || cp -a /source/. /volume/ 2>/dev/null || true"
     Write-Host "Populating synthpop volume from local folder..."
-    # Use cp -Rp here as well for consistency
-    docker run --rm -v "${synthpopDir}:/source" -v "${VolumeSynthpop}:/volume" alpine sh -c "cp -Rp /source/. /volume/"
+    # Use permission-tolerant copy with fallback logic
+    docker run --rm --user "${UserId}:${GroupId}" -v "${synthpopDir}:/source" -v "${VolumeSynthpop}:/volume" alpine sh -c "cp -r /source/. /volume/ 2>/dev/null || cp -a /source/. /volume/ 2>/dev/null || true"
 
     # Run the main container with volumes mounted.
     Write-Host "Running the main container using Docker volumes..."
     # Construct arguments as an array for reliable passing
     $dockerArgs = @(
         "run", "-it",
+        # User identity environment variables
+        "-e", "USER_ID=$UserId",
+        "-e", "GROUP_ID=$GroupId", 
+        "-e", "USER_NAME=$UserName",
+        "-e", "GROUP_NAME=$GroupName",
         # Use -v syntax within the array elements
         "-v", "${VolumeProject}:/IMPACTncd_Japan",
         "-v", "${VolumeOutput}:/output",
@@ -301,9 +327,9 @@ if ($UseVolumes) {
     # After the container exits:
     # Synchronize the output and synthpop volumes back to the local directories using rsync.
     Write-Host "Container exited. Syncing volumes back to local directories using rsync (checksum mode)..."
-    # Use ${} to delimit variable name before the colon
-    docker run --rm -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc /volume/ /backup/
-    docker run --rm -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc /volume/ /backup/
+    # Use ${} to delimit variable name before the colon and add permission flags
+    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times /volume/ /backup/
+    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times /volume/ /backup/
 
     # Clean up all the Docker volumes used for the simulation.
     Write-Host "Cleaning up Docker volumes..."
@@ -345,6 +371,10 @@ if ($UseVolumes) {
 
     # Pass mount arguments correctly to docker run
     docker run -it `
+        -e "USER_ID=$UserId" `
+        -e "GROUP_ID=$GroupId" `
+        -e "USER_NAME=$UserName" `
+        -e "GROUP_NAME=$GroupName" `
         --mount "type=bind,source=$DockerProjectRoot,target=/IMPACTncd_Japan" `
         --mount "type=bind,source=$DockerOutputDir,target=/output" `
         --mount "type=bind,source=$DockerSynthpopDir,target=/synthpop" `

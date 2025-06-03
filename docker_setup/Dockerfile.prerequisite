@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.4.3
+FROM rocker/r-ver:4.5.0
 
 LABEL maintainer="Chris Kypridemos <ckyprid@liverpool.ac.uk>"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -11,26 +11,34 @@ COPY apt-packages.txt /tmp/apt-packages.txt
 
 # System packages pinned as of 2025-03-21 for reproducibility
 # get version of packages i.e. for libicu-dev  with 
-# docker run --rm -it rocker/r-ver:4.4.3 bash -c "apt-get update -qq && apt-cache policy libicu-dev"
+# docker run --rm -it rocker/r-ver:4.5.0 bash -c "apt-get update -qq && apt-cache policy libicu-dev"
 RUN apt-get update -qq && \
   xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends && \
+  apt-get install -y --no-install-recommends gosu && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Repo frozen on March 21, 2025. See https://packagemanager.posit.co/client/#/repos/cran/setup?distribution=ubuntu-24.04&r_environment=other&snapshot=2025-03-21
+# Repo frozen on May 31, 2025. See https://packagemanager.posit.co/client/#/repos/cran/setup?distribution=ubuntu-24.04&r_environment=other&snapshot=2025-05-31
 RUN install2.r --error --skipinstalled \
-  -r "https://packagemanager.posit.co/cran/__linux__/noble/2025-03-31" \
+  -r "https://packagemanager.posit.co/cran/__linux__/noble/2025-05-31" \
   -n $(nproc) \
   $(grep -v '^#' /tmp/r-packages.txt) \
     && rm -rf /tmp/downloaded_packages \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
 # RUN installGithub.r "ChristK/CKutils@main"
-RUN installGithub.r "ChristK/CKutils@c6ee2c8f4683d42000137ee14d228eee8136d6bf" # the HEAD as of 31/03/2025
+RUN installGithub.r "ChristK/CKutils@c6ee2c8f4683d42000137ee14d228eee8136d6bf" # the HEAD as of 31/05/2025
 
 # TODO: remove when 1.17.2 is on CRAN. Temporarily added to avoid bug with fwrite(append=TRUE) in data.table 1.17.2
 # RUN installGithub.r "Rdatatable/data.table" 
-RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz
-RUN R CMD INSTALL data.table_1.16.4.tar.gz && rm data.table_1.16.4.tar.gz
+# RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz
+# RUN R CMD INSTALL data.table_1.16.4.tar.gz && rm data.table_1.16.4.tar.gz
+
+# Create a script to handle dynamic user creation for non-root execution
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]
 
 # docker run -it --name my_new_container chriskypri/impactncd-r-prerequisite /bin/bash

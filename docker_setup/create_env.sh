@@ -8,6 +8,10 @@
 # Description:
 #   This script builds and runs a Docker container for the IMPACTncd Japan project.
 #   It rebuilds the Docker image only if build inputs have changed.
+#   
+#   Security: All containers run as the calling user (non-root) to prevent permission
+#   issues and improve security. The script automatically detects the current user's
+#   UID and GID and passes them to Docker.
 #
 #   When the --use-volumes flag is provided:
 #     1. The entire project directory (one level above docker_setup) is copied 
@@ -40,6 +44,11 @@ DOCKERFILE="Dockerfile.prerequisite"
 HASH_FILE="$SCRIPT_DIR/.docker_build_hash" # Store hash file in script directory
 YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root
 CURRENT_USER=$(whoami)
+# Get current user's UID and GID for running containers as non-root
+USER_ID=$(id -u)
+GROUP_ID=$(id -g)
+USER_NAME=$(whoami)
+GROUP_NAME=$(id -gn)
 # User-specific Docker volume names to avoid conflicts
 VOLUME_PROJECT="impactncd_japan_project_${CURRENT_USER}"
 VOLUME_OUTPUT_NAME="impactncd_japan_output_${CURRENT_USER}"
@@ -147,8 +156,8 @@ else
   exit 1
 fi
 
-# Compute hash of build inputs (Dockerfile, apt-packages.txt, r-packages.txt)
-BUILD_HASH=$(cat "$SCRIPT_DIR/$DOCKERFILE" "$SCRIPT_DIR/apt-packages.txt" "$SCRIPT_DIR/r-packages.txt" | $HASH_CMD | cut -d ' ' -f1)
+# Compute hash of build inputs (Dockerfile, apt-packages.txt, r-packages.txt, entrypoint.sh)
+BUILD_HASH=$(cat "$SCRIPT_DIR/$DOCKERFILE" "$SCRIPT_DIR/apt-packages.txt" "$SCRIPT_DIR/r-packages.txt" "$SCRIPT_DIR/entrypoint.sh" | $HASH_CMD | cut -d ' ' -f1)
 
 # Determine whether rebuild of the Docker image is needed
 NEEDS_BUILD=false
@@ -227,7 +236,10 @@ if [ "$USE_VOLUMES" = true ]; then
   docker volume create "$VOLUME_SYNTHPOP_NAME"
 
   # --------------------------------------------------------------------------
-  # Pre-populate volumes:
+  # Fix volume ownership and pre-populate volumes:
+  #
+  # Docker volumes are created with root ownership by default. We need to fix
+  # the ownership before we can populate them as the calling user.
   #
   # 1. The project volume is populated with the entire project directory (from
   #    one level above the docker_setup folder), excluding dot files/folders.
@@ -235,26 +247,46 @@ if [ "$USE_VOLUMES" = true ]; then
   #
   # 2. The output and synthpop volumes are populated from the respective local folders.
   # --------------------------------------------------------------------------
+  
+  # Fix ownership of volume directories first (run as root, then change ownership)
+  echo "Setting correct ownership for Docker volumes..."
+  docker run --rm \
+    -v "${VOLUME_PROJECT}":/destination \
+    alpine sh -c "chown ${USER_ID}:${GROUP_ID} /destination"
+  docker run --rm \
+    -v "$VOLUME_OUTPUT_NAME":/volume \
+    alpine sh -c "chown ${USER_ID}:${GROUP_ID} /volume"
+  docker run --rm \
+    -v "$VOLUME_SYNTHPOP_NAME":/volume \
+    alpine sh -c "chown ${USER_ID}:${GROUP_ID} /volume"
+
   echo "Populating project volume from host project directory (excluding dot files/folders)..."
   # Use tar to copy, excluding dot files/folders at the root of the source
   docker run --rm \
+    --user "${USER_ID}:${GROUP_ID}" \
     -v "${PROJECT_ROOT}":/source \
     -v "${VOLUME_PROJECT}":/destination \
     alpine sh -c "tar -C /source --exclude='./.*' -cf - . | tar -C /destination -xf -"
 
   echo "Populating output and synthpop volumes from local folders..."
   docker run --rm \
+    --user "${USER_ID}:${GROUP_ID}" \
     -v "$OUTPUT_DIR":/source \
     -v "$VOLUME_OUTPUT_NAME":/volume \
-    alpine sh -c "cp -a /source/. /volume/"
+    alpine sh -c "cp -r /source/. /volume/ 2>/dev/null || cp -a /source/. /volume/ 2>/dev/null || true"
   docker run --rm \
+    --user "${USER_ID}:${GROUP_ID}" \
     -v "$SYNTHPOP_DIR":/source \
     -v "$VOLUME_SYNTHPOP_NAME":/volume \
-    alpine sh -c "cp -a /source/. /volume/"
+    alpine sh -c "cp -r /source/. /volume/ 2>/dev/null || cp -a /source/. /volume/ 2>/dev/null || true"
 
   # Run the main container with the project volume mounted in place of the project bind mount.
   echo "Running the main container using Docker volumes..."
   docker run -it \
+    -e USER_ID="${USER_ID}" \
+    -e GROUP_ID="${GROUP_ID}" \
+    -e USER_NAME="${USER_NAME}" \
+    -e GROUP_NAME="${GROUP_NAME}" \
     --mount type=volume,source="$VOLUME_PROJECT",target=/IMPACTncd_Japan \
     --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
     --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
@@ -266,13 +298,15 @@ if [ "$USE_VOLUMES" = true ]; then
   # - Synchronize the volumes back to the local directories using rsync (checksum mode).
   echo "Container exited. Syncing volumes back to local directories using rsync (checksum mode)..."
   docker run --rm \
+    --user "${USER_ID}:${GROUP_ID}" \
     -v "$VOLUME_OUTPUT_NAME":/volume \
     -v "$OUTPUT_DIR":/backup \
-    rsync-alpine rsync -avc /volume/ /backup/
+    rsync-alpine rsync -avc --no-owner --no-group --no-times /volume/ /backup/
   docker run --rm \
+    --user "${USER_ID}:${GROUP_ID}" \
     -v "$VOLUME_SYNTHPOP_NAME":/volume \
     -v "$SYNTHPOP_DIR":/backup \
-    rsync-alpine rsync -avc /volume/ /backup/
+    rsync-alpine rsync -avc --no-owner --no-group --no-times /volume/ /backup/
 
   # Clean up all the Docker volumes used for the simulation.
   echo "Cleaning up Docker volumes..."
@@ -284,6 +318,10 @@ else
   echo "Using direct bind mounts for project, outputs, and synthpop..."
 
   docker run -it \
+    -e USER_ID="${USER_ID}" \
+    -e GROUP_ID="${GROUP_ID}" \
+    -e USER_NAME="${USER_NAME}" \
+    -e GROUP_NAME="${GROUP_NAME}" \
     --mount type=bind,source="$PROJECT_ROOT",target=/IMPACTncd_Japan \
     --mount type=bind,source="$OUTPUT_DIR",target=/output \
     --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \

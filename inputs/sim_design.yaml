@@ -20,8 +20,8 @@ init_year_incd_calibration: no # Indicates whether parf*p0 is calibrated to incd
 incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
 prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
 ftlt_uncertainty_distr: beta #  The distribution of case fatality uncertainty. Either beta or uniform.
-output_dir: /mnt/storage_fast4/IMPACTncd_Japan/outputs # ./outputs
-synthpop_dir: /mnt/storage_fast4/IMPACTncd_Japan/synthpop # ./inputs/synthpop
+output_dir: D:\outputs # ./outputs
+synthpop_dir: D:\synthpop # ./inputs/synthpop
 
 diseases:
 - name: obesity

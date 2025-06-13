@@ -59,18 +59,25 @@ $HashFile    = ".docker_build_hash"
 # Get current user (for user-specific volume names)
 $CurrentUser = $env:USERNAME
 
+# Sanitize username for Docker volume names (replace spaces and special characters with underscores)
+$SafeCurrentUser = $CurrentUser -replace '[^a-zA-Z0-9]', '_' -replace '__+', '_' -replace '^_|_$', ''
+if ([string]::IsNullOrEmpty($SafeCurrentUser)) {
+    $SafeCurrentUser = "dockeruser"
+}
+
 # Get user identity information for non-root Docker execution
 # Note: On Windows, Docker Desktop runs containers in a Linux VM, so we use
 # default UID/GID (1000:1000) which works well for most cases
 $UserId = "1000"
 $GroupId = "1000"
 $UserName = $CurrentUser
-$GroupName = "users"
+# Use a safe group name - if it conflicts, the entrypoint will create a fallback
+$GroupName = "dockergroup"
 
-# Define user-specific Docker volume names
-$VolumeProject   = "impactncd_japan_project_$CurrentUser"
-$VolumeOutput    = "impactncd_japan_output_$CurrentUser"
-$VolumeSynthpop  = "impactncd_japan_synthpop_$CurrentUser"
+# Define user-specific Docker volume names using sanitized username
+$VolumeProject   = "impactncd_japan_project_$SafeCurrentUser"
+$VolumeOutput    = "impactncd_japan_output_$SafeCurrentUser"
+$VolumeSynthpop  = "impactncd_japan_synthpop_$SafeCurrentUser"
 
 # --- Docker Permission Check ---
 # Check if the user can connect to the Docker daemon
@@ -106,11 +113,12 @@ function Get-NormalizedContent {
     return ($content -replace "`r`n", "`n").TrimEnd()
 }
 
-# Compute robust build hash from Dockerfile and package lists
+# Compute robust build hash from Dockerfile, package lists, and entrypoint script
 $FilesToHash = @(
     Get-NormalizedContent -Path $Dockerfile
     Get-NormalizedContent -Path "apt-packages.txt"
     Get-NormalizedContent -Path "r-packages.txt"
+    Get-NormalizedContent -Path "entrypoint.sh"
 )
 $JoinedContent = ($FilesToHash -join "`n")
 $Bytes = [System.Text.Encoding]::UTF8.GetBytes($JoinedContent)
@@ -328,8 +336,9 @@ if ($UseVolumes) {
     # Synchronize the output and synthpop volumes back to the local directories using rsync.
     Write-Host "Container exited. Syncing volumes back to local directories using rsync (checksum mode)..."
     # Use ${} to delimit variable name before the colon and add permission flags
-    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times /volume/ /backup/
-    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times /volume/ /backup/
+    # Added --no-perms and --chmod=ugo=rwX to prevent permission issues on Windows
+    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /volume/ /backup/
+    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /volume/ /backup/
 
     # Clean up all the Docker volumes used for the simulation.
     Write-Host "Cleaning up Docker volumes..."

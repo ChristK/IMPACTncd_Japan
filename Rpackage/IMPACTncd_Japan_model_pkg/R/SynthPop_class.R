@@ -246,8 +246,12 @@ SynthPop <-
         } else if (scenario_nam != "sc0" && !"wt" %in% names(self$pop)) {
           # For policy scenarios.
 
-          fnam <- file.path(private$design$sim_prm$output_dir, paste0(
-            "lifecourse/scenario=sc0/", "mc=", self$mc_aggr))
+          fnam <- file.path(
+            private$design$sim_prm$output_dir,
+            "lifecourse",
+            paste0("mc=", self$mc_aggr),
+            "scenario=sc0"
+          )
 
           t0 <- open_dataset(fnam)
           t0 <- as.data.table(t0[, c("pid", "year", "wt")])

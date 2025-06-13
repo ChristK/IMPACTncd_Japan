@@ -265,8 +265,12 @@ Simulation <-
       #' @param scenario_nam A string for the scenario name (i.e. sc1)
       #' @return The invisible self for chaining.
       run = function(mc, multicore = TRUE, scenario_nam) {
-        if (!is.integer(mc)) stop("mc need to be an integer")
-        if (any(mc <= 0)) stop("mc need to be positive integer")
+        if (!is.integer(mc)) {
+          stop("mc need to be an integer")
+        }
+        if (any(mc <= 0)) {
+          stop("mc need to be positive integer")
+        }
 
         # recombine the chunks of large files
         # TODO logic to delete these files
@@ -293,12 +297,10 @@ Simulation <-
 
         if (
           any(file.exists(
-            # TODO fix when lifecourse is not saved
             file.path(
               self$design$sim_prm$output_dir,
-              "lifecourse",
-              paste0(mc, "_lifecourse.cs")
-            )
+              "lifecourse"
+            ), recursive = TRUE
           ))
         ) {
           # stop("Results from a previous simulation exists in the output
@@ -315,8 +317,9 @@ Simulation <-
         })
 
         if (multicore) {
-          if (self$design$sim_prm$logs)
+          if (self$design$sim_prm$logs) {
             private$time_mark("Start of parallelisation")
+          }
 
           if (.Platform$OS.type == "windows") {
             cl <-
@@ -401,8 +404,9 @@ Simulation <-
             # }
           }
 
-          if (self$design$sim_prm$logs)
+          if (self$design$sim_prm$logs) {
             private$time_mark("End of parallelisation")
+          }
         } else {
           # if multicore = FALSE
           if (self$design$sim_prm$logs) {
@@ -416,7 +420,9 @@ Simulation <-
           }
         }
 
-        while (sink.number() > 0L) sink()
+        while (sink.number() > 0L) {
+          sink()
+        }
 
         invisible(self)
       },
@@ -467,7 +473,9 @@ Simulation <-
 
         memedian <- function(x) {
           out <- median(x)
-          if (out == 0L) out <- mean(x)
+          if (out == 0L) {
+            out <- mean(x)
+          }
           out
         }
         if (replace) {
@@ -896,8 +904,8 @@ Simulation <-
         con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
         on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
         duckdb::duckdb_register_arrow(con, "lc_table", lc)
-
         mc_set <- dbGetQuery(con, "SELECT DISTINCT mc FROM lc_table")$mc
+        dbDisconnect(con, shutdown = FALSE) # shutdown = FALSE recommended for parallel processes
 
         # logic to avoid inappropriate dual processing of already processed mc iterations
         # TODO take into account scenarios
@@ -939,7 +947,7 @@ Simulation <-
             open_dataset(file_pth, format = "parquet")
           )
           mc_toexclude <- dbGetQuery(con2, "SELECT DISTINCT mc FROM tbl")$mc
-          dbDisconnect(con2, shutdown = TRUE)
+          dbDisconnect(con2, shutdown = FALSE) # shutdown = FALSE recommended for parallel processes
           mc_set <- mc_set[!mc_set %in% mc_toexclude]
         }
 
@@ -959,11 +967,11 @@ Simulation <-
           }
 
           if (.Platform$OS.type == "windows") {
-            cl <-
+                        cl <-
               makeClusterPSOCK(
                 self$design$sim_prm$clusternumber_export,
                 dryrun = FALSE,
-                quiet = FALSE,
+                quiet = !self$design$sim_prm$logs,
                 rscript_startup = quote(local({
                   library(CKutils)
                   library(IMPACTncdJapan)
@@ -987,7 +995,6 @@ Simulation <-
               X = seq_along(mc_set),
               fun = function(i) {
                 private$export_summaries_hlpr(
-                  con,
                   mcaggr = i,
                   type = type,
                   single_year_of_age = single_year_of_age
@@ -1006,6 +1013,8 @@ Simulation <-
                 "R6",
                 "CKutils",
                 "IMPACTncdJapan",
+                "arrow",
+                "duckdb",
                 "data.table"
               ),
               .export = NULL,
@@ -1013,7 +1022,6 @@ Simulation <-
             ) %dopar%
               {
                 private$export_summaries_hlpr(
-                  con,
                   mcaggr = i,
                   type = type,
                   single_year_of_age = single_year_of_age
@@ -1023,7 +1031,7 @@ Simulation <-
           }
 
           if (self$design$sim_prm$logs) {
-            private$time_mark("End of exporting summuries")
+            private$time_mark("End of exporting summaries")
           }
         } else {
           # if multicore = FALSE
@@ -1033,7 +1041,6 @@ Simulation <-
 
           lapply(seq_along(mc_set), function(i) {
             private$export_summaries_hlpr(
-              con,
               mcaggr = i,
               type = type,
               single_year_of_age = single_year_of_age
@@ -1046,7 +1053,9 @@ Simulation <-
           }
         } # end of multicore = FALSE
 
-        while (sink.number() > 0L) sink()
+        while (sink.number() > 0L) {
+          sink()
+        }
 
         invisible(self)
       },
@@ -1126,11 +1135,14 @@ Simulation <-
         if (missing(focus)) {
           graph <- private$causality_structure
         } else {
-          if (length(focus) > 1L) stop("focus need to be scalar string.")
-          if (!focus %in% self$get_node_names())
+          if (length(focus) > 1L) {
+            stop("focus need to be scalar string.")
+          }
+          if (!focus %in% self$get_node_names()) {
             stop(
               "focus need to be a node name. Use get_node_names() to get the list of eligible values."
             )
+          }
           graph <- make_ego_graph(
             private$causality_structure,
             order = 1,
@@ -1228,10 +1240,10 @@ Simulation <-
             full.names = TRUE,
             recursive = TRUE
           )
-          
+
           # Remove all files
           file.remove(fl)
-          
+
           # Get first-level directories (e.g., summaries/, logs/, tables/)
           first_level_dirs <- list.dirs(
             self$design$sim_prm$output_dir,
@@ -1239,8 +1251,10 @@ Simulation <-
             recursive = FALSE
           )
           # Remove the output_dir itself from the list
-          first_level_dirs <- first_level_dirs[first_level_dirs != self$design$sim_prm$output_dir]
-          
+          first_level_dirs <- first_level_dirs[
+            first_level_dirs != self$design$sim_prm$output_dir
+          ]
+
           # For each first-level directory, get and remove all subdirectories
           subdirs_removed <- 0
           for (dir in first_level_dirs) {
@@ -1251,17 +1265,24 @@ Simulation <-
             )
             # Remove the parent directory itself from the list (keep only subdirectories)
             subdirs <- subdirs[subdirs != dir]
-            
+
             if (length(subdirs) > 0) {
               unlink(subdirs, recursive = TRUE)
               subdirs_removed <- subdirs_removed + length(subdirs)
             }
           }
 
-          if ((length(fl) > 0 || subdirs_removed > 0) && self$design$sim_prm$logs) {
-            message(paste("Output files deleted:", length(fl), 
-                         "| Subdirectories removed:", subdirs_removed,
-                         "| First-level directories preserved:", length(first_level_dirs)))
+          if (
+            (length(fl) > 0 || subdirs_removed > 0) && self$design$sim_prm$logs
+          ) {
+            message(paste(
+              "Output files deleted:",
+              length(fl),
+              "| Subdirectories removed:",
+              subdirs_removed,
+              "| First-level directories preserved:",
+              length(first_level_dirs)
+            ))
           }
         } else {
           message("Output folder doesn't exist.")
@@ -1278,20 +1299,20 @@ Simulation <-
         if (dir.exists(pth)) {
           # Get all items in the summaries directory
           all_items <- list.files(pth, full.names = TRUE, include.dirs = TRUE)
-          
+
           # Separate files and directories
           files <- all_items[!dir.exists(all_items)]
           dirs <- all_items[dir.exists(all_items)]
-          
+
           files_deleted <- 0
           subdirs_removed <- 0
-          
+
           # Remove all files in the main summaries directory
           if (length(files) > 0) {
             file.remove(files)
             files_deleted <- length(files)
           }
-          
+
           # For each subdirectory, remove it entirely (including all contents)
           if (length(dirs) > 0) {
             for (dir_path in dirs) {
@@ -1299,17 +1320,27 @@ Simulation <-
               subdirs_removed <- subdirs_removed + 1
             }
           }
-          
-          if (self$design$sim_prm$logs && (files_deleted > 0 || subdirs_removed > 0)) {
+
+          if (
+            self$design$sim_prm$logs &&
+              (files_deleted > 0 || subdirs_removed > 0)
+          ) {
             msg_parts <- character()
             if (files_deleted > 0) {
               msg_parts <- c(msg_parts, paste(files_deleted, "files deleted"))
             }
             if (subdirs_removed > 0) {
-              msg_parts <- c(msg_parts, paste(subdirs_removed, "subdirectories removed"))
+              msg_parts <- c(
+                msg_parts,
+                paste(subdirs_removed, "subdirectories removed")
+              )
             }
             msg_parts <- c(msg_parts, "summaries directory preserved")
-            message("Output summary cleanup: ", paste(msg_parts, collapse = ", "), ".")
+            message(
+              "Output summary cleanup: ",
+              paste(msg_parts, collapse = ", "),
+              "."
+            )
           }
         } else {
           message("Output summaries folder doesn't exist.")
@@ -2337,14 +2368,18 @@ Simulation <-
         excl <- readLines("./.gitignore")
         for (i in 1:length(fl)) {
           file <- gsub("^./", "", fl[i])
-          if (file %in% excl) next
+          if (file %in% excl) {
+            next
+          }
           write(file, file = "./.gitignore", append = TRUE)
         }
 
         # split the files into 50MB chunks
         for (i in 1:length(fl)) {
           file <- fl[i]
-          if (!file.exists(file)) next
+          if (!file.exists(file)) {
+            next
+          }
 
           # split the file into 49MB chunks
           if (.Platform$OS.type == "unix") {
@@ -2372,7 +2407,9 @@ Simulation <-
         if (file.exists("./simulation/large_files_indx.csv")) {
           fl <- fread("./simulation/large_files_indx.csv")$pths
           for (i in 1:length(fl)) {
-            if (file.exists(fl[i])) next
+            if (file.exists(fl[i])) {
+              next
+            }
             file <- fl[i]
             # recombine the chunks
             if (.Platform$OS.type == "unix") {
@@ -2425,10 +2462,71 @@ Simulation <-
       # Models a secondary prevention policy scenario
       secondary_prevention_scn = NULL,
 
+      # Helper function to execute database query and write to disk with retry logic
+      execute_db_diskwrite_with_retry = function(
+        duckdb_con,
+        query,
+        output_path,
+        max_retries = 5
+      ) {
+        retry_count <- 0
+        success <- FALSE
+
+        while (
+          (!file.exists(output_path) || file.size(output_path) == 0) &&
+            retry_count < max_retries
+        ) {
+          retry_count <- retry_count + 1
+
+          tryCatch(
+            {
+              dbExecute(
+                duckdb_con,
+                sprintf(
+                  "COPY (%s) TO '%s' (FORMAT PARQUET);",
+                  query,
+                  output_path
+                )
+              )
+
+              # Brief pause to allow file system to sync
+              Sys.sleep(0.1)
+
+              # Check if file was created successfully
+              if (file.exists(output_path) && file.size(output_path) > 0) {
+                success <- TRUE
+                break
+              }
+            },
+            error = function(e) {
+              warning(sprintf(
+                "Attempt %d failed to write output to %s: %s",
+                retry_count,
+                output_path,
+                e$message
+              ))
+            }
+          )
+        }
+
+        # Final check and error if all retries failed
+        if (!success) {
+          stop(sprintf(
+            "Failed to write output to %s after %d attempts",
+            output_path,
+            max_retries
+          ))
+        }
+
+        return(invisible(TRUE))
+      },
+
       # run_sim ----
       # Runs the simulation in one core. mc is scalar
       run_sim = function(mc_, scenario_nam = "") {
-        if (!nzchar(scenario_nam)) scenario_nam <- "sc0"
+        if (!nzchar(scenario_nam)) {
+          scenario_nam <- "sc0"
+        }
 
         if (self$design$sim_prm$logs) {
           private$time_mark(paste0("Start mc iteration ", mc_))
@@ -2447,7 +2545,9 @@ Simulation <-
         # TODO: investigate the root cause
 
         lapply(self$diseases, function(x) {
-          if (self$design$sim_prm$logs) print(x$name)
+          if (self$design$sim_prm$logs) {
+            print(x$name)
+          }
           x$gen_parf(sp, self$design, self$diseases)$set_init_prvl(
             sp = sp,
             design_ = self$design
@@ -2503,7 +2603,9 @@ Simulation <-
         ] # NOTE keyby changes the key
 
         if (self$design$sim_prm$export_xps) {
-          if (self$design$sim_prm$logs) message("Exporting exposures...")
+          if (self$design$sim_prm$logs) {
+            message("Exporting exposures...")
+          }
           private$export_xps(sp, scenario_nam)
         }
 
@@ -2560,20 +2662,16 @@ Simulation <-
         setkeyv(sp$pop, c("pid", "year"))
 
         # Write lifecourse
-        if (self$design$sim_prm$logs) message("Exporting lifecourse...")
+        if (self$design$sim_prm$logs) {
+          message("Exporting lifecourse...")
+        }
 
         fileformat <- "parquet"
-        fnam <- private$output_dir(paste0(
-          "lifecourse/",
-          "scenario=",
-          scenario_nam,
-          "/",
-          "mc=",
-          sp$mc_aggr,
-          "/",
-          sp$mc,
-          "_lifecourse.",
-          fileformat
+        fnam <- private$output_dir(file.path(
+          "lifecourse",
+          paste0("mc=", sp$mc_aggr),
+          paste0("scenario=", scenario_nam),
+          paste0(sp$mc, "_lifecourse.", fileformat)
         ))
         # NOTE parquet format about 30 times smaller but about 50% slower in writting to disk
         write_dataset(dataset = sp$pop, path = fnam, format = fileformat)
@@ -2683,18 +2781,14 @@ Simulation <-
         setkey(out_xps20, year)
 
         fileformat <- "parquet"
-        fnam <- private$output_dir(paste0(
-          "xps/xps20/",
-          "scenario=",
-          scenario_nam,
-          "/",
-          "mc=",
-          sp$mc_aggr,
-          "/",
-          sp$mc,
-          "_xps20.",
-          fileformat
+        fnam <- private$output_dir(file.path(
+          "xps",
+          "xps20",
+          paste0("mc=", sp$mc_aggr),
+          paste0("scenario=", scenario_nam),
+          paste0(sp$mc, "_xps20.", fileformat)
         ))
+
         # NOTE parquet format about 30 times smaller but about 50% slower in writting to disk
         write_dataset(dataset = out_xps20, path = fnam, format = fileformat)
 
@@ -2719,19 +2813,15 @@ Simulation <-
           set(out_xps5, which(is.na(out_xps5[[j]])), j, "All")
         }
         setkey(out_xps5, year)
-
-        fnam <- private$output_dir(paste0(
-          "xps/xps5/",
-          "scenario=",
-          scenario_nam,
-          "/",
-          "mc=",
-          sp$mc_aggr,
-          "/",
-          sp$mc,
-          "_xps_esp.",
-          fileformat
+        
+        fnam <- private$output_dir(file.path(
+          "xps",
+          "xps5",
+          paste0("mc=", sp$mc_aggr),
+          paste0("scenario=", scenario_nam),
+          paste0(sp$mc, "_xps_esp.", fileformat)
         ))
+
         # NOTE parquet format about 30 times smaller but about 50% slower in writting to disk
         write_dataset(dataset = out_xps5, path = fnam, format = fileformat)
 
@@ -2770,12 +2860,10 @@ Simulation <-
       },
 
       # function to export summaries from lifecourse files.
-      # duckdb_con is the duckdb connection to the partitioned parquet lifecourse file
       # mcaggr is the mc iteration
       # single_year_of_age export summaries by single year of age to be used for calibration
       # export_summaries_hlpr ----
       export_summaries_hlpr = function(
-        duckdb_con,
         mcaggr,
         type = c(
           "le",
@@ -2792,7 +2880,30 @@ Simulation <-
         ),
         single_year_of_age = FALSE
       ) {
-        if (self$design$sim_prm$logs) message("Exporting summaries...")
+
+        if (self$design$sim_prm$logs) {
+          private$time_mark(paste0("Start mc iteration (summary export) ", mcaggr))
+          sink(
+            file = private$output_dir(paste0("logs/log", mcaggr, ".txt")),
+            append = TRUE,
+            type = "output",
+            split = FALSE
+          )
+        }
+
+        if (self$design$sim_prm$logs) {
+          message("Exporting summaries...")
+        }
+
+        lc <- open_dataset(private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))))
+
+        # Connect DuckDB and register the Arrow dataset as a DuckDB view
+        duckdb_con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = FALSE) # not read only to allow creation of VIEWS etc
+        on.exit(dbDisconnect(duckdb_con, shutdown = FALSE), add = TRUE)
+        duckdb::duckdb_register_arrow(duckdb_con, "lc_table_raw", lc)
+        
+        # Create enhanced view with mc column
+        dbExecute(duckdb_con, sprintf("CREATE VIEW lc_table AS SELECT *, %d::INTEGER AS mc FROM lc_table_raw", mcaggr))
 
         strata <- c("mc", self$design$sim_prm$strata_for_output)
         strata_noagegrp <- c(
@@ -2801,37 +2912,47 @@ Simulation <-
         )
         strata_age <- c(strata_noagegrp, "age")
 
-        if (single_year_of_age) strata <- strata_age # used for calibrate_incd_ftlt
+        if (single_year_of_age) {
+          strata <- strata_age
+        } # used for calibrate_incd_ftlt
 
         ext <- "parquet"
 
-        if ("le" %in% type)
+        if ("le" %in% type) {
           private$export_le_summaries(duckdb_con, mcaggr, strata_noagegrp, ext)
-        if ("hle" %in% type)
+        }
+        if ("hle" %in% type) {
           private$export_hle_summaries(duckdb_con, mcaggr, strata_noagegrp, ext)
-        if ("dis_char" %in% type)
+        }
+        if ("dis_char" %in% type) {
           private$export_dis_char_summaries(
             duckdb_con,
             mcaggr,
             strata_noagegrp,
             ext
           )
-        if ("prvl" %in% type)
+        }
+        if ("prvl" %in% type) {
           private$export_prvl_summaries(duckdb_con, mcaggr, strata, ext)
-        if ("incd" %in% type)
+        }
+        if ("incd" %in% type) {
           private$export_incd_summaries(duckdb_con, mcaggr, strata, ext)
-        if ("mrtl" %in% type)
+        }
+        if ("mrtl" %in% type) {
           private$export_mrtl_summaries(duckdb_con, mcaggr, strata, ext)
-        if ("dis_mrtl" %in% type)
+        }
+        if ("dis_mrtl" %in% type) {
           private$export_dis_mrtl_summaries(duckdb_con, mcaggr, strata, ext)
-        if ("all_cause_mrtl_by_dis" %in% type)
+        }
+        if ("all_cause_mrtl_by_dis" %in% type) {
           private$export_all_cause_mrtl_by_dis_summaries(
             duckdb_con,
             mcaggr,
             strata,
             ext
           )
-        if ("cms" %in% type)
+        }
+        if ("cms" %in% type) {
           private$export_cms_summaries(
             duckdb_con,
             mcaggr,
@@ -2839,10 +2960,15 @@ Simulation <-
             strata_age,
             ext
           )
-        if ("qalys" %in% type)
+        }
+        if ("qalys" %in% type) {
           private$export_qaly_summaries(duckdb_con, mcaggr, strata, ext)
-        if ("costs" %in% type)
+        }
+        if ("costs" %in% type) {
           private$export_costs_summaries(duckdb_con, mcaggr, strata, ext)
+        }
+
+        sink()
 
         return(invisible(self))
       }, # end of export_summaries_hlpr
@@ -3585,7 +3711,12 @@ Simulation <-
       ) {
         if (!dir.exists(sDirPathName)) {
           bSuccess <- dir.create(sDirPathName, recursive = TRUE)
-          if (!bSuccess) stop(paste("Failed creating directory", sDirPathName))
+          if (!all(bSuccess)) {
+            warning(paste0(
+              "Failed creating directory",
+              sDirPathName[[!bSuccess]]
+            ))
+          }
           if (bReport) message(paste0("Folder ", sDirPathName, " was created"))
         }
       },
@@ -3622,12 +3753,6 @@ Simulation <-
       #   summaries/le60_scaled_up/1_le60_scaled_up.parquet
       #   summaries/le60_esp/1_le60_esp.parquet
       #
-      # @description Export Life Expectancy (LE) and LE60 summaries for a given Monte Carlo iteration.
-      # @param duckdb_con DuckDB connection to the lifecourse data.
-      # @param mcaggr Monte Carlo iteration number.
-      # @param strata_noagegrp Grouping columns as a character vector (for output path construction).
-      # @param ext File extension (usually "parquet").
-      # @return None. Writes LE and LE60 summary files to the appropriate summaries/ subfolders.
       # --- End documentation ---
       # export_le_summaries ----
       export_le_summaries = function(duckdb_con, mcaggr, strata_noagegrp, ext) {
@@ -3684,7 +3809,7 @@ Simulation <-
           query <- sprintf(
             "SELECT %s, SUM(%s) AS popsize, SUM(age * %s) / SUM(%s) AS LE
             FROM lc_table
-            WHERE mc == %d AND all_cause_mrtl > 0 %s
+            WHERE mc = %d AND all_cause_mrtl > 0 %s
             GROUP BY %s
             ORDER BY %s",
             group_by_cols,
@@ -3712,16 +3837,12 @@ Simulation <-
             )
           )
 
-          # Execute query and write result
-          dbExecute(
+          # Execute query and write result with retry logic
+          private$execute_db_diskwrite_with_retry(
             duckdb_con,
-            sprintf(
-              "COPY (%s) TO '%s' (FORMAT PARQUET);",
-              query,
-              output_path
-            )
+            query,
+            output_path
           )
-          NULL
         }
       }, # end export_le_summaries
 
@@ -3843,15 +3964,12 @@ Simulation <-
               ext
             )
           )
-
-          dbExecute(
+          private$execute_db_diskwrite_with_retry(
             duckdb_con,
-            sprintf(
-              "COPY (%s) TO '%s' (FORMAT PARQUET);",
-              query,
-              output_path
-            )
+            query,
+            output_path
           )
+
           NULL
         }
       }, # end export_hle_summaries
@@ -4003,14 +4121,11 @@ Simulation <-
             )
           )
 
-          # Execute query and write result
-          dbExecute(
+          # Execute query and write result with retry logic
+          private$execute_db_diskwrite_with_retry(
             duckdb_con,
-            sprintf(
-              "COPY (%s) TO '%s' (FORMAT PARQUET);",
-              wrapped_sql,
-              output_path
-            )
+            wrapped_sql,
+            output_path
           )
 
           wrapped_sql_esp <- gsub("wt", "wt_esp", wrapped_sql)
@@ -4023,15 +4138,13 @@ Simulation <-
             )
           )
 
-          # Execute query and write result
-          dbExecute(
+          # Execute query and write result with retry logic
+          private$execute_db_diskwrite_with_retry(
             duckdb_con,
-            sprintf(
-              "COPY (%s) TO '%s' (FORMAT PARQUET);",
-              wrapped_sql_esp,
-              output_path_esp
-            )
+            wrapped_sql_esp,
+            output_path_esp
           )
+
           NULL
         } # length(nm) > 0
       }, # end export_dis_char_summaries
@@ -4085,13 +4198,10 @@ Simulation <-
           paste0("summaries/prvl_scaled_up/", mcaggr, "_prvl_scale_up.", ext)
         )
 
-        dbExecute(
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query,
-            output_path
-          )
+          sql_query,
+          output_path
         )
 
         # esp
@@ -4099,13 +4209,11 @@ Simulation <-
         output_path_esp <- private$output_dir(
           paste0("summaries/prvl_esp/", mcaggr, "_prvl_esp.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_esp,
-            output_path_esp
-          )
+          sql_query_esp,
+          output_path_esp
         )
 
         NULL
@@ -4160,13 +4268,10 @@ Simulation <-
           paste0("summaries/incd_scaled_up/", mcaggr, "_incd_scale_up.", ext)
         )
 
-        dbExecute(
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query,
-            output_path
-          )
+          sql_query,
+          output_path
         )
 
         # esp
@@ -4174,13 +4279,11 @@ Simulation <-
         output_path_esp <- private$output_dir(
           paste0("summaries/incd_esp/", mcaggr, "_incd_esp.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_esp,
-            output_path_esp
-          )
+          sql_query_esp,
+          output_path_esp
         )
 
         NULL
@@ -4213,20 +4316,17 @@ Simulation <-
           select_cols_mrtl,
           lc_table_name,
           mcaggr,
-          select_cols_mrtl,
+          select_cols_mrtl, # Quoted strata cols for GROUP BY
           select_cols_mrtl # Order by the grouping columns
         )
         output_path <- private$output_dir(
           paste0("summaries/mrtl_scaled_up/", mcaggr, "_mrtl_scale_up.", ext)
         )
 
-        dbExecute(
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query,
-            output_path
-          )
+          sql_query,
+          output_path
         )
 
         # esp
@@ -4234,13 +4334,11 @@ Simulation <-
         output_path_esp <- private$output_dir(
           paste0("summaries/mrtl_esp/", mcaggr, "_mrtl_esp.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_esp,
-            output_path_esp
-          )
+          sql_query_esp,
+          output_path_esp
         )
 
         NULL
@@ -4264,7 +4362,6 @@ Simulation <-
         lc_table_name <- "lc_table" # Assuming the view/table name in DuckDB is lc_table
         # Construct the SQL query dynamically for mortality summary
         # Define strata and death codes for the query
-        # Quote strata columns for safety
         quoted_strata <- paste0('"', strata, '"')
         strata_cols_sql <- paste(quoted_strata, collapse = ", ")
 
@@ -4369,13 +4466,10 @@ Simulation <-
           )
         )
 
-        dbExecute(
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_final,
-            output_path
-          )
+          sql_query_final,
+          output_path
         )
 
         # esp
@@ -4383,13 +4477,11 @@ Simulation <-
         output_path_esp <- private$output_dir(
           paste0("summaries/dis_mrtl_esp/", mcaggr, "_dis_mrtl_esp.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_esp,
-            output_path_esp
-          )
+          sql_query_esp,
+          output_path_esp
         )
 
         NULL
@@ -4477,13 +4569,10 @@ Simulation <-
           )
         )
 
-        dbExecute(
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_dis_char,
-            output_path
-          )
+          sql_query_dis_char,
+          output_path
         )
 
         # esp
@@ -4496,13 +4585,11 @@ Simulation <-
             ext
           )
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            sql_query_esp,
-            output_path_esp
-          )
+          sql_query_esp,
+          output_path_esp
         )
 
         NULL
@@ -4627,13 +4714,10 @@ Simulation <-
           # Ensure output directory for the specific file exists (handles cases like cms_count_scaled_up)
           private$create_new_folder(dirname(output_path))
 
-          dbExecute(
+          private$execute_db_diskwrite_with_retry(
             duckdb_con,
-            sprintf(
-              "COPY (%s) TO '%s' (FORMAT PARQUET);",
-              query,
-              output_path
-            )
+            query,
+            output_path
           )
         }
 
@@ -4693,13 +4777,11 @@ Simulation <-
         output_path_scaled_up <- private$output_dir(
           paste0("summaries/qalys_scaled_up/", mcaggr, "_qalys_scaled_up.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            query_scaled_up,
-            output_path_scaled_up
-          )
+          query_scaled_up,
+          output_path_scaled_up
         )
 
         # --- ESP QALYs ---
@@ -4717,13 +4799,11 @@ Simulation <-
         output_path_esp <- private$output_dir(
           paste0("summaries/qalys_esp/", mcaggr, "_qalys_esp.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            query_esp,
-            output_path_esp
-          )
+          query_esp,
+          output_path_esp
         )
 
         # drop the temporary view if it's no longer needed for this mcaggr
@@ -4809,13 +4889,11 @@ Simulation <-
         output_path_scaled_up <- private$output_dir(
           paste0("summaries/costs_scaled_up/", mcaggr, "_costs_scaled_up.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            query_scaled_up,
-            output_path_scaled_up
-          )
+          query_scaled_up,
+          output_path_scaled_up
         )
 
         # --- ESP Costs ---
@@ -4833,13 +4911,11 @@ Simulation <-
         output_path_esp <- private$output_dir(
           paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
         )
-        dbExecute(
+
+        private$execute_db_diskwrite_with_retry(
           duckdb_con,
-          sprintf(
-            "COPY (%s) TO '%s' (FORMAT PARQUET);",
-            query_esp,
-            output_path_esp
-          )
+          query_esp,
+          output_path_esp
         )
 
         # Drop the temporary view if it's no longer needed for this mcaggr
@@ -4851,4 +4927,4 @@ Simulation <-
         NULL
       }
     ) # End of private methods
-  ) # Endo of class
+  ) # End of class

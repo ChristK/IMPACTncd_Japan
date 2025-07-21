@@ -4008,11 +4008,28 @@ Simulation <-
           }
         )
 
-        # Get disease prevalence columns from DuckDB schema
-        lc_table_name <- "lc_table" # Assuming the view/table name in DuckDB is lc_table
-
-        # Use dbListFields for a more direct way to get column names
-        all_cols <- dbListFields(duckdb_con, lc_table_name)
+        # Get disease prevalence columns from DuckDB schema with error handling
+        lc_table_name <- "lc_table"
+        
+        # Add retry logic for schema access to handle parallel conflicts
+        max_schema_retries <- 3
+        schema_retry_count <- 0
+        all_cols <- NULL
+        
+        while (is.null(all_cols) && schema_retry_count < max_schema_retries) {
+          schema_retry_count <- schema_retry_count + 1
+          tryCatch({
+            all_cols <- dbListFields(duckdb_con, lc_table_name)
+          }, error = function(e) {
+            if (schema_retry_count < max_schema_retries) {
+              Sys.sleep(0.1 * schema_retry_count) # Progressive backoff
+              warning(sprintf("Schema access attempt %d failed: %s", schema_retry_count, e$message))
+            } else {
+              stop(sprintf("Failed to access table schema after %d attempts: %s", max_schema_retries, e$message))
+            }
+          })
+        }
+        
         nm <- grep("_prvl$", all_cols, value = TRUE)
 
         # Both SELECT and GROUP BY need the 't.' prefix due to the join ambiguity
@@ -4026,124 +4043,219 @@ Simulation <-
 
         # --- Calculate disease characteristics using DuckDB (ALL DISEASES, UNION ALL) ---
         if (length(nm) > 0) {
-          # Build all queries as subqueries and combine with UNION ALL
-          union_queries <- lapply(nm, function(disease_col) {
-            disease_name <- gsub("_prvl$", "", disease_col)
-            quoted_disease_col <- paste0('"', disease_col, '"')
-            sprintf(
-              "SELECT * FROM (
-                       WITH FirstOnset AS (
-                       SELECT pid, scenario, MIN(year) AS first_onset_year
-                       FROM %s
-                       WHERE mc = %d AND %s = 1
-                       GROUP BY pid, scenario
-                       ),
-                       FirstOnsetDetails AS (
-                       SELECT t_fod.pid, t_fod.scenario, t_fod.year, t_fod.age AS age_onset, t_fod.wt AS wt1st
-                       FROM %s t_fod
-                       JOIN FirstOnset fo ON t_fod.pid = fo.pid AND t_fod.scenario = fo.scenario AND t_fod.year = fo.first_onset_year
-                       WHERE t_fod.mc = %d
-                       )
-                       SELECT %s, '%s' AS disease,
-                       SUM(t.wt) AS cases,
-                       SUM(CASE WHEN t.%s = 1 THEN t.age * t.wt ELSE 0 END) / NULLIF(SUM(CASE WHEN t.%s = 1 THEN t.wt ELSE 0 END), 0) AS mean_age_incd,
-                       SUM(CASE WHEN fod.pid IS NOT NULL THEN fod.age_onset * fod.wt1st ELSE 0 END) / NULLIF(SUM(CASE WHEN fod.pid IS NOT NULL THEN fod.wt1st ELSE 0 END), 0) AS mean_age_1st_onset,
-                       SUM(t.age * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_age_prvl,
-                       SUM(t.%s * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_duration,
-                       SUM(t.cms_score * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_cms_score,
-                       SUM(t.cms_count * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_cms_count
-                       FROM %s t
-                       LEFT JOIN FirstOnsetDetails fod ON t.pid = fod.pid AND t.scenario = fod.scenario AND t.year = fod.year
-                       WHERE t.mc = %d AND t.%s > 0
-                       GROUP BY %s
-                       ) AS disease_part_%s",
-              lc_table_name,
-              mcaggr,
-              quoted_disease_col,
-              lc_table_name,
-              mcaggr,
-              select_and_group_by_cols_sql,
-              disease_name,
-              quoted_disease_col,
-              quoted_disease_col,
-              quoted_disease_col,
-              lc_table_name,
-              mcaggr,
-              quoted_disease_col,
-              select_and_group_by_cols_sql,
-              gsub("[^A-Za-z0-9_]", "_", disease_name)
-            )
-          })
-          full_union_query <- paste(union_queries, collapse = " UNION ALL ")
+          # Process diseases in smaller batches to reduce memory pressure
+          batch_size <- min(5, length(nm)) # Process max 5 diseases at a time
+          disease_batches <- split(nm, ceiling(seq_along(nm) / batch_size))
+          
+          all_results <- list()
+          
+          for (batch_idx in seq_along(disease_batches)) {
+            disease_batch <- disease_batches[[batch_idx]]
+            
+            # Build queries for this batch
+            union_queries <- lapply(disease_batch, function(disease_col) {
+              disease_name <- gsub("_prvl$", "", disease_col)
+              quoted_disease_col <- paste0('"', disease_col, '"')
+              sprintf(
+                "SELECT * FROM (
+                         WITH FirstOnset AS (
+                         SELECT pid, scenario, MIN(year) AS first_onset_year
+                         FROM %s
+                         WHERE mc = %d AND %s = 1
+                         GROUP BY pid, scenario
+                         ),
+                         FirstOnsetDetails AS (
+                         SELECT t_fod.pid, t_fod.scenario, t_fod.year, t_fod.age AS age_onset, t_fod.wt AS wt1st
+                         FROM %s t_fod
+                         JOIN FirstOnset fo ON t_fod.pid = fo.pid AND t_fod.scenario = fo.scenario AND t_fod.year = fo.first_onset_year
+                         WHERE t_fod.mc = %d
+                         )
+                         SELECT %s, '%s' AS disease,
+                         SUM(t.wt) AS cases,
+                         SUM(CASE WHEN t.%s = 1 THEN t.age * t.wt ELSE 0 END) / NULLIF(SUM(CASE WHEN t.%s = 1 THEN t.wt ELSE 0 END), 0) AS mean_age_incd,
+                         SUM(CASE WHEN fod.pid IS NOT NULL THEN fod.age_onset * fod.wt1st ELSE 0 END) / NULLIF(SUM(CASE WHEN fod.pid IS NOT NULL THEN fod.wt1st ELSE 0 END), 0) AS mean_age_1st_onset,
+                         SUM(t.age * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_age_prvl,
+                         SUM(t.%s * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_duration,
+                         SUM(t.cms_score * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_cms_score,
+                         SUM(t.cms_count * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_cms_count
+                         FROM %s t
+                         LEFT JOIN FirstOnsetDetails fod ON t.pid = fod.pid AND t.scenario = fod.scenario AND t.year = fod.year
+                         WHERE t.mc = %d AND t.%s > 0
+                         GROUP BY %s
+                         ) AS disease_part_%s",
+                lc_table_name,
+                mcaggr,
+                quoted_disease_col,
+                lc_table_name,
+                mcaggr,
+                select_and_group_by_cols_sql,
+                disease_name,
+                quoted_disease_col,
+                quoted_disease_col,
+                quoted_disease_col,
+                lc_table_name,
+                mcaggr,
+                quoted_disease_col,
+                select_and_group_by_cols_sql,
+                gsub("[^A-Za-z0-9_]", "_", disease_name)
+              )
+            })
+            
+            # If this is the only batch, use the original logic
+            if (length(disease_batches) == 1) {
+              full_union_query <- paste(union_queries, collapse = " UNION ALL ")
 
-          pivot_query <- sprintf(
-            "
-           SELECT *
-           FROM (
-             %s
-           )
-           PIVOT (
-             COALESCE(SUM(cases), 0) AS ___cases,
-             COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
-             COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
-             COALESCE(AVG(mean_age_1st_onset), 0) AS ___mean_age_1st_onset,
-             COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
-             COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
-             COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
-             FOR disease IN (%s)
-           )
-           ",
-            full_union_query,
-            paste0("'", gsub("_prvl$", "", nm), "'", collapse = ", ")
-          )
+              pivot_query <- sprintf(
+                "
+               SELECT *
+               FROM (
+                 %s
+               )
+               PIVOT (
+                 COALESCE(SUM(cases), 0) AS ___cases,
+                 COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
+                 COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
+                 COALESCE(AVG(mean_age_1st_onset), 0) AS ___mean_age_1st_onset,
+                 COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
+                 COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
+                 COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
+                 FOR disease IN (%s)
+               )
+               ",
+                full_union_query,
+                paste0("'", gsub("_prvl$", "", nm), "'", collapse = ", ")
+              )
 
-          wrapped_sql <- sprintf(
-            "
-           SELECT
-             %s,
-             COLUMNS('(.*)____(.*)') AS '\\2_\\1'
-           FROM (
-             %s
-           )
-           ORDER BY %s
-           ",
-            cols,
-            pivot_query,
-            cols
-          )
+              wrapped_sql <- sprintf(
+                "
+               SELECT
+                 %s,
+                 COLUMNS('(.*)____(.*)') AS '\\2_\\1'
+               FROM (
+                 %s
+               )
+               ORDER BY %s
+               ",
+                cols,
+                pivot_query,
+                cols
+              )
 
-          output_path <- private$output_dir(
-            paste0(
-              "summaries/dis_characteristics_scaled_up/",
-              mcaggr,
-              "_dis_characteristics_scaled_up.",
-              ext
-            )
-          )
+              output_path <- private$output_dir(
+                paste0(
+                  "summaries/dis_characteristics_scaled_up/",
+                  mcaggr,
+                  "_dis_characteristics_scaled_up.",
+                  ext
+                )
+              )
 
-          # Execute query and write result with retry logic
-          private$execute_db_diskwrite_with_retry(
-            duckdb_con,
-            wrapped_sql,
-            output_path
-          )
+              # Execute query and write result with retry logic
+              private$execute_db_diskwrite_with_retry(
+                duckdb_con,
+                wrapped_sql,
+                output_path
+              )
 
-          wrapped_sql_esp <- gsub("wt", "wt_esp", wrapped_sql)
-          output_path_esp <- private$output_dir(
-            paste0(
-              "summaries/dis_characteristics_esp/",
-              mcaggr,
-              "_dis_characteristics_esp.",
-              ext
-            )
-          )
+              wrapped_sql_esp <- gsub("wt", "wt_esp", wrapped_sql)
+              output_path_esp <- private$output_dir(
+                paste0(
+                  "summaries/dis_characteristics_esp/",
+                  mcaggr,
+                  "_dis_characteristics_esp.",
+                  ext
+                )
+              )
 
-          # Execute query and write result with retry logic
-          private$execute_db_diskwrite_with_retry(
-            duckdb_con,
-            wrapped_sql_esp,
-            output_path_esp
-          )
+              # Execute query and write result with retry logic
+              private$execute_db_diskwrite_with_retry(
+                duckdb_con,
+                wrapped_sql_esp,
+                output_path_esp
+              )
+            } else {
+              # For multiple batches, we'd need to implement batch processing
+              # For now, fall back to the original approach but with smaller batches
+              warning(sprintf("Processing %d diseases in batch %d of %d", length(disease_batch), batch_idx, length(disease_batches)))
+              
+              # Process this batch (simplified version)
+              batch_union_query <- paste(union_queries, collapse = " UNION ALL ")
+              batch_diseases <- gsub("_prvl$", "", disease_batch)
+              
+              pivot_query <- sprintf(
+                "
+               SELECT *
+               FROM (
+                 %s
+               )
+               PIVOT (
+                 COALESCE(SUM(cases), 0) AS ___cases,
+                 COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
+                 COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
+                 COALESCE(AVG(mean_age_1st_onset), 0) AS ___mean_age_1st_onset,
+                 COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
+                 COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
+                 COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
+                 FOR disease IN (%s)
+               )
+               ",
+                batch_union_query,
+                paste0("'", batch_diseases, "'", collapse = ", ")
+              )
+
+              wrapped_sql <- sprintf(
+                "
+               SELECT
+                 %s,
+                 COLUMNS('(.*)____(.*)') AS '\\2_\\1'
+               FROM (
+                 %s
+               )
+               ORDER BY %s
+               ",
+                cols,
+                pivot_query,
+                cols
+              )
+
+              # Store batch result for potential combining later
+              # For now, write separate files per batch (this is a fallback)
+              output_path <- private$output_dir(
+                paste0(
+                  "summaries/dis_characteristics_scaled_up/",
+                  mcaggr,
+                  "_dis_characteristics_scaled_up_batch",
+                  batch_idx,
+                  ".",
+                  ext
+                )
+              )
+
+              private$execute_db_diskwrite_with_retry(
+                duckdb_con,
+                wrapped_sql,
+                output_path
+              )
+
+              wrapped_sql_esp <- gsub("wt", "wt_esp", wrapped_sql)
+              output_path_esp <- private$output_dir(
+                paste0(
+                  "summaries/dis_characteristics_esp/",
+                  mcaggr,
+                  "_dis_characteristics_esp_batch",
+                  batch_idx,
+                  ".",
+                  ext
+                )
+              )
+
+              private$execute_db_diskwrite_with_retry(
+                duckdb_con,
+                wrapped_sql_esp,
+                output_path_esp
+              )
+            }
+          }
 
           NULL
         } # length(nm) > 0

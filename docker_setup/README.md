@@ -1,53 +1,387 @@
 ---
-title: "IMPACTncd_Japan Prerequisite Dockerfile and Setup"
+title: "IMPACTncd_Japan Docker Setup - Complete Guide"
 format:
   html:
     self-contained: true
 ---
 
-# IMPACTncd_Japan Prerequisite Dockerfile and Setup
+# IMPACTncd_Japan Docker Setup - Complete Guide
 
-This repository contains the Dockerfile and the scripts used to build and run the prerequisite container for the IMPACTncd Japan project. The container is based on Ubuntu and includes R version 4.4.3 with package versions frozen as of 31/03/2025, using the [RStudio Package Manager](https://packagemanager.posit.co/client/#/). Update R packages by editing `r-packages.txt` and system libraries by editing `apt-packages.txt`, then rebuild the image as needed. You can find the current version of a system library in an ubuntu system using i.e.`apt-cache policy libxml2-dev` or check the version available in the base R image using `docker run --rm rocker/r-ver:4.4.3 bash -c "apt-get update && apt-cache policy libxml2-dev"`.
+This repository contains the Docker configuration, intelligent package management system, and cross-platform setup scripts for the **IMPACTncd Japan** project. The system provides robust, reproducible containerized environments with automatic package version management across Windows, macOS, and Linux.
 
-This Docker container supports the branch **master** of the IMPACTncd Japan model.
+## 🚀 Quick Start
 
-## 💾 Installing Docker
+Choose your platform and run the setup:
 
-Before you can use the setup scripts, you need to have Docker installed on your system. Follow the official instructions for your operating system:
+### Windows (PowerShell)
+```powershell
+.\create_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+```
 
-- **Windows:** Install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/).
-- **macOS:** Install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/).
-- **Linux:** Follow the instructions for your specific distribution:
-    - [Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
-    - [Debian](https://docs.docker.com/engine/install/debian/)
-    - [Fedora](https://docs.docker.com/engine/install/fedora/)
-    - [CentOS](https://docs.docker.com/engine/install/centos/)
-    - For other distributions, refer to the [Docker Engine installation overview](https://docs.docker.com/engine/install/).
+### macOS/Linux (Bash)
+```bash
+./create_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]
+```
 
-## 🐳 Docker Setup for IMPACTncd Japan
+---
 
-This directory contains the Docker configuration and helper scripts required to build a containerized environment for the **IMPACTncd Japan** project. Two versions of the setup script are provided:
+## 🌟 New: Intelligent Package Management
 
-- **Bash Script**: [`create_env.sh`](./create_env.sh)  
-- **PowerShell Script**: [`create_env.ps1`](./create_env.ps1)
+This setup now includes an **intelligent package installation system** that automatically handles package version mismatches and maintains reproducibility.
 
-Both scripts share the same functionality, with the following workflow:
+### Key Features
+- ✅ **Automatic Version Fallback**: When exact package versions aren't available, automatically installs the latest available version
+- ✅ **Clear Reporting**: Shows exactly which packages were updated and why
+- ✅ **Cross-Platform**: Works identically on Windows, macOS, and Linux
+- ✅ **Easy Updates**: Provides tools to keep package versions current
+- ✅ **Build Resilience**: Builds continue even when specific versions are unavailable
 
-### Workflow Summary
+### How It Works
 
-1. **Configuration and Build Input Check:**
-   - Accept an optional path to a `sim_design.yaml` file.
-   - Extract key paths (`output_dir` and `synthpop_dir`) from the YAML.
-   - Compute a hash from build inputs (Dockerfile, apt-packages.txt, r-packages.txt) to determine if the Docker image must be rebuilt.
+The intelligent installer (`install_packages.sh`) performs these steps:
 
-2. **Operation Modes:**  
-   The scripts support two modes:
+1. **Try Exact Version**: Attempts to install each package with its pinned version from `apt-packages.txt`
+2. **Automatic Fallback**: If a version fails:
+   - Queries for the available candidate version
+   - Installs the available version instead  
+   - Records the change for reporting
+3. **Clear Feedback**: Uses visual symbols (✓, ⚠, →) to show installation status
+4. **Version Reporting**: Lists all packages that were updated with different versions
 
-   - **Bind Mount Mode:**  
-     Default mode using direct bind mounts. This is a flexible mode as it allows realtime interaction between the host and the container. The downside is that it can be slower and less portable, especially on Windows and macOS.
-   
-   - **Volume Mode (Recommended for large simulations):**  
-     When using the `--use-volumes` (Bash) or `-UseVolumes` (PowerShell) flag:
+### Example Build Output
+```
+Starting intelligent package installation...
+Processing package: git (requested version: 1:2.43.0-1ubuntu7.2)
+⚠ Version 1:2.43.0-1ubuntu7.2 for git not available  
+→ Installing available version: git=1:2.43.0-1ubuntu7.3
+✓ Successfully installed git=1:2.43.0-1ubuntu7.3
+
+==================================================
+PACKAGE VERSION UPDATES DETECTED:
+==================================================
+The following packages were installed with different versions:
+git=1:2.43.0-1ubuntu7.3
+
+RECOMMENDED ACTION: Update your apt-packages.txt file with these versions
+==================================================
+```
+
+---
+
+## 🌐 Cross-Platform Compatibility
+
+| Component | Windows | macOS | Linux | Notes |
+|-----------|---------|--------|-------|-------|
+| **Docker Build** | ✅ | ✅ | ✅ | Works identically |
+| **Intelligent Installer** | ✅ | ✅ | ✅ | Runs in Docker container |
+| **Package Management** | ✅ | ✅ | ✅ | Same format everywhere |
+| **Update Scripts** | ✅ | ✅ | ✅ | Platform-specific utilities |
+
+### Platform-Specific Tools
+
+**Windows:**
+- `update-apt-packages.ps1` - PowerShell script for package updates
+- Full PowerShell integration
+
+**macOS/Linux:**
+- `update-apt-packages.sh` - Bash script for package updates  
+- Native Unix tools integration
+
+---
+
+## 💾 Prerequisites
+
+### Installing Docker
+
+Before using the setup scripts, install Docker for your operating system:
+
+- **Windows:** [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+- **macOS:** [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
+- **Linux:** Follow instructions for your distribution:
+  - [Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+  - [Debian](https://docs.docker.com/engine/install/debian/)
+  - [Fedora](https://docs.docker.com/engine/install/fedora/)
+  - [CentOS](https://docs.docker.com/engine/install/centos/)
+
+### Platform-Specific Setup
+
+**Windows:**
+- PowerShell 5.1+ (usually pre-installed)
+- Docker Desktop running
+
+**macOS:**
+```bash
+# Install Docker Desktop and ensure bash is available
+brew install docker coreutils  # coreutils provides gsha256sum
+```
+
+**Linux:**
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install docker.io
+
+# Add user to docker group (optional)
+sudo usermod -aG docker $USER
+```
+
+---
+
+## 🐳 Docker Configuration
+
+### Container Specifications
+- **Image Name:** `impactncd-japan-r-prerequisite:latest`
+- **Base Image:** [rocker/r-ver:4.5.1](https://hub.docker.com/r/rocker/r-ver)
+- **R Version:** 4.5.1 with packages frozen as of July 20, 2025
+- **Package Manager:** [RStudio Package Manager](https://packagemanager.posit.co/client/#/)
+
+### File Structure
+- **`Dockerfile.prerequisite`**: Main Docker configuration with intelligent installer
+- **`apt-packages.txt`**: System packages with pinned versions
+- **`r-packages.txt`**: R packages list
+- **`install_packages.sh`**: Intelligent package installer script
+- **`entrypoint.sh`**: Container entrypoint for dynamic user creation
+
+---
+
+## � Usage Guide
+
+### Basic Docker Build
+```bash
+# All platforms
+docker build -f Dockerfile.prerequisite -t impactncd-japan .
+```
+
+### Verbose Build (See Package Updates)
+```bash
+# Windows PowerShell
+docker build -f Dockerfile.prerequisite --progress=plain --no-cache -t my-image . 2>&1 | Select-String -Pattern "(Processing package|Successfully installed|Version.*not available|Installing available|PACKAGE VERSION)"
+
+# macOS/Linux Bash  
+docker build -f Dockerfile.prerequisite --progress=plain --no-cache -t my-image . 2>&1 | grep -E "(Processing package|Successfully installed|Version.*not available|Installing available|PACKAGE VERSION)"
+```
+
+### Update Package Versions
+
+When you see package version updates in build output:
+
+**Windows:**
+```powershell
+# Interactive update
+.\update-apt-packages.ps1 -Interactive
+
+# From build log file
+.\update-apt-packages.ps1 -BuildLogFile "build.log"
+```
+
+**macOS/Linux:**
+```bash
+# Make executable (first time only)
+chmod +x update-apt-packages.sh
+
+# Interactive update
+./update-apt-packages.sh --interactive
+
+# From build log file  
+./update-apt-packages.sh --file build.log
+
+# Pipe directly from build
+docker build ... 2>&1 | ./update-apt-packages.sh
+```
+
+---
+
+## 🏗 Environment Setup Modes
+
+### Bind Mount Mode (Default)
+- Direct bind mounts between host and container
+- Real-time interaction between host and container
+- More flexible but potentially slower
+
+### Volume Mode (Recommended for Large Simulations)
+Use `--use-volumes` (Bash) or `-UseVolumes` (PowerShell):
+- Project directory copied to Docker-managed volume
+- Better performance for large datasets
+- Includes post-simulation sync back to host
+
+---
+
+## 📁 Directory Mounting
+
+| Host Path | Container Mount | Description |
+|-----------|-----------------|-------------|
+| **Project Root** (above docker_setup) | `/IMPACTncd_Japan` | Main project directory |
+| `output_dir` from `sim_design.yaml` | `/output` | Simulation outputs |
+| `synthpop_dir` from `sim_design.yaml` | `/synthpop` | Synthetic population data |
+
+---
+
+## 🔄 Development Workflow
+
+The same workflow applies across all platforms:
+
+1. **Edit Code**: Modify R code or dependencies
+2. **Build Image**: Run `docker build` command  
+3. **Check Updates**: Look for package version update messages
+4. **Update Versions**: Use appropriate update script for your platform
+5. **Rebuild**: Build again with updated versions for reproducibility
+
+### Multi-Platform Team Example
+```bash
+# Developer on macOS
+./update-apt-packages.sh --interactive
+git add apt-packages.txt
+git commit -m "Update git package version"
+git push
+
+# Developer on Windows
+git pull
+.\update-apt-packages.ps1 -Interactive  # Shows no updates needed
+
+# Developer on Linux  
+git pull
+./update-apt-packages.sh --interactive  # Shows no updates needed
+```
+
+---
+
+## 🛠 Build and Push Scripts
+
+Build and optionally push Docker images:
+
+**Prerequisite Container:**
+- Linux/macOS: `./build_and_push_prerequisite.sh [--push]`
+- Windows: `build_and_push_prerequisite.ps1 [-Push]`
+
+**IMPACTncd Container:**
+- Linux/macOS: `./build_and_push_IMPACTncd.sh [--push]`
+- Windows: `build_and_push_IMPACTncd.ps1 [-Push]`
+
+---
+
+## 🧼 Cleanup
+
+**Remove Docker Image:**
+```bash
+docker rmi impactncd-japan-r-prerequisite:latest
+```
+
+**Prune Unused Resources:**
+```bash
+docker system prune
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### General Docker Issues
+- **Check Docker Status:** Run `docker info`
+- **Expected:** Detailed Docker installation info without errors
+- **Common Error:** "Cannot connect to the Docker daemon"
+
+**Solutions:**
+- **Windows/macOS:** Ensure Docker Desktop is running
+- **Linux:** Check service with `sudo systemctl status docker`
+  - Start if needed: `sudo systemctl start docker`
+  - Add user to docker group: `sudo usermod -aG docker $USER` (then logout/login)
+
+### Platform-Specific Issues
+
+**Windows:**
+- Use PowerShell (not Command Prompt) for best compatibility
+- May need to adjust execution policy: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+- Check WSL2 configuration for Docker Desktop
+
+**macOS:**
+- Install required tools: `brew install coreutils`
+- Make scripts executable: `chmod +x update-apt-packages.sh`
+- Check Docker Desktop permissions in System Preferences
+
+**Linux:**
+- Ensure Docker service is running: `sudo systemctl start docker`
+- Make scripts executable: `chmod +x update-apt-packages.sh`
+- May need `sudo docker` if user not in docker group
+
+### Package Update Issues
+- If specific versions fail, the intelligent installer automatically uses available versions
+- Check build output for "PACKAGE VERSION UPDATES DETECTED" section
+- Update `apt-packages.txt` with new versions for reproducibility
+
+---
+
+## 📦 Package Management Details
+
+### System Packages (`apt-packages.txt`)
+Contains Ubuntu packages with pinned versions:
+```
+automake=1:1.16.5-1.3ubuntu1
+cmake=3.28.3-1build7
+git=1:2.43.0-1ubuntu7.3
+# ... more packages
+```
+
+### R Packages (`r-packages.txt`)  
+R packages from CRAN snapshot (July 20, 2025):
+```
+data.table
+ggplot2
+dplyr
+# ... more packages
+```
+
+### Version Update Workflow
+1. **Automatic Detection**: Build detects unavailable versions
+2. **Clear Reporting**: Shows which packages were updated
+3. **Manual Update**: Update package files with new versions
+4. **Automation**: Use provided scripts to streamline updates
+
+---
+
+## 🎯 Benefits
+
+1. **Reproducible Builds**: Version pinning where possible, intelligent fallback when needed
+2. **Cross-Platform**: Identical behavior on Windows, macOS, and Linux
+3. **Resilient**: Builds don't fail due to outdated package versions
+4. **Clear Feedback**: Visual indicators show exactly what happened
+5. **Easy Maintenance**: Automated tools for version management
+6. **Team Collaboration**: Consistent environment across different platforms
+
+---
+
+## 📝 Reproducibility Notes
+
+While pinning versions with `<package>=<version>` is the standard apt method, package repositories don't guarantee indefinite availability of historical versions. Security updates and repository cleanup can affect older versions.
+
+**Advanced Options for Maximum Reproducibility:**
+
+1. **Repository Mirroring**: Create local mirrors of Ubuntu repositories at specific points in time (complex but complete control)
+
+2. **Multi-Stage Builds with .deb Files**: Store specific .deb files alongside Dockerfile and install using `dpkg -i` (harder dependency management)
+
+The intelligent package system balances reproducibility with practical build reliability by maintaining version pinning where possible while gracefully handling unavailable versions.
+
+---
+
+## 📬 Support
+
+For assistance or issues:
+- Open an issue in this repository
+- Contact project maintainers
+- Check troubleshooting section above
+
+---
+
+## 🏷 Project Details
+
+- **Supported Branch:** master of IMPACTncd Japan model
+- **R Version:** 4.5.1
+- **Package Snapshot:** July 20, 2025
+- **Base Image:** rocker/r-ver:4.5.1
+- **Supported Platforms:** Windows 10/11, macOS, Linux (Ubuntu/Debian/CentOS/Fedora)
+
+<!-- Generate HTML documentation: pandoc README.md -s -o README.html --embed-resources --standalone --toc --toc-depth=3 --number-sections --css=github.css --highlight-style=github --metadata title="IMPACTncd_Japan Docker Setup Guide" --template=template.html --include-in-header=header.html --include-before-body=before.html --include-after-body=after.html --filter pandoc-crossref --citeproc --bibliography=references.bib --csl=style.csl --metadata link-citations=true --metadata linkReferences=true --metadata nameInLink=true --metadata figureTitle="Figure" --metadata tableTitle="Table" --metadata listingTitle="Listing" --from markdown+smart+raw_html+fenced_divs+bracketed_spans --to html5 --standalone --self-contained --embed-resources --resource-path=.:assets:images --extract-media=./media --strip-comments --email-obfuscation=references --tab-stop=4 --preserve-tabs --indented-code-classes=bash,powershell,yaml,dockerfile --columns=80 --wrap=auto --ascii --reference-links --reference-location=block --atx-headers --listings --pdf-engine=pdflatex --variable mainfont="DejaVu Serif" --variable monofont="DejaVu Sans Mono" --variable geometry:margin=1in --metadata lang=en-US --metadata dir=ltr --metadata documentclass=article --metadata classoption=12pt --metadata papersize=letter --metadata fontsize=12pt --metadata linestretch=1.2 --metadata indent=true --metadata secnumdepth=3 --metadata toc=true --metadata toc-depth=3 --metadata lot=false --metadata lof=false --metadata thanks="IMPACTncd_Japan Project Documentation" --metadata author="IMPACTncd_Japan Team" --metadata date=today --metadata subject="Docker Setup Guide" --metadata keywords="Docker, R, IMPACTncd, Cross-Platform, Package Management" --metadata description="Complete guide for setting up IMPACTncd_Japan Docker environment with intelligent package management across Windows, macOS, and Linux platforms" --metadata creator="Pandoc" --metadata producer="IMPACTncd_Japan Documentation System" --fail-if-warnings --verbose -->
+
+*This documentation combines intelligent package management, cross-platform compatibility, and comprehensive setup instructions for the IMPACTncd_Japan Docker environment.*
      - **Project Volume:**  
        The entire project directory (one level above `docker_setup`) is copied into a Docker-managed volume.
      - **Output and Synthpop Volumes:**  

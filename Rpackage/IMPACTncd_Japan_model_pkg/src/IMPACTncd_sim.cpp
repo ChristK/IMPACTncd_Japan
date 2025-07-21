@@ -148,7 +148,7 @@ string GetStackTrace(void)
 }
 #elif _WIN32
 string GetStackTrace(void)
-{catch(const index_out_of_bounds &e) {
+{
   return string("[No stack trace available on Windows].");
 }
 #else

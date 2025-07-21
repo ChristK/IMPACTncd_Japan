@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.5.0
+FROM rocker/r-ver:4.5.1
 
 LABEL maintainer="Chris Kypridemos <ckyprid@liverpool.ac.uk>"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -9,28 +9,36 @@ COPY r-packages.txt /tmp/r-packages.txt
 # Copy apt package list early to improve layer caching
 COPY apt-packages.txt /tmp/apt-packages.txt
 
+# Copy the intelligent package installer script
+COPY install_packages.sh /tmp/install_packages.sh
+
 # System packages pinned as of 2025-03-21 for reproducibility
 # get version of packages i.e. for libicu-dev  with 
 # docker run --rm -it rocker/r-ver:4.5.0 bash -c "apt-get update -qq && apt-cache policy libicu-dev"
 RUN apt-get update -qq && \
-  xargs -a /tmp/apt-packages.txt apt-get install -y --no-install-recommends && \
-  apt-get install -y --no-install-recommends gosu && \
+  chmod +x /tmp/install_packages.sh && \
+  /tmp/install_packages.sh && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
+  rm -rf /var/lib/apt/lists/* && \
+  rm /tmp/install_packages.sh
 
-# Repo frozen on May 31, 2025. See https://packagemanager.posit.co/client/#/repos/cran/setup?distribution=ubuntu-24.04&r_environment=other&snapshot=2025-05-31
-RUN install2.r --error --skipinstalled \
-  -r "https://packagemanager.posit.co/cran/__linux__/noble/2025-05-31" \
+# Extract CRAN snapshot date from r-packages.txt and install R packages
+# The date is automatically extracted from the comment at the top of r-packages.txt
+RUN CRAN_DATE=$(sed -n '1s/.*# CRAN snapshot date: \([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*/\1/p' /tmp/r-packages.txt | tr -d '\000-\037' | tr -d '\200-\377') && \
+  echo "Using CRAN snapshot date: $CRAN_DATE" && \
+  CRAN_REPO="https://packagemanager.posit.co/cran/__linux__/noble/$CRAN_DATE" && \
+  echo "CRAN repository URL: $CRAN_REPO" && \
+  install2.r --error --skipinstalled \
+  -r "$CRAN_REPO" \
   -n $(nproc) \
   $(grep -v '^#' /tmp/r-packages.txt) \
     && rm -rf /tmp/downloaded_packages \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
 # RUN installGithub.r "ChristK/CKutils@main"
-RUN installGithub.r "ChristK/CKutils@c6ee2c8f4683d42000137ee14d228eee8136d6bf" # the HEAD as of 31/05/2025
+RUN installGithub.r "ChristK/CKutils@c32aad3f359184233440686a12536884d8e9860c" # the HEAD as of 21/07/2025
 
-# TODO: remove when 1.17.2 is on CRAN. Temporarily added to avoid bug with fwrite(append=TRUE) in data.table 1.17.2
-# RUN installGithub.r "Rdatatable/data.table" 
+# The following commented out lines are an example on how to load a specific version of a package
 # RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz
 # RUN R CMD INSTALL data.table_1.16.4.tar.gz && rm data.table_1.16.4.tar.gz
 

@@ -1,6 +1,6 @@
 automake=1:1.16.5-1.3ubuntu1
 cmake=3.28.3-1build7
-git=1:2.43.0-1ubuntu7.2
+git=1:2.43.0-1ubuntu7.3
 libcurl4-openssl-dev=8.5.0-2ubuntu10.6
 libgit2-dev=1.7.2+ds-1ubuntu3
 libgmp3-dev=2:6.3.0+dfsg-2ubuntu6.1

@@ -900,12 +900,25 @@ Simulation <-
       ) {
         lc <- open_dataset(private$output_dir("lifecourse"))
 
-        # Connect DuckDB and register the Arrow dataset as a DuckDB view
-        con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
-        on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
-        duckdb::duckdb_register_arrow(con, "lc_table", lc)
-        mc_set <- dbGetQuery(con, "SELECT DISTINCT mc FROM lc_table")$mc
-        dbDisconnect(con, shutdown = FALSE) # shutdown = FALSE recommended for parallel processes
+        # Connect DuckDB and register the Arrow dataset as a DuckDB view with better error handling
+        con <- NULL
+        mc_set <- NULL
+        
+        tryCatch({
+          con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+          duckdb::duckdb_register_arrow(con, "lc_table", lc)
+          mc_set <- dbGetQuery(con, "SELECT DISTINCT mc FROM lc_table")$mc
+        }, error = function(e) {
+          stop(sprintf("Failed to initialize DuckDB connection or query mc_set: %s", e$message))
+        }, finally = {
+          if (!is.null(con)) {
+            try(dbDisconnect(con, shutdown = TRUE), silent = TRUE)
+          }
+        })
+
+        if (is.null(mc_set) || length(mc_set) == 0) {
+          stop("No Monte Carlo iterations found in lifecourse data")
+        }
 
         # logic to avoid inappropriate dual processing of already processed mc iterations
         # TODO take into account scenarios
@@ -940,15 +953,29 @@ Simulation <-
         }
 
         if (file.exists(file_pth) && length(list.files(file_pth)) > 0) {
-          con2 <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
-          duckdb::duckdb_register_arrow(
-            con2,
-            "tbl",
-            open_dataset(file_pth, format = "parquet")
-          )
-          mc_toexclude <- dbGetQuery(con2, "SELECT DISTINCT mc FROM tbl")$mc
-          dbDisconnect(con2, shutdown = FALSE) # shutdown = FALSE recommended for parallel processes
-          mc_set <- mc_set[!mc_set %in% mc_toexclude]
+          con2 <- NULL
+          mc_toexclude <- NULL
+          
+          tryCatch({
+            con2 <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+            duckdb::duckdb_register_arrow(
+              con2,
+              "tbl",
+              open_dataset(file_pth, format = "parquet")
+            )
+            mc_toexclude <- dbGetQuery(con2, "SELECT DISTINCT mc FROM tbl")$mc
+          }, error = function(e) {
+            warning(sprintf("Failed to check existing files: %s", e$message))
+            mc_toexclude <- NULL
+          }, finally = {
+            if (!is.null(con2)) {
+              try(dbDisconnect(con2, shutdown = TRUE), silent = TRUE)
+            }
+          })
+          
+          if (!is.null(mc_toexclude)) {
+            mc_set <- mc_set[!mc_set %in% mc_toexclude]
+          }
         }
 
         if (length(mc_set) == 0) {
@@ -2472,50 +2499,146 @@ Simulation <-
         retry_count <- 0
         success <- FALSE
 
-        while (
-          (!file.exists(output_path) || file.size(output_path) == 0) &&
-            retry_count < max_retries
-        ) {
-          retry_count <- retry_count + 1
+        # Normalize path for cross-platform compatibility
+        output_path <- normalizePath(output_path, mustWork = FALSE)
+        
+        # Ensure parent directory exists and is accessible
+        parent_dir <- dirname(output_path)
+        if (!dir.exists(parent_dir)) {
+          dir.create(parent_dir, recursive = TRUE, showWarnings = FALSE)
+        }
+        
+        # Add a small delay to ensure directory is fully created (Windows issue)
+        Sys.sleep(0.05)
 
-          tryCatch(
-            {
-              dbExecute(
-                duckdb_con,
-                sprintf(
-                  "COPY (%s) TO '%s' (FORMAT PARQUET);",
-                  query,
-                  output_path
-                )
-              )
+        # Check if we're running in Docker on Windows (SMB/Plan9 mount issue)
+        # Docker Desktop on Windows uses SMB/Plan9 mounts which don't support atomic operations
+        is_docker_env <- file.exists("/.dockerenv")
+        is_docker_windows <- (is_docker_env && 
+                             (.Platform$OS.type == "unix" || 
+                              Sys.getenv("DOCKER_DESKTOP") != "" ||
+                              # Check for typical Windows Docker mount patterns
+                              any(grepl("/host_mnt/", getwd(), fixed = TRUE))))
 
-              # Brief pause to allow file system to sync
-              Sys.sleep(0.1)
+        # Use safer method for Docker environments (especially Windows Docker Desktop)
+        # or any Windows environment where atomic operations might not be reliable
+        if (is_docker_windows || is_docker_env || .Platform$OS.type == "windows") {
+          env_type <- if(is_docker_windows) "Docker on Windows" else if(is_docker_env) "Docker" else "Windows"
+          cat(sprintf("Using safe write method for %s (%s environment detected)\n", basename(output_path), env_type))
+          
+          # Use dbGetQuery + arrow::write_parquet instead of DuckDB COPY
+          # This avoids the atomic rename issue with SMB/Plan9 mounts
+          while (!success && retry_count < max_retries) {
+            retry_count <- retry_count + 1
+            cat(sprintf("Safe write attempt %d for %s\n", retry_count, basename(output_path)))
+            
+            tryCatch({
+              # Get the data directly into R
+              result_data <- dbGetQuery(duckdb_con, query)
+              cat(sprintf("Query returned %d rows for %s\n", nrow(result_data), basename(output_path)))
+              
+              if (nrow(result_data) > 0) {
+                # Write directly with arrow, avoiding DuckDB's temporary file mechanism
+                arrow::write_parquet(result_data, output_path)
+                
+                # Verify the write with multiple checks
+                Sys.sleep(0.3) # Allow SMB sync time
+                
+                if (file.exists(output_path)) {
+                  file_size <- file.size(output_path)
+                  if (file_size > 0) {
+                    # Additional verification: try to read back a sample
+                    tryCatch({
+                      test_read <- arrow::read_parquet(output_path, as_data_frame = FALSE)
+                      if (test_read$num_rows > 0) {
+                        success <- TRUE
+                        cat(sprintf("Successfully wrote %s (%d bytes, %d rows)\n", 
+                                  basename(output_path), file_size, nrow(result_data)))
+                      }
+                    }, error = function(e) {
+                      warning(sprintf("File %s exists but failed verification read: %s", 
+                                    basename(output_path), e$message))
+                    })
+                  } else {
+                    warning(sprintf("File %s exists but has 0 bytes", basename(output_path)))
+                  }
+                }
+              } else {
+                # Handle empty results properly
+                cat(sprintf("Query returned 0 rows for %s - creating empty file\n", basename(output_path)))
+                
+                # Get column structure by limiting to 0 rows
+                empty_structure <- dbGetQuery(duckdb_con, sprintf("SELECT * FROM (%s) subq LIMIT 0", query))
+                arrow::write_parquet(empty_structure, output_path)
+                
+                if (file.exists(output_path)) {
+                  success <- TRUE
+                  cat(sprintf("Created empty parquet file %s\n", basename(output_path)))
+                }
+              }
+              
+            }, error = function(e) {
+              warning(sprintf("Safe write attempt %d failed for %s: %s", retry_count, basename(output_path), e$message))
+              
+              # Clean up failed file
+              if (file.exists(output_path)) {
+                try(file.remove(output_path), silent = TRUE)
+              }
+              
+              # Progressive backoff
+              Sys.sleep(0.5 * retry_count)
+            })
+          }
+          
+        } else {
+          # Use original DuckDB COPY method for native Linux environments
+          cat(sprintf("Using DuckDB COPY method for %s (native Linux environment)\n", basename(output_path)))
+          
+          while (!success && retry_count < max_retries) {
+            retry_count <- retry_count + 1
+            cat(sprintf("DuckDB COPY attempt %d for %s\n", retry_count, basename(output_path)))
 
-              # Check if file was created successfully
+            tryCatch({
+              # Use forward slashes for DuckDB COPY command
+              db_path <- gsub("\\\\", "/", output_path)
+              
+              copy_command <- sprintf("COPY (%s) TO '%s' (FORMAT PARQUET);", query, db_path)
+              result <- dbExecute(duckdb_con, copy_command)
+              
+              Sys.sleep(0.2) # Allow file system sync
+              
               if (file.exists(output_path) && file.size(output_path) > 0) {
                 success <- TRUE
-                break
+                cat(sprintf("DuckDB COPY succeeded for %s\n", basename(output_path)))
               }
-            },
-            error = function(e) {
-              warning(sprintf(
-                "Attempt %d failed to write output to %s: %s",
-                retry_count,
-                output_path,
-                e$message
-              ))
-            }
-          )
+              
+            }, error = function(e) {
+              warning(sprintf("DuckDB COPY attempt %d failed for %s: %s", retry_count, basename(output_path), e$message))
+              
+              if (file.exists(output_path) && file.size(output_path) == 0) {
+                try(file.remove(output_path), silent = TRUE)
+              }
+              
+              Sys.sleep(0.2 * retry_count)
+            })
+          }
         }
 
-        # Final check and error if all retries failed
+        # Final validation
         if (!success) {
-          stop(sprintf(
-            "Failed to write output to %s after %d attempts",
+          final_check_exists <- file.exists(output_path)
+          final_check_size <- if(final_check_exists) file.size(output_path) else 0
+          
+          error_msg <- sprintf(
+            "Failed to write output to %s after %d attempts. Final state: exists=%s, size=%d",
             output_path,
-            max_retries
-          ))
+            max_retries,
+            final_check_exists,
+            final_check_size
+          )
+          
+          cat(paste("ERROR:", error_msg, "\n"))
+          stop(error_msg)
         }
 
         return(invisible(TRUE))
@@ -3709,15 +3832,51 @@ Simulation <-
         sDirPathName,
         bReport = self$design$sim_prm$logs
       ) {
+        # Normalize path for cross-platform compatibility
+        sDirPathName <- normalizePath(sDirPathName, mustWork = FALSE)
+        
         if (!dir.exists(sDirPathName)) {
-          bSuccess <- dir.create(sDirPathName, recursive = TRUE)
-          if (!all(bSuccess)) {
-            warning(paste0(
-              "Failed creating directory",
-              sDirPathName[[!bSuccess]]
-            ))
+          # Try creating directory with retries for Windows compatibility
+          max_retries <- 3
+          retry_count <- 0
+          bSuccess <- FALSE
+          
+          while (!bSuccess && retry_count < max_retries) {
+            retry_count <- retry_count + 1
+            
+            tryCatch({
+              bSuccess <- dir.create(sDirPathName, recursive = TRUE)
+              
+              # Add small delay for Windows file system sync
+              if (.Platform$OS.type == "windows") {
+                Sys.sleep(0.05)
+              }
+              
+              # Verify directory was actually created
+              if (!dir.exists(sDirPathName)) {
+                bSuccess <- FALSE
+              }
+            }, error = function(e) {
+              warning(sprintf("Directory creation attempt %d failed: %s", retry_count, e$message))
+              bSuccess <- FALSE
+            })
+            
+            if (!bSuccess && retry_count < max_retries) {
+              Sys.sleep(0.1 * retry_count) # Progressive backoff
+            }
           }
-          if (bReport) message(paste0("Folder ", sDirPathName, " was created"))
+          
+          if (!bSuccess) {
+            warning(paste0(
+              "Failed creating directory ",
+              sDirPathName,
+              " after ",
+              max_retries,
+              " attempts"
+            ))
+          } else {
+            if (bReport) message(paste0("Folder ", sDirPathName, " was created"))
+          }
         }
       },
 
@@ -3994,19 +4153,25 @@ Simulation <-
         strata_noagegrp,
         ext
       ) {
-        lapply(
-          paste0(
-            rep(c("dis_characteristics"), each = 2),
-            "_",
-            c("scaled_up", "esp")
-          ),
-          function(subdir) {
-            private$create_new_folder(private$output_dir(paste0(
-              "summaries/",
-              subdir
-            )))
-          }
+        # Create output directories with enhanced Windows compatibility
+        required_dirs <- paste0(
+          rep(c("dis_characteristics"), each = 2),
+          "_",
+          c("scaled_up", "esp")
         )
+        
+        lapply(required_dirs, function(subdir) {
+          dir_path <- private$output_dir(paste0("summaries/", subdir))
+          private$create_new_folder(dir_path)
+          
+          # Additional verification for Windows - ensure directory is accessible
+          if (.Platform$OS.type == "windows") {
+            Sys.sleep(0.1)
+            if (!dir.exists(dir_path)) {
+              stop(sprintf("Failed to create or access directory: %s", dir_path))
+            }
+          }
+        })
 
         # Get disease prevalence columns from DuckDB schema with error handling
         lc_table_name <- "lc_table"
@@ -4044,7 +4209,9 @@ Simulation <-
         # --- Calculate disease characteristics using DuckDB (ALL DISEASES, UNION ALL) ---
         if (length(nm) > 0) {
           # Process diseases in smaller batches to reduce memory pressure
-          batch_size <- min(5, length(nm)) # Process max 5 diseases at a time
+          # Use smaller batches on Windows due to different memory management
+          max_batch_size <- if (.Platform$OS.type == "windows") 3 else 5
+          batch_size <- min(max_batch_size, length(nm))
           disease_batches <- split(nm, ceiling(seq_along(nm) / batch_size))
           
           all_results <- list()
@@ -4149,6 +4316,12 @@ Simulation <-
                   ext
                 )
               )
+              
+              # Ensure directory exists before writing (additional Windows safety check)
+              dir_path <- dirname(output_path)
+              if (!dir.exists(dir_path)) {
+                private$create_new_folder(dir_path)
+              }
 
               # Execute query and write result with retry logic
               private$execute_db_diskwrite_with_retry(
@@ -4166,6 +4339,12 @@ Simulation <-
                   ext
                 )
               )
+              
+              # Ensure directory exists before writing (additional Windows safety check)
+              dir_path_esp <- dirname(output_path_esp)
+              if (!dir.exists(dir_path_esp)) {
+                private$create_new_folder(dir_path_esp)
+              }
 
               # Execute query and write result with retry logic
               private$execute_db_diskwrite_with_retry(
@@ -4231,6 +4410,12 @@ Simulation <-
                 )
               )
 
+              # Ensure directory exists before writing (additional Windows safety check)
+              dir_path <- dirname(output_path)
+              if (!dir.exists(dir_path)) {
+                private$create_new_folder(dir_path)
+              }
+
               private$execute_db_diskwrite_with_retry(
                 duckdb_con,
                 wrapped_sql,
@@ -4248,6 +4433,12 @@ Simulation <-
                   ext
                 )
               )
+
+              # Ensure directory exists before writing (additional Windows safety check)
+              dir_path_esp <- dirname(output_path_esp)
+              if (!dir.exists(dir_path_esp)) {
+                private$create_new_folder(dir_path_esp)
+              }
 
               private$execute_db_diskwrite_with_retry(
                 duckdb_con,

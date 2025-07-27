@@ -63,3 +63,5 @@ NULL
 # cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; R CMD INSTALL --preclean .
 # cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; R CMD check --as-cran .
 # cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; Rscript -e "tinytest::test_package(\"CKutils\")"
+
+# Rscript -e 'library("IMPACTncdJapan");detach("package:IMPACTncdJapan", unload = TRUE)'

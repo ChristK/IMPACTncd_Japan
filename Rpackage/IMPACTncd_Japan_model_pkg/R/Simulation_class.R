@@ -3268,7 +3268,8 @@ Simulation <-
         duckdb_con,
         mcaggr,
         input_table_name,
-        output_view_name
+        output_view_name,
+        scenario_name = NULL  # Optional parameter for individual scenario processing
       ) {
         # Helper function to execute SQL, with error reporting
         execute_sql <- function(sql, context = "") {
@@ -3305,12 +3306,24 @@ Simulation <-
         direct_costs_inflation_factor <- 99.6 / 99.7
 
         # --- Step 1: Initial Aggregations from lc_table ---
-        # These views are filtered by year, scenario 'sc0', and mcaggr.
-        base_agg_sql <- "
-          CREATE OR REPLACE TEMP VIEW %s AS
-          SELECT agegrp, sex, ROUND(SUM(CASE WHEN %s THEN wt ELSE 0 END)) AS V1
-          FROM %s WHERE year = %d AND scenario = 'sc0' AND mc = %d GROUP BY agegrp, sex;
-        "
+        # Calculate costs for all scenarios - costs should be computed for baseline and intervention scenarios
+        if (self$design$sim_prm$logs && !is.null(scenario_name)) {
+          message(sprintf("Calculating costs for scenario: %s", scenario_name))
+        }
+        
+        # Use the scenario that's present in the current table
+        scenario_filter <- if (!is.null(scenario_name)) {
+          sprintf("scenario = '%s'", scenario_name)
+        } else {
+          "scenario = 'sc0'"  # Default to sc0 when processing all scenarios together
+        }
+        
+        base_agg_sql <- sprintf(
+          "CREATE OR REPLACE TEMP VIEW %%s AS
+           SELECT agegrp, sex, ROUND(SUM(CASE WHEN %%s THEN wt ELSE 0 END)) AS V1
+           FROM %%s WHERE year = %%d AND %s AND mc = %%d GROUP BY agegrp, sex;",
+          scenario_filter
+        )
         execute_sql(
           sprintf(
             base_agg_sql,
@@ -5179,101 +5192,185 @@ Simulation <-
           }
         )
 
-        lc_table_name <- "lc_table"
+        if (self$design$sim_prm$logs) {
+          message("Processing costs summaries by scenario to conserve memory...")
+        }
 
-        # Define the name for the temporary view that calc_costs will create
-        costs_view_name <- "lc_with_costs_view"
+        # Get list of scenario directories for this mc iteration
+        lc_dir <- private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr)))
+        scenario_dirs <- list.dirs(lc_dir, full.names = TRUE, recursive = FALSE)
+        scenario_names <- basename(scenario_dirs)
+        
+        if (length(scenario_dirs) == 0) {
+          stop("No scenario directories found in lifecourse data")
+        }
 
-        # Call calc_costs to create/replace the temporary view with cost columns.
-        # This view will be based on lc_table and filtered for the current mcaggr.
-        private$calc_costs(
-          duckdb_con = duckdb_con,
-          mcaggr = mcaggr,
-          input_table_name = lc_table_name,
-          output_view_name = costs_view_name
-        )
+        if (self$design$sim_prm$logs) {
+          message(sprintf("Found %d scenarios to process: %s", 
+                        length(scenario_names), 
+                        paste(scenario_names, collapse = ", ")))
+        }
 
-        # Prepare strata columns for SQL query (quoted)
-        quoted_strata_cols_sql <- paste(
-          sprintf('"%s"', strata),
-          collapse = ", "
-        )
+        # Initialize collectors for final results
+        all_results_scaled_up <- list()
+        all_results_esp <- list()
 
-        # Define cost metrics for SELECT statement
-        cost_metrics_select_wt <- paste(
-          'SUM("chd_productivity_costs" * wt) AS "chd_productivity_costs"',
-          'SUM("stroke_productivity_costs" * wt) AS "stroke_productivity_costs"',
-          'SUM("chd_informal_costs" * wt) AS "chd_informal_costs"',
-          'SUM("stroke_informal_costs" * wt) AS "stroke_informal_costs"',
-          'SUM("chd_direct_costs" * wt) AS "chd_direct_costs"',
-          'SUM("stroke_direct_costs" * wt) AS "stroke_direct_costs"',
-          'SUM("chd_indirect_costs" * wt) AS "chd_indirect_costs"',
-          'SUM("stroke_indirect_costs" * wt) AS "stroke_indirect_costs"',
-          'SUM("chd_total_costs" * wt) AS "chd_total_costs"',
-          'SUM("stroke_total_costs" * wt) AS "stroke_total_costs"',
-          'SUM("cvd_productivity_costs" * wt) AS "cvd_productivity_costs"',
-          'SUM("cvd_informal_costs" * wt) AS "cvd_informal_costs"',
-          'SUM("cvd_direct_costs" * wt) AS "cvd_direct_costs"',
-          'SUM("cvd_indirect_costs" * wt) AS "cvd_indirect_costs"',
-          'SUM("cvd_total_costs" * wt) AS "cvd_total_costs"',
-          sep = ", "
-        )
+        # Process each scenario individually to conserve memory
+        for (i in seq_along(scenario_dirs)) {
+          scenario_dir <- scenario_dirs[i]
+          scenario_name <- scenario_names[i]
+          
+          if (self$design$sim_prm$logs) {
+            message(sprintf("Processing scenario %d/%d: %s", i, length(scenario_dirs), scenario_name))
+          }
 
-        cost_metrics_select_wt_esp <- gsub(
-          "wt",
-          "wt_esp",
-          cost_metrics_select_wt
-        )
+          # Create separate DuckDB connection for this scenario to avoid memory buildup
+          scenario_duckdb_con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = FALSE)
+          
+          tryCatch({
+            # Load only this scenario's data
+            scenario_dataset <- arrow::open_dataset(scenario_dir, format = "parquet")
+            duckdb::duckdb_register_arrow(scenario_duckdb_con, "lc_scenario_raw", scenario_dataset)
+            
+            # Create enhanced view with mc column and scenario identifier
+            dbExecute(scenario_duckdb_con, sprintf(
+              "CREATE VIEW lc_scenario_table AS SELECT *, %d::INTEGER AS mc, '%s' AS scenario FROM lc_scenario_raw", 
+              mcaggr, scenario_name
+            ))
 
-        # --- Scaled-up Costs ---
-        query_scaled_up <- sprintf(
-          "SELECT %s, SUM(wt) AS popsize, %s
-       FROM %s
-       GROUP BY %s
-       ORDER BY %s",
-          quoted_strata_cols_sql,
-          cost_metrics_select_wt,
-          costs_view_name,
-          quoted_strata_cols_sql,
-          quoted_strata_cols_sql
-        )
-        output_path_scaled_up <- private$output_dir(
-          paste0("summaries/costs_scaled_up/", mcaggr, "_costs_scaled_up.", ext)
-        )
+            # Define the name for the temporary view that calc_costs will create
+            costs_view_name <- "lc_with_costs_view"
 
-        private$execute_db_diskwrite_with_retry(
-          duckdb_con,
-          query_scaled_up,
-          output_path_scaled_up
-        )
+            # Call calc_costs to create/replace the temporary view with cost columns
+            # This processes only the current scenario's data
+            private$calc_costs(
+              duckdb_con = scenario_duckdb_con,
+              mcaggr = mcaggr,
+              input_table_name = "lc_scenario_table",
+              output_view_name = costs_view_name,
+              scenario_name = scenario_name  # Pass the scenario name
+            )
 
-        # --- ESP Costs ---
-        query_esp <- sprintf(
-          "SELECT %s, SUM(wt_esp) AS popsize, %s
-       FROM %s
-       GROUP BY %s
-       ORDER BY %s",
-          quoted_strata_cols_sql,
-          cost_metrics_select_wt_esp,
-          costs_view_name,
-          quoted_strata_cols_sql,
-          quoted_strata_cols_sql
-        )
-        output_path_esp <- private$output_dir(
-          paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
-        )
+            # Prepare strata columns for SQL query (quoted)
+            quoted_strata_cols_sql <- paste(
+              sprintf('"%s"', strata),
+              collapse = ", "
+            )
 
-        private$execute_db_diskwrite_with_retry(
-          duckdb_con,
-          query_esp,
-          output_path_esp
-        )
+            # Define cost metrics for SELECT statement
+            cost_metrics_select_wt <- paste(
+              'SUM("chd_productivity_costs" * wt) AS "chd_productivity_costs"',
+              'SUM("stroke_productivity_costs" * wt) AS "stroke_productivity_costs"',
+              'SUM("chd_informal_costs" * wt) AS "chd_informal_costs"',
+              'SUM("stroke_informal_costs" * wt) AS "stroke_informal_costs"',
+              'SUM("chd_direct_costs" * wt) AS "chd_direct_costs"',
+              'SUM("stroke_direct_costs" * wt) AS "stroke_direct_costs"',
+              'SUM("chd_indirect_costs" * wt) AS "chd_indirect_costs"',
+              'SUM("stroke_indirect_costs" * wt) AS "stroke_indirect_costs"',
+              'SUM("chd_total_costs" * wt) AS "chd_total_costs"',
+              'SUM("stroke_total_costs" * wt) AS "stroke_total_costs"',
+              'SUM("cvd_productivity_costs" * wt) AS "cvd_productivity_costs"',
+              'SUM("cvd_informal_costs" * wt) AS "cvd_informal_costs"',
+              'SUM("cvd_direct_costs" * wt) AS "cvd_direct_costs"',
+              'SUM("cvd_indirect_costs" * wt) AS "cvd_indirect_costs"',
+              'SUM("cvd_total_costs" * wt) AS "cvd_total_costs"',
+              sep = ", "
+            )
 
-        # Drop the temporary view if it's no longer needed for this mcaggr
-        dbExecute(
-          duckdb_con,
-          sprintf("DROP VIEW IF EXISTS %s;", costs_view_name)
-        )
+            cost_metrics_select_wt_esp <- gsub(
+              "wt",
+              "wt_esp",
+              cost_metrics_select_wt
+            )
+
+            # --- Scaled-up Costs for this scenario ---
+            query_scaled_up <- sprintf(
+              "SELECT %s, SUM(wt) AS popsize, %s
+             FROM %s
+             GROUP BY %s
+             ORDER BY %s",
+              quoted_strata_cols_sql,
+              cost_metrics_select_wt,
+              costs_view_name,
+              quoted_strata_cols_sql,
+              quoted_strata_cols_sql
+            )
+
+            # Get results for this scenario
+            scenario_result_scaled_up <- dbGetQuery(scenario_duckdb_con, query_scaled_up)
+            if (nrow(scenario_result_scaled_up) > 0) {
+              scenario_result_scaled_up$scenario <- scenario_name
+              all_results_scaled_up[[scenario_name]] <- scenario_result_scaled_up
+            }
+
+            # --- ESP Costs for this scenario ---
+            query_esp <- sprintf(
+              "SELECT %s, SUM(wt_esp) AS popsize, %s
+             FROM %s
+             GROUP BY %s
+             ORDER BY %s",
+              quoted_strata_cols_sql,
+              cost_metrics_select_wt_esp,
+              costs_view_name,
+              quoted_strata_cols_sql,
+              quoted_strata_cols_sql
+            )
+
+            # Get results for this scenario
+            scenario_result_esp <- dbGetQuery(scenario_duckdb_con, query_esp)
+            if (nrow(scenario_result_esp) > 0) {
+              scenario_result_esp$scenario <- scenario_name
+              all_results_esp[[scenario_name]] <- scenario_result_esp
+            }
+
+            if (self$design$sim_prm$logs) {
+              message(sprintf("  - Processed %d scaled-up rows, %d ESP rows for scenario %s", 
+                            nrow(scenario_result_scaled_up), nrow(scenario_result_esp), scenario_name))
+            }
+
+          }, error = function(e) {
+            warning(sprintf("Failed to process scenario %s: %s", scenario_name, e$message))
+          }, finally = {
+            # Always close the scenario-specific connection
+            dbDisconnect(scenario_duckdb_con, shutdown = FALSE)
+          })
+          
+          # Force garbage collection after each scenario to free memory
+          gc()
+        }
+
+        # Combine all scenario results and write final files
+        if (length(all_results_scaled_up) > 0) {
+          final_results_scaled_up <- do.call(rbind, all_results_scaled_up)
+          output_path_scaled_up <- private$output_dir(
+            paste0("summaries/costs_scaled_up/", mcaggr, "_costs_scaled_up.", ext)
+          )
+          
+          if (self$design$sim_prm$logs) {
+            message(sprintf("Writing combined scaled-up results: %d total rows", nrow(final_results_scaled_up)))
+          }
+          
+          # Write directly using arrow to avoid DuckDB connection issues
+          arrow::write_parquet(final_results_scaled_up, output_path_scaled_up)
+        }
+
+        if (length(all_results_esp) > 0) {
+          final_results_esp <- do.call(rbind, all_results_esp)
+          output_path_esp <- private$output_dir(
+            paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
+          )
+          
+          if (self$design$sim_prm$logs) {
+            message(sprintf("Writing combined ESP results: %d total rows", nrow(final_results_esp)))
+          }
+          
+          # Write directly using arrow to avoid DuckDB connection issues
+          arrow::write_parquet(final_results_esp, output_path_esp)
+        }
+
+        if (self$design$sim_prm$logs) {
+          message("Completed scenario-by-scenario cost processing")
+        }
 
         NULL
       }

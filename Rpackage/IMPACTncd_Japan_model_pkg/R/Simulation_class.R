@@ -2490,6 +2490,7 @@ Simulation <-
       secondary_prevention_scn = NULL,
 
       # Helper function to execute database query and write to disk with retry logic
+      # execute_db_diskwrite_with_retry ----
       execute_db_diskwrite_with_retry = function(
         duckdb_con,
         query,
@@ -2524,18 +2525,36 @@ Simulation <-
         # or any Windows environment where atomic operations might not be reliable
         if (is_docker_windows || is_docker_env || .Platform$OS.type == "windows") {
           env_type <- if(is_docker_windows) "Docker on Windows" else if(is_docker_env) "Docker" else "Windows"
-          cat(sprintf("Using safe write method for %s (%s environment detected)\n", basename(output_path), env_type))
+          if (self$design$sim_prm$logs) {
+            cat(sprintf(
+              "Using safe write method for %s (%s environment detected)\n",
+              basename(output_path),
+              env_type
+            ))
+          }
           
           # Use dbGetQuery + arrow::write_parquet instead of DuckDB COPY
           # This avoids the atomic rename issue with SMB/Plan9 mounts
           while (!success && retry_count < max_retries) {
             retry_count <- retry_count + 1
-            cat(sprintf("Safe write attempt %d for %s\n", retry_count, basename(output_path)))
+            if (self$design$sim_prm$logs) {
+              cat(sprintf(
+                "Safe write attempt %d for %s\n",
+                retry_count,
+                basename(output_path)
+              ))
+            }
             
             tryCatch({
               # Get the data directly into R
               result_data <- dbGetQuery(duckdb_con, query)
-              cat(sprintf("Query returned %d rows for %s\n", nrow(result_data), basename(output_path)))
+              if (self$design$sim_prm$logs) {
+                cat(sprintf(
+                  "Query returned %d rows for %s\n",
+                  nrow(result_data),
+                  basename(output_path)
+                ))
+              }
               
               if (nrow(result_data) > 0) {
                 # Write directly with arrow, avoiding DuckDB's temporary file mechanism
@@ -2552,8 +2571,14 @@ Simulation <-
                       test_read <- arrow::read_parquet(output_path, as_data_frame = FALSE)
                       if (test_read$num_rows > 0) {
                         success <- TRUE
-                        cat(sprintf("Successfully wrote %s (%d bytes, %d rows)\n", 
-                                  basename(output_path), file_size, nrow(result_data)))
+                        if (self$design$sim_prm$logs) {
+                          cat(sprintf(
+                            "Successfully wrote %s (%d bytes, %d rows)\n",
+                            basename(output_path),
+                            file_size,
+                            nrow(result_data)
+                          ))
+                        }
                       }
                     }, error = function(e) {
                       warning(sprintf("File %s exists but failed verification read: %s", 
@@ -2565,7 +2590,12 @@ Simulation <-
                 }
               } else {
                 # Handle empty results properly
-                cat(sprintf("Query returned 0 rows for %s - creating empty file\n", basename(output_path)))
+                if (self$design$sim_prm$logs) {
+                  cat(sprintf(
+                    "Query returned 0 rows for %s - creating empty file\n",
+                    basename(output_path)
+                  ))
+                }
                 
                 # Get column structure by limiting to 0 rows
                 empty_structure <- dbGetQuery(duckdb_con, sprintf("SELECT * FROM (%s) subq LIMIT 0", query))
@@ -2573,7 +2603,12 @@ Simulation <-
                 
                 if (file.exists(output_path)) {
                   success <- TRUE
-                  cat(sprintf("Created empty parquet file %s\n", basename(output_path)))
+                  if (self$design$sim_prm$logs) {
+                    cat(sprintf(
+                      "Created empty parquet file %s\n",
+                      basename(output_path)
+                    ))
+                  }
                 }
               }
               
@@ -2596,7 +2631,13 @@ Simulation <-
           
           while (!success && retry_count < max_retries) {
             retry_count <- retry_count + 1
-            cat(sprintf("DuckDB COPY attempt %d for %s\n", retry_count, basename(output_path)))
+            if (self$design$sim_prm$logs) {
+              cat(sprintf(
+                "DuckDB COPY attempt %d for %s\n",
+                retry_count,
+                basename(output_path)
+              ))
+            }
 
             tryCatch({
               # Use forward slashes for DuckDB COPY command
@@ -2609,7 +2650,12 @@ Simulation <-
               
               if (file.exists(output_path) && file.size(output_path) > 0) {
                 success <- TRUE
-                cat(sprintf("DuckDB COPY succeeded for %s\n", basename(output_path)))
+                if (self$design$sim_prm$logs) {
+                  cat(sprintf(
+                    "DuckDB COPY succeeded for %s\n",
+                    basename(output_path)
+                  ))
+                }
               }
               
             }, error = function(e) {
@@ -2627,7 +2673,7 @@ Simulation <-
         # Final validation
         if (!success) {
           final_check_exists <- file.exists(output_path)
-          final_check_size <- if(final_check_exists) file.size(output_path) else 0
+          final_check_size <- if (final_check_exists) file.size(output_path) else 0
           
           error_msg <- sprintf(
             "Failed to write output to %s after %d attempts. Final state: exists=%s, size=%d",
@@ -2637,7 +2683,9 @@ Simulation <-
             final_check_size
           )
           
-          cat(paste("ERROR:", error_msg, "\n"))
+          if (self$design$sim_prm$logs) {
+            cat(paste("ERROR:", error_msg, "\n"))
+          }
           stop(error_msg)
         }
 

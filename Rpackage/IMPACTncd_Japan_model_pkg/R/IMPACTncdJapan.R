@@ -48,6 +48,14 @@
 #' @useDynLib IMPACTncdJapan
 #' @name IMPACTncdJapan
 
+`:=` = function(...)
+  NULL # due to NSE notes in R CMD check
+
+.onUnload <- function(libpath) {
+  library.dynam.unload("IMPACTncdJapan", libpath)
+}
+
+
 # Make sure data.table knows we know we're using it
 .datatable.aware = TRUE
 

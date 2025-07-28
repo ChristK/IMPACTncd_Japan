@@ -14,14 +14,14 @@ sim_horizon_max: 2040 # population projections do not support longer horizon cor
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass
 ageH: 99 # This was based on observed exposure data and observed population size
 apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incidence? NOTE it affects nonmodelled as well
-calibrate_to_incd_trends: yes # Use incidance calibration multipliers from file
+calibrate_to_incd_trends: yes # Use incidence calibration multipliers from file
 calibrate_to_ftlt_trends: yes # Use fatality calibration multipliers from file
 init_year_incd_calibration: no # Indicates whether parf*p0 is calibrated to incd for the initial year
 incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
 prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
 ftlt_uncertainty_distr: beta #  The distribution of case fatality uncertainty. Either beta or uniform.
-output_dir: D:\outputs # ./outputs
-synthpop_dir: D:\synthpop # ./inputs/synthpop
+output_dir: /mnt/storage_fast4/jpn/outputs # ./outputs
+synthpop_dir: /mnt/storage_fast4/jpn/synthpop # ./inputs/synthpop
 
 diseases:
 - name: obesity

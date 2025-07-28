@@ -115,27 +115,21 @@ SYNTHPOP_DIR_RAW=$(grep '^synthpop_dir:' "$SIM_DESIGN_FILE" | sed -E 's/synthpop
 
 # Resolve paths relative to the PROJECT_ROOT if they are not absolute
 if [[ "$OUTPUT_DIR_RAW" != /* && "$OUTPUT_DIR_RAW" != ~* ]]; then
-  OUTPUT_DIR="$(realpath "$PROJECT_ROOT/$OUTPUT_DIR_RAW")"
+  OUTPUT_DIR_TEMP="$PROJECT_ROOT/$OUTPUT_DIR_RAW"
 else
-  OUTPUT_DIR="$(realpath "$OUTPUT_DIR_RAW")" # Resolve even absolute paths to clean them (e.g. remove ..)
+  OUTPUT_DIR_TEMP="$OUTPUT_DIR_RAW"
 fi
 if [[ "$SYNTHPOP_DIR_RAW" != /* && "$SYNTHPOP_DIR_RAW" != ~* ]]; then
-  SYNTHPOP_DIR="$(realpath "$PROJECT_ROOT/$SYNTHPOP_DIR_RAW")"
+  SYNTHPOP_DIR_TEMP="$PROJECT_ROOT/$SYNTHPOP_DIR_RAW"
 else
-  SYNTHPOP_DIR="$(realpath "$SYNTHPOP_DIR_RAW")" # Resolve even absolute paths
+  SYNTHPOP_DIR_TEMP="$SYNTHPOP_DIR_RAW"
 fi
 
-# Validate resolved paths
-if [ ! -d "$OUTPUT_DIR" ]; then
-    echo "Warning: Resolved output_dir does not exist: $OUTPUT_DIR. Creating it now."
-    mkdir -p "$OUTPUT_DIR"
-    # exit 1 # Decide if you want to exit or create
-fi
-if [ ! -d "$SYNTHPOP_DIR" ]; then
-    echo "Warning: Resolved synthpop_dir does not exist: $SYNTHPOP_DIR. Creating it now."
-    mkdir -p "$SYNTHPOP_DIR"
-    # exit 1 # Decide if you want to exit or create
-fi
+# Create directories if they don't exist, then resolve with realpath
+mkdir -p "$OUTPUT_DIR_TEMP"
+mkdir -p "$SYNTHPOP_DIR_TEMP"
+OUTPUT_DIR="$(realpath "$OUTPUT_DIR_TEMP")"
+SYNTHPOP_DIR="$(realpath "$SYNTHPOP_DIR_TEMP")"
 
 echo "Mounting output_dir: $OUTPUT_DIR"
 echo "Mounting synthpop_dir: $SYNTHPOP_DIR"

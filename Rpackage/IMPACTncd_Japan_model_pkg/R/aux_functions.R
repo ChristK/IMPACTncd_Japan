@@ -20,45 +20,52 @@
 ## Boston, MA 02110-1301 USA.
 
 
-`:=` = function(...)
-  NULL # due to NSE notes in R CMD check
-
-.onUnload <- function(libpath) {
-  library.dynam.unload("IMPACTncdJapan", libpath)
+#' @export
+proportional_reduction <- function(exposure, change, weights, penalty = 1){
+	c <- (weighted.mean(exposure, weights) - (weighted.mean(exposure, weights) + change)) / weighted.mean(exposure^penalty, weights)
+	return(exposure - c * exposure^penalty)
+		# exposure: eg. SBP_curr_xps, 
+		# chage: -5 mmHg, 
+		# penalty: determines how sharply the penalty increases with x. penalty
+		# When penalty = 1, the SBP is simply "reduced at the same rate in proportion to the original SBP,
+		# When penalty > 1, the distribution is reduced “more” for larger SBP values and “less” for smaller values.
 }
 
-# Ensures that when fwrite appends file colnames of file to be written, match
-# those already in the file
+
+
+
+# The user provides:
+#   •	threshold: A numeric value for exposure.
+# •	target_prop: The target proportion (0-1) of values exceeding the threshold after applying reduction.
+# •	weights: The weights associated with the exposures.
+# •	penalty: A penalty parameter, defaulted to 1 (or any desired numeric value).
+# 2.	The function calculates the necessary change by using an optimization method (e.g., uniroot) to find the reduction that achieves the desired proportion.
+# 3.	After determining the optimal change, apply it to exposures using the proportional logic you previously defined.
+
 #' @export
-fwrite_safe <- function(x,
-                        file,
-                        append = TRUE,
-                        #threat_safe = append,
-                        ...) {
-  if (append) {
-    if (file.exists(file)) {
-      col_names_disk <- names(fread(file, nrows = 0))
-      col_names_file <- names(x)
-      col_names <- outersect(col_names_disk, col_names_file)
-      if (length(col_names) > 0)
-        x[, (col_names) := NA]
-      setcolorder(x, col_names_disk)
-    }
+proportional_reduction_threshold <- function(exposure, threshold, target_prop, weights, penalty = 1) {
+
+  # Function to compute proportion above threshold given a specific change
+  calc_prop_above <- function(change){
+    adj_exposure <- proportional_reduction(exposure, change, weights, penalty)
+    sum(weights[adj_exposure > threshold]) / sum(weights)
   }
 
-#  # create threat-safe mechanism
-#  flock <- paste0(file, ".lock")
-#
-#
-#  while (file.exists(flock)) {
-#    Sys.sleep(runif(1))
-#  }
-#
-#    file.create(flock)
-     fwrite(x, file, append, ...)
-#    on.exit(if (file.exists(flock)) file.remove(flock))
+  # Find the change required to achieve the target proportion above threshold
+  optimal_change <- uniroot(
+    f = function(change) calc_prop_above(change) - target_prop,
+    interval = c(-max(exposure)*10, max(exposure)*10),
+    extendInt = "yes", tol = .Machine$double.eps, maxiter = 1000, trace = 0
+  )$root
 
+  # Apply the optimal change
+  proportional_reduction(exposure, optimal_change, weights, penalty)
 }
+
+
+
+
+
 
 
 #' @export
@@ -116,49 +123,3 @@ distr_best_fit <-
     }
     marg_distr
   }
-
-
-
-
-
-
-
-# Given a correlation matrix (Pearson), produces a matrix of
-# correlated uniforms
-
-#' @export
-generate_corr_unifs <- function(n, M) {
-  # generate normals, check correlations
-  # from http://comisef.wikidot.com/tutorial:correlateduniformvariates
-  stopifnot(is.matrix(M))
-  # Check that matrix is semi-positive definite
-  # NOTE next line crashes frequently!! see
-  # https://stat.ethz.ch/pipermail/r-help/2006-March/102703.html for a
-  # workaround and https://stat.ethz.ch/pipermail/r-help/2006-March/102647.html
-  # for some explanation
-  # stopifnot(min(eigen(M, only.values = TRUE)$values) >= 0)
-
-  M_original <- M
-
-
-  # adjust correlations for uniforms
-  for (i in seq_len(dim(M)[[1L]])) {
-    for (j in seq_len(dim(M)[[2L]])) {
-      if (i != j) {
-        M[i, j] <- 2 * sin(pi * M[i, j] / 6)
-        M[j, i] <- 2 * sin(pi * M[j, i] / 6)
-      }
-    }
-  }
-
-  X <- matrix(dqrnorm(n * dim(M)[[2]]), n)
-  colnames(X) <- colnames(M)
-
-  # induce correlation, check correlations
-  Y <- pnorm(X %*% chol(M))
-
-  # message(paste0("Mean square error is: ", signif(sum((cor(Y) - M_original) ^
-  # 2), 3)))
-  return(Y)
-}
-

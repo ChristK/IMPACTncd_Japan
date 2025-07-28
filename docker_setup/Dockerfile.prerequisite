@@ -24,19 +24,23 @@ RUN apt-get update -qq && \
 
 # Extract CRAN snapshot date from r-packages.txt and install R packages
 # The date is automatically extracted from the comment at the top of r-packages.txt
-RUN CRAN_DATE=$(sed -n '1s/.*# CRAN snapshot date: \([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*/\1/p' /tmp/r-packages.txt | tr -d '\000-\037' | tr -d '\200-\377') && \
+# This handles files with or without BOM (Byte Order Mark)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /tmp/r-packages.txt && \
+  CRAN_DATE=$(sed -n '1s/.*# CRAN snapshot date: \([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*/\1/p' /tmp/r-packages.txt | tr -d '\000-\037' | tr -d '\200-\377') && \
   echo "Using CRAN snapshot date: $CRAN_DATE" && \
   CRAN_REPO="https://packagemanager.posit.co/cran/__linux__/noble/$CRAN_DATE" && \
   echo "CRAN repository URL: $CRAN_REPO" && \
+  PACKAGES=$(sed 's/^\xEF\xBB\xBF//' /tmp/r-packages.txt | grep -v '^#' | grep -v '^[[:space:]]*$' | tr '\n' ' ') && \
+  echo "Installing packages: $PACKAGES" && \
   install2.r --error --skipinstalled \
   -r "$CRAN_REPO" \
   -n $(nproc) \
-  $(grep -v '^#' /tmp/r-packages.txt) \
+  $PACKAGES \
     && rm -rf /tmp/downloaded_packages \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
-# RUN installGithub.r "ChristK/CKutils@main"
-RUN installGithub.r "ChristK/CKutils@c32aad3f359184233440686a12536884d8e9860c" # the HEAD as of 21/07/2025
+RUN installGithub.r "ChristK/CKutils@master"
+# RUN installGithub.r "ChristK/CKutils@c32aad3f359184233440686a12536884d8e9860c" # the HEAD as of 21/07/2025
 
 # The following commented out lines are an example on how to load a specific version of a package
 # RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz

@@ -242,8 +242,8 @@ Design <-
       # @keywords internal
       is_in_docker = function() {
         file.exists("/.dockerenv") ||
-          any(grepl("docker|kubepods", readLines("/proc/1/cgroup", warn = FALSE)))
+          (file.exists("/proc/1/cgroup") && any(grepl("docker|kubepods", readLines("/proc/1/cgroup", warn = FALSE))))
       }
 
-    )
-  )
+    ) # end of private list
+  ) # end of R6 class

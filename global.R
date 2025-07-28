@@ -78,7 +78,7 @@ if (!requireNamespace("CKutils", quietly = TRUE)) {
 library(CKutils)
 
 # Set development mode flag
-dev_mode <- TRUE # Set to FALSE for production
+dev_mode <- FALSE # Set to FALSE for production
 
 # Environment-specific options
 options(rgl.useNULL = TRUE) # suppress error by demography in rstudio server

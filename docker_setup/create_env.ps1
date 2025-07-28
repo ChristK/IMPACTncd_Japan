@@ -315,7 +315,7 @@ if ($UseVolumes) {
     Write-Host "Running the main container using Docker volumes..."
     # Construct arguments as an array for reliable passing
     $dockerArgs = @(
-        "run", "-it",
+        "run", "-it", "--rm",
         # User identity environment variables
         "-e", "USER_ID=$UserId",
         "-e", "GROUP_ID=$GroupId", 
@@ -379,7 +379,7 @@ if ($UseVolumes) {
     Write-Host "Docker Synthpop Dir: $DockerSynthpopDir"
 
     # Pass mount arguments correctly to docker run
-    docker run -it `
+    docker run -it --rm `
         -e "USER_ID=$UserId" `
         -e "GROUP_ID=$GroupId" `
         -e "USER_NAME=$UserName" `

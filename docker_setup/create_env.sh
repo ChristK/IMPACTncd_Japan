@@ -276,7 +276,7 @@ if [ "$USE_VOLUMES" = true ]; then
 
   # Run the main container with the project volume mounted in place of the project bind mount.
   echo "Running the main container using Docker volumes..."
-  docker run -it \
+  docker run -it --rm \
     -e USER_ID="${USER_ID}" \
     -e GROUP_ID="${GROUP_ID}" \
     -e USER_NAME="${USER_NAME}" \
@@ -311,7 +311,7 @@ if [ "$USE_VOLUMES" = true ]; then
 else
   echo "Using direct bind mounts for project, outputs, and synthpop..."
 
-  docker run -it \
+  docker run -it --rm \
     -e USER_ID="${USER_ID}" \
     -e GROUP_ID="${GROUP_ID}" \
     -e USER_NAME="${USER_NAME}" \

@@ -71,6 +71,7 @@ Simulation <-
           nr_of_threads = self$design$sim_prm$clusternumber,
           reset_after_fork = NULL
         )
+        arrow::set_cpu_count(self$design$sim_prm$clusternumber)  # limit Arrow's internal threading
 
         # Create folders if don't exist
         # TODO write hlp function and use lapply
@@ -321,6 +322,12 @@ Simulation <-
             private$time_mark("Start of parallelisation")
           }
 
+          arrow::set_cpu_count(1L)
+          data.table::setDTthreads(
+            threads = 1L,
+            restore_after_fork = NULL
+          )
+
           if (.Platform$OS.type == "windows") {
             cl <-
               makeClusterPSOCK(
@@ -412,6 +419,12 @@ Simulation <-
           if (self$design$sim_prm$logs) {
             private$time_mark("Start of single-core run")
           }
+          # all implicit parallelisation
+          arrow::set_cpu_count(self$design$sim_prm$clusternumber)
+          data.table::setDTthreads(
+            threads = self$design$sim_prm$clusternumber,
+            restore_after_fork = NULL
+          )
 
           lapply(mc_sp, private$run_sim, scenario_nam)
 
@@ -898,6 +911,14 @@ Simulation <-
         ),
         single_year_of_age = FALSE
       ) {
+          if (multicore) {
+            arrow::set_cpu_count(1L)
+            data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
+          } else { # if not explicit parallelism
+            arrow::set_cpu_count(self$design$sim_prm$clusternumber_export)
+            data.table::setDTthreads(threads = self$design$sim_prm$clusternumber_export, restore_after_fork = NULL)
+          }
+          
         lc <- open_dataset(private$output_dir("lifecourse"))
 
         # Connect DuckDB and register the Arrow dataset as a DuckDB view with better error handling
@@ -906,6 +927,12 @@ Simulation <-
         
         tryCatch({
           con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+          if (multicore) {
+            dbExecute(con, "PRAGMA threads=1")
+          } else { # if not explicit parallelism
+            dbExecute(con, paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export))
+          }
+          
           duckdb::duckdb_register_arrow(con, "lc_table", lc)
           mc_set <- dbGetQuery(con, "SELECT DISTINCT mc FROM lc_table")$mc
         }, error = function(e) {
@@ -958,6 +985,11 @@ Simulation <-
           
           tryCatch({
             con2 <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+            if (multicore) {
+            dbExecute(con2, "PRAGMA threads=1")
+            } else { # if not explicit parallelism
+            dbExecute(con2, paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export))
+            }
             duckdb::duckdb_register_arrow(
               con2,
               "tbl",
@@ -1024,7 +1056,8 @@ Simulation <-
                 private$export_summaries_hlpr(
                   mcaggr = i,
                   type = type,
-                  single_year_of_age = single_year_of_age
+                  single_year_of_age = single_year_of_age,
+                  implicit_parallelism = FALSE
                 )
                 NULL
               }
@@ -1051,7 +1084,8 @@ Simulation <-
                 private$export_summaries_hlpr(
                   mcaggr = i,
                   type = type,
-                  single_year_of_age = single_year_of_age
+                  single_year_of_age = single_year_of_age,
+                  implicit_parallelism = FALSE
                 )
                 NULL
               }
@@ -1070,7 +1104,8 @@ Simulation <-
             private$export_summaries_hlpr(
               mcaggr = i,
               type = type,
-              single_year_of_age = single_year_of_age
+              single_year_of_age = single_year_of_age,
+              implicit_parallelism = TRUE # allow implicit parallelisation
             )
             NULL
           })
@@ -3049,7 +3084,8 @@ Simulation <-
           "qalys",
           "costs"
         ),
-        single_year_of_age = FALSE
+        single_year_of_age = FALSE,
+        implicit_parallelism
       ) {
 
         if (self$design$sim_prm$logs) {
@@ -3066,11 +3102,24 @@ Simulation <-
           message("Exporting summaries...")
         }
 
+        if (implicit_parallelism) {
+            arrow::set_cpu_count(self$design$sim_prm$clusternumber_export)
+            data.table::setDTthreads(threads = self$design$sim_prm$clusternumber_export, restore_after_fork = NULL)
+        } else { # if not explicit parallelism
+            arrow::set_cpu_count(1L)
+            data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
+         }
+
         lc <- open_dataset(private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))))
 
         # Connect DuckDB and register the Arrow dataset as a DuckDB view
         duckdb_con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = FALSE) # not read only to allow creation of VIEWS etc
         on.exit(dbDisconnect(duckdb_con, shutdown = FALSE), add = TRUE)
+        if (implicit_parallelism) {
+            dbExecute(duckdb_con, paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export))
+        } else { # if not explicit parallelism
+            dbExecute(duckdb_con, "PRAGMA threads=1")
+         }
         duckdb::duckdb_register_arrow(duckdb_con, "lc_table_raw", lc)
         
         # Create enhanced view with mc column
@@ -4014,7 +4063,7 @@ Simulation <-
           }
 
           query <- sprintf(
-            "SELECT %s, SUM(%s) AS popsize, SUM(age * %s) / SUM(%s) AS LE
+            "SELECT %s, SUM(%s) AS popsize, SUM(age * %s) / NULLIF(SUM(%s), 0) AS LE
             FROM lc_table
             WHERE mc = %d AND all_cause_mrtl > 0 %s
             GROUP BY %s
@@ -4142,7 +4191,7 @@ Simulation <-
 
         for (config in hle_configs) {
           query <- sprintf(
-            "SELECT %s, SUM(%s) AS popsize, SUM(age * %s) / SUM(%s) AS HLE
+            "SELECT %s, SUM(%s) AS popsize, SUM(age * %s) / NULLIF(SUM(%s), 0) AS HLE
                FROM lc_table
                WHERE mc = %d AND %s
                GROUP BY %s
@@ -4201,303 +4250,100 @@ Simulation <-
         strata_noagegrp,
         ext
       ) {
-        # Create output directories with enhanced Windows compatibility
-        required_dirs <- paste0(
-          rep(c("dis_characteristics"), each = 2),
-          "_",
-          c("scaled_up", "esp")
-        )
-        
-        lapply(required_dirs, function(subdir) {
-          dir_path <- private$output_dir(paste0("summaries/", subdir))
-          private$create_new_folder(dir_path)
-          
-          # Additional verification for Windows - ensure directory is accessible
-          if (.Platform$OS.type == "windows") {
-            Sys.sleep(0.1)
-            if (!dir.exists(dir_path)) {
-              stop(sprintf("Failed to create or access directory: %s", dir_path))
-            }
+        # Create output directories
+        lapply(
+          paste0(rep(c("dis_characteristics"), each = 2), "_", c("scaled_up", "esp")),
+          function(subdir) {
+            private$create_new_folder(private$output_dir(paste0(
+              "summaries/",
+              subdir
+            )))
           }
-        })
+        )
 
-        # Get disease prevalence columns from DuckDB schema with error handling
+        # Get disease prevalence columns from DuckDB schema
         lc_table_name <- "lc_table"
-        
-        # Add retry logic for schema access to handle parallel conflicts
-        max_schema_retries <- 3
-        schema_retry_count <- 0
-        all_cols <- NULL
-        
-        while (is.null(all_cols) && schema_retry_count < max_schema_retries) {
-          schema_retry_count <- schema_retry_count + 1
-          tryCatch({
-            all_cols <- dbListFields(duckdb_con, lc_table_name)
-          }, error = function(e) {
-            if (schema_retry_count < max_schema_retries) {
-              Sys.sleep(0.1 * schema_retry_count) # Progressive backoff
-              warning(sprintf("Schema access attempt %d failed: %s", schema_retry_count, e$message))
-            } else {
-              stop(sprintf("Failed to access table schema after %d attempts: %s", max_schema_retries, e$message))
-            }
-          })
-        }
-        
+        all_cols <- dbListFields(duckdb_con, lc_table_name)
         nm <- grep("_prvl$", all_cols, value = TRUE)
 
-        # Both SELECT and GROUP BY need the 't.' prefix due to the join ambiguity
-        select_and_group_by_cols_sql <- paste0(
-          "t.",
-          strata_noagegrp,
-          collapse = ", "
-        )
-        # Columns needed for the final dcast formula in R (includes mcaggr, no prefix needed here)
-        cols <- paste0(strata_noagegrp, collapse = ", ")
+        # Construct the SQL query dynamically
+        select_cols <- paste(strata_noagegrp, collapse = ", ")
 
-        # --- Calculate disease characteristics using DuckDB (ALL DISEASES, UNION ALL) ---
         if (length(nm) > 0) {
-          # Process diseases in smaller batches to reduce memory pressure
-          # Use smaller batches on Windows due to different memory management
-          max_batch_size <- if (.Platform$OS.type == "windows") 3 else 5
-          batch_size <- min(max_batch_size, length(nm))
-          disease_batches <- split(nm, ceiling(seq_along(nm) / batch_size))
-          
-          all_results <- list()
-          
-          for (batch_idx in seq_along(disease_batches)) {
-            disease_batch <- disease_batches[[batch_idx]]
-            
-            # Build queries for this batch
-            union_queries <- lapply(disease_batch, function(disease_col) {
-              disease_name <- gsub("_prvl$", "", disease_col)
-              quoted_disease_col <- paste0('"', disease_col, '"')
-              sprintf(
-                "SELECT * FROM (
-                         WITH FirstOnset AS (
-                         SELECT pid, scenario, MIN(year) AS first_onset_year
-                         FROM %s
-                         WHERE mc = %d AND %s = 1
-                         GROUP BY pid, scenario
-                         ),
-                         FirstOnsetDetails AS (
-                         SELECT t_fod.pid, t_fod.scenario, t_fod.year, t_fod.age AS age_onset, t_fod.wt AS wt1st
-                         FROM %s t_fod
-                         JOIN FirstOnset fo ON t_fod.pid = fo.pid AND t_fod.scenario = fo.scenario AND t_fod.year = fo.first_onset_year
-                         WHERE t_fod.mc = %d
-                         )
-                         SELECT %s, '%s' AS disease,
-                         SUM(t.wt) AS cases,
-                         SUM(CASE WHEN t.%s = 1 THEN t.age * t.wt ELSE 0 END) / NULLIF(SUM(CASE WHEN t.%s = 1 THEN t.wt ELSE 0 END), 0) AS mean_age_incd,
-                         SUM(CASE WHEN fod.pid IS NOT NULL THEN fod.age_onset * fod.wt1st ELSE 0 END) / NULLIF(SUM(CASE WHEN fod.pid IS NOT NULL THEN fod.wt1st ELSE 0 END), 0) AS mean_age_1st_onset,
-                         SUM(t.age * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_age_prvl,
-                         SUM(t.%s * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_duration,
-                         SUM(t.cms_score * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_cms_score,
-                         SUM(t.cms_count * t.wt) / NULLIF(SUM(t.wt), 0) AS mean_cms_count
-                         FROM %s t
-                         LEFT JOIN FirstOnsetDetails fod ON t.pid = fod.pid AND t.scenario = fod.scenario AND t.year = fod.year
-                         WHERE t.mc = %d AND t.%s > 0
-                         GROUP BY %s
-                         ) AS disease_part_%s",
-                lc_table_name,
-                mcaggr,
-                quoted_disease_col,
-                lc_table_name,
-                mcaggr,
-                select_and_group_by_cols_sql,
-                disease_name,
-                quoted_disease_col,
-                quoted_disease_col,
-                quoted_disease_col,
-                lc_table_name,
-                mcaggr,
-                quoted_disease_col,
-                select_and_group_by_cols_sql,
-                gsub("[^A-Za-z0-9_]", "_", disease_name)
-              )
-            })
-            
-            # If this is the only batch, use the original logic
-            if (length(disease_batches) == 1) {
-              full_union_query <- paste(union_queries, collapse = " UNION ALL ")
+          # Build queries for all diseases
+          union_queries <- lapply(nm, function(disease_col) {
+            disease_name <- gsub("_prvl$", "", disease_col)
+            quoted_disease_col <- paste0('"', disease_col, '"')
+            sprintf(
+              "SELECT %s, '%s' AS disease,
+               SUM(wt) AS cases,
+               SUM(CASE WHEN %s = 1 THEN age * wt ELSE 0 END) / NULLIF(SUM(CASE WHEN %s = 1 THEN wt ELSE 0 END), 0) AS mean_age_incd,
+               SUM(age * wt) / NULLIF(SUM(wt), 0) AS mean_age_prvl,
+               SUM(%s * wt) / NULLIF(SUM(wt), 0) AS mean_duration,
+               SUM(cms_score * wt) / NULLIF(SUM(wt), 0) AS mean_cms_score,
+               SUM(cms_count * wt) / NULLIF(SUM(wt), 0) AS mean_cms_count
+               FROM %s
+               WHERE mc = %d AND %s > 0
+               GROUP BY %s",
+              select_cols,
+              disease_name,
+              quoted_disease_col,
+              quoted_disease_col,
+              quoted_disease_col,
+              lc_table_name,
+              mcaggr,
+              quoted_disease_col,
+              select_cols
+            )
+          })
 
-              pivot_query <- sprintf(
-                "
-               SELECT *
-               FROM (
-                 %s
-               )
-               PIVOT (
-                 COALESCE(SUM(cases), 0) AS ___cases,
-                 COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
-                 COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
-                 COALESCE(AVG(mean_age_1st_onset), 0) AS ___mean_age_1st_onset,
-                 COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
-                 COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
-                 COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
-                 FOR disease IN (%s)
-               )
-               ",
-                full_union_query,
-                paste0("'", gsub("_prvl$", "", nm), "'", collapse = ", ")
-              )
+          # Combine all disease queries
+          full_union_query <- paste(union_queries, collapse = " UNION ALL ")
 
-              wrapped_sql <- sprintf(
-                "
-               SELECT
-                 %s,
-                 COLUMNS('(.*)____(.*)') AS '\\2_\\1'
-               FROM (
-                 %s
-               )
-               ORDER BY %s
-               ",
-                cols,
-                pivot_query,
-                cols
-              )
+          # Create PIVOT query
+          pivot_query <- sprintf(
+            "SELECT *
+             FROM (
+               %s
+             )
+             PIVOT (
+               COALESCE(SUM(cases), 0) AS ___cases,
+               COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
+               COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
+               COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
+               COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
+               COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
+               FOR disease IN (%s)
+             )",
+            full_union_query,
+            paste0("'", gsub("_prvl$", "", nm), "'", collapse = ", ")
+          )
 
-              output_path <- private$output_dir(
-                paste0(
-                  "summaries/dis_characteristics_scaled_up/",
-                  mcaggr,
-                  "_dis_characteristics_scaled_up.",
-                  ext
-                )
-              )
-              
-              # Ensure directory exists before writing (additional Windows safety check)
-              dir_path <- dirname(output_path)
-              if (!dir.exists(dir_path)) {
-                private$create_new_folder(dir_path)
-              }
+          # Final query with column renaming
+          final_sql <- sprintf(
+            "SELECT %s, COLUMNS('(.*)____(.*)') AS '\\2_\\1'
+             FROM (%s)
+             ORDER BY %s",
+            select_cols,
+            pivot_query,
+            select_cols
+          )
 
-              # Execute query and write result with retry logic
-              private$execute_db_diskwrite_with_retry(
-                duckdb_con,
-                wrapped_sql,
-                output_path
-              )
+          # Write scaled_up version
+          output_path <- private$output_dir(
+            paste0("summaries/dis_characteristics_scaled_up/", mcaggr, "_dis_characteristics_scaled_up.", ext)
+          )
+          private$execute_db_diskwrite_with_retry(duckdb_con, final_sql, output_path)
 
-              wrapped_sql_esp <- gsub("wt", "wt_esp", wrapped_sql)
-              output_path_esp <- private$output_dir(
-                paste0(
-                  "summaries/dis_characteristics_esp/",
-                  mcaggr,
-                  "_dis_characteristics_esp.",
-                  ext
-                )
-              )
-              
-              # Ensure directory exists before writing (additional Windows safety check)
-              dir_path_esp <- dirname(output_path_esp)
-              if (!dir.exists(dir_path_esp)) {
-                private$create_new_folder(dir_path_esp)
-              }
+          # Write ESP version
+          final_sql_esp <- gsub("wt", "wt_esp", final_sql)
+          output_path_esp <- private$output_dir(
+            paste0("summaries/dis_characteristics_esp/", mcaggr, "_dis_characteristics_esp.", ext)
+          )
+          private$execute_db_diskwrite_with_retry(duckdb_con, final_sql_esp, output_path_esp)
+        }
 
-              # Execute query and write result with retry logic
-              private$execute_db_diskwrite_with_retry(
-                duckdb_con,
-                wrapped_sql_esp,
-                output_path_esp
-              )
-            } else {
-              # For multiple batches, we'd need to implement batch processing
-              # For now, fall back to the original approach but with smaller batches
-              warning(sprintf("Processing %d diseases in batch %d of %d", length(disease_batch), batch_idx, length(disease_batches)))
-              
-              # Process this batch (simplified version)
-              batch_union_query <- paste(union_queries, collapse = " UNION ALL ")
-              batch_diseases <- gsub("_prvl$", "", disease_batch)
-              
-              pivot_query <- sprintf(
-                "
-               SELECT *
-               FROM (
-                 %s
-               )
-               PIVOT (
-                 COALESCE(SUM(cases), 0) AS ___cases,
-                 COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
-                 COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
-                 COALESCE(AVG(mean_age_1st_onset), 0) AS ___mean_age_1st_onset,
-                 COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
-                 COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
-                 COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
-                 FOR disease IN (%s)
-               )
-               ",
-                batch_union_query,
-                paste0("'", batch_diseases, "'", collapse = ", ")
-              )
-
-              wrapped_sql <- sprintf(
-                "
-               SELECT
-                 %s,
-                 COLUMNS('(.*)____(.*)') AS '\\2_\\1'
-               FROM (
-                 %s
-               )
-               ORDER BY %s
-               ",
-                cols,
-                pivot_query,
-                cols
-              )
-
-              # Store batch result for potential combining later
-              # For now, write separate files per batch (this is a fallback)
-              output_path <- private$output_dir(
-                paste0(
-                  "summaries/dis_characteristics_scaled_up/",
-                  mcaggr,
-                  "_dis_characteristics_scaled_up_batch",
-                  batch_idx,
-                  ".",
-                  ext
-                )
-              )
-
-              # Ensure directory exists before writing (additional Windows safety check)
-              dir_path <- dirname(output_path)
-              if (!dir.exists(dir_path)) {
-                private$create_new_folder(dir_path)
-              }
-
-              private$execute_db_diskwrite_with_retry(
-                duckdb_con,
-                wrapped_sql,
-                output_path
-              )
-
-              wrapped_sql_esp <- gsub("wt", "wt_esp", wrapped_sql)
-              output_path_esp <- private$output_dir(
-                paste0(
-                  "summaries/dis_characteristics_esp/",
-                  mcaggr,
-                  "_dis_characteristics_esp_batch",
-                  batch_idx,
-                  ".",
-                  ext
-                )
-              )
-
-              # Ensure directory exists before writing (additional Windows safety check)
-              dir_path_esp <- dirname(output_path_esp)
-              if (!dir.exists(dir_path_esp)) {
-                private$create_new_folder(dir_path_esp)
-              }
-
-              private$execute_db_diskwrite_with_retry(
-                duckdb_con,
-                wrapped_sql_esp,
-                output_path_esp
-              )
-            }
-          }
-
-          NULL
-        } # length(nm) > 0
+        NULL
       }, # end export_dis_char_summaries
 
       # export_prvl_summaries ----

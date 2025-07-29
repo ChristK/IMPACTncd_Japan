@@ -1,5 +1,4 @@
 source("./global.R")
-library(htmlwidgets)
 IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 
 # system.time(IMPACTncd$export_summaries(
@@ -28,7 +27,7 @@ ext <- "parquet"
 arrow::set_cpu_count(1L)
 data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
 
-p <- profvis::profvis({
+# p <- profvis::profvis({
   lc <- open_dataset(private$output_dir(file.path(
     "lifecourse",
     paste0("mc=", mcaggr)
@@ -44,9 +43,16 @@ p <- profvis::profvis({
     )
   )
 
-  private$export_costs_summaries(duckdb_con, mcaggr, strata, ext) 
+  private$export_qalys_summaries(duckdb_con, mcaggr, strata, ext) 
   dbDisconnect(duckdb_con, shutdown = TRUE)
-})
+# })
 
-saveWidget(p, file = "./auxil/profvis_export_summaries.html", selfcontained = TRUE)
+# htmlwidgets::saveWidget(p, file = "./auxil/profvis_export_summaries.html", selfcontained = TRUE)
 # browseURL("./auxil/profvis_export_summaries.html")
+
+# To profile the memory of a script from OS
+# Rscript ./auxil/profile_export_summaries.R & echo $! > rscript_pid.txt
+# open another terminal and run
+# watch -n 1 "ps -o pid,cmd,%mem,rss,vsz -p $(cat rscript_pid.txt)"
+
+# ./auxil/mem_profile.sh ./auxil/profile_export_summaries.R ./auxil/memlog.txt

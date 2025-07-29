@@ -3182,7 +3182,7 @@ Simulation <-
           )
         }
         if ("qalys" %in% type) {
-          private$export_qaly_summaries(duckdb_con, mcaggr, strata, ext)
+          private$export_qalys_summaries(duckdb_con, mcaggr, strata, ext)
         }
         if ("costs" %in% type) {
           private$export_costs_summaries(duckdb_con, mcaggr, strata, ext)
@@ -4921,8 +4921,8 @@ Simulation <-
         NULL
       }, # end of export_cms_summaries
 
-      # export_qaly_summaries ----
-      export_qaly_summaries = function(duckdb_con, mcaggr, strata, ext) {
+      # export_qalys_summaries ----
+      export_qalys_summaries = function(duckdb_con, mcaggr, strata, ext) {
         lapply(
           paste0(rep(c("qalys"), each = 2), "_", c("scaled_up", "esp")),
           function(subdir_suffix) {
@@ -5010,7 +5010,7 @@ Simulation <-
         )
 
         NULL
-      }, # end of export_qaly_summaries
+      }, # end of export_qalys_summaries
 
       # export_costs_summaries ----
       export_costs_summaries = function(duckdb_con, mcaggr, strata, ext) {

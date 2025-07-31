@@ -28,22 +28,19 @@ arrow::set_cpu_count(1L)
 data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
 
 # p <- profvis::profvis({
-  lc <- open_dataset(private$output_dir(file.path(
-    "lifecourse",
-    paste0("mc=", mcaggr)
-  )))
+  lc <- open_dataset(private$output_dir("lifecourse"))
   duckdb_con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = FALSE) # not read only to allow creation of VIEWS etc
   dbExecute(duckdb_con, "PRAGMA threads=1")
   duckdb::duckdb_register_arrow(duckdb_con, "lc_table_raw", lc)
   dbExecute(
     duckdb_con,
     sprintf(
-      "CREATE VIEW lc_table AS SELECT *, %d::INTEGER AS mc FROM lc_table_raw",
+      "CREATE VIEW lc_table AS SELECT * FROM lc_table_raw WHERE mc = %d",
       mcaggr
     )
   )
 
-  private$export_qalys_summaries(duckdb_con, mcaggr, strata, ext) 
+  private$export_costs_summaries(duckdb_con, mcaggr, strata, ext) 
   dbDisconnect(duckdb_con, shutdown = TRUE)
 # })
 

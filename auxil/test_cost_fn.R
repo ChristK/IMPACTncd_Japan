@@ -46,7 +46,7 @@ dbGetQuery(
    WHERE table_schema = 'main';
 "
 )
-# dbGetQuery(duckdb_con, "SELECT * FROM lc_with_costs_All_view LIMIT 10;")
-dbGetQuery(duckdb_con, "SELECT COUNT(*) FROM lc_with_costs_All_view;")
+dbGetQuery(duckdb_con, "SELECT * FROM lc_with_costs_All_view LIMIT 10;")
+# dbGetQuery(duckdb_con, "SELECT COUNT(*) FROM lc_with_costs_All_view;")
 
 # ./auxil/mem_profile.sh ./auxil/test_cost_fn.R ./auxil/memlog.txt

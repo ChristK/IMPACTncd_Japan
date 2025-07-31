@@ -3752,50 +3752,67 @@ Simulation <-
               LEFT JOIN stroke_mrtl_prdv_cost_param_view spmc USING(agegrp, sex)
               LEFT JOIN stroke_informal_cost_param_view sic USING(agegrp, sex)
               LEFT JOIN stroke_direct_cost_param_view sdc USING(agegrp, sex)
+            ),
+            basic_costs AS (
+              SELECT
+                m.mc, m.scenario, m.year, m.agegrp, m.sex,
+                m.wt, m.wt_esp,
+              
+                -- CHD basic cost components
+                CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END AS chd_prvl_prdv_costs,
+                CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END AS chd_mrtl_prdv_costs,
+                CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END AS chd_informal_costs,
+                CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END AS chd_direct_costs,
+              
+                -- Stroke basic cost components
+                CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END AS stroke_prvl_prdv_costs,
+                CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END AS stroke_mrtl_prdv_costs,
+                CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END AS stroke_informal_costs,
+                CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS stroke_direct_costs
+              
+              FROM base_filtered m
+              LEFT JOIN chd_costs cc ON m.agegrp = cc.agegrp AND m.sex = cc.sex
+              LEFT JOIN stroke_costs sc ON m.agegrp = sc.agegrp AND m.sex = sc.sex
             )
             SELECT
-              m.mc, m.scenario, m.year, m.agegrp, m.sex,
-              m.chd_dgns, m.all_cause_mrtl, m.stroke_dgns, m.wt, m.wt_esp,
+              mc, scenario, year, agegrp, sex, wt, wt_esp,
             
-              CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END AS chd_prvl_prdv_costs,
-              CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END AS chd_mrtl_prdv_costs,
-              CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END AS chd_informal_costs,
-              CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END AS chd_direct_costs,
+              -- Basic cost components (already calculated)
+              chd_prvl_prdv_costs,
+              chd_mrtl_prdv_costs,
+              chd_informal_costs,
+              chd_direct_costs,
+              stroke_prvl_prdv_costs,
+              stroke_mrtl_prdv_costs,
+              stroke_informal_costs,
+              stroke_direct_costs,
             
-              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END AS stroke_prvl_prdv_costs,
-              CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END AS stroke_mrtl_prdv_costs,
-              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END AS stroke_informal_costs,
-              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS stroke_direct_costs,
+              -- Aggregated productivity costs
+              (chd_prvl_prdv_costs + chd_mrtl_prdv_costs) AS chd_productivity_costs,
+              (stroke_prvl_prdv_costs + stroke_mrtl_prdv_costs) AS stroke_productivity_costs,
+              (chd_prvl_prdv_costs + chd_mrtl_prdv_costs + stroke_prvl_prdv_costs + stroke_mrtl_prdv_costs) AS cvd_productivity_costs,
+             
+              -- Aggregated informal costs
+              (chd_informal_costs + stroke_informal_costs) AS cvd_informal_costs,
+
+              -- Aggregated direct costs
+              (chd_direct_costs + stroke_direct_costs) AS cvd_direct_costs,
+
+              -- Aggregated indirect costs (productivity + informal)
+              (chd_prvl_prdv_costs + chd_mrtl_prdv_costs + chd_informal_costs) AS chd_indirect_costs,
+              (stroke_prvl_prdv_costs + stroke_mrtl_prdv_costs + stroke_informal_costs) AS stroke_indirect_costs,
+              (chd_prvl_prdv_costs + chd_mrtl_prdv_costs + chd_informal_costs + stroke_prvl_prdv_costs + stroke_mrtl_prdv_costs + stroke_informal_costs) AS cvd_indirect_costs,
             
-              -- CHD totals
-              CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END
-               + CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END
-               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END
-               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END AS chd_total_costs,
+              -- Total costs (indirect + direct)
+              (chd_prvl_prdv_costs + chd_mrtl_prdv_costs + chd_informal_costs + chd_direct_costs) AS chd_total_costs,
+              (stroke_prvl_prdv_costs + stroke_mrtl_prdv_costs + stroke_informal_costs + stroke_direct_costs) AS stroke_total_costs,
+              (chd_prvl_prdv_costs + chd_mrtl_prdv_costs + chd_informal_costs + chd_direct_costs + stroke_prvl_prdv_costs + stroke_mrtl_prdv_costs + stroke_informal_costs + stroke_direct_costs) AS cvd_total_costs
             
-              -- Stroke totals
-              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END
-               + CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END
-               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END
-               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS stroke_total_costs,
-            
-              -- CVD total costs
-              CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END
-               + CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END
-               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END
-               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END
-               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END
-               + CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END
-               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END
-               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS cvd_total_costs
-            
-            FROM base_filtered m
-            LEFT JOIN chd_costs cc ON m.agegrp = cc.agegrp AND m.sex = cc.sex
-            LEFT JOIN stroke_costs sc ON m.agegrp = sc.agegrp AND m.sex = sc.sex;
+            FROM basic_costs;
         ",
           paste0(output_view_name, "_", scnams, "_view"),
           input_table_name,
-          mcaggr, 
+          mcaggr,
           paste0("'", scnams, "'")
         )
 
@@ -4950,10 +4967,28 @@ Simulation <-
           }
         )
 
+        # get scenario names
+        scnams <- gsub("^scenario=", "", list.dirs(
+          private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))),
+          full.names = FALSE,
+          recursive = FALSE
+        ))
+        # Safer but slow
+        # scnam <- private$query_sql(
+        #   duckdb_con,
+        #   sprintf(
+        #     "SELECT DISTINCT scenario FROM %s WHERE mc = %d;",
+        #     input_table_name,
+        #     mcaggr
+        #   )
+        # )
+
         lc_table_name <- "lc_table"
 
         # Define the name for the temporary view that calc_costs will create
         costs_view_name <- "lc_with_costs"
+
+        costs_scn_views <- paste0(costs_view_name, "_", scnams, "_view")
 
         # Call calc_costs to create/replace the temporary view with cost columns.
         # This calculates cost parameters using sc0 baseline scenario data,
@@ -4973,43 +5008,74 @@ Simulation <-
         )
 
         # Define cost metrics for SELECT statement
-        cost_metrics_select_wt <- paste(
-          'SUM("chd_productivity_costs" * wt) AS "chd_productivity_costs"',
-          'SUM("stroke_productivity_costs" * wt) AS "stroke_productivity_costs"',
-          'SUM("chd_informal_costs" * wt) AS "chd_informal_costs"',
-          'SUM("stroke_informal_costs" * wt) AS "stroke_informal_costs"',
-          'SUM("chd_direct_costs" * wt) AS "chd_direct_costs"',
-          'SUM("stroke_direct_costs" * wt) AS "stroke_direct_costs"',
-          'SUM("chd_indirect_costs" * wt) AS "chd_indirect_costs"',
-          'SUM("stroke_indirect_costs" * wt) AS "stroke_indirect_costs"',
-          'SUM("chd_total_costs" * wt) AS "chd_total_costs"',
-          'SUM("stroke_total_costs" * wt) AS "stroke_total_costs"',
-          'SUM("cvd_productivity_costs" * wt) AS "cvd_productivity_costs"',
-          'SUM("cvd_informal_costs" * wt) AS "cvd_informal_costs"',
-          'SUM("cvd_direct_costs" * wt) AS "cvd_direct_costs"',
-          'SUM("cvd_indirect_costs" * wt) AS "cvd_indirect_costs"',
-          'SUM("cvd_total_costs" * wt) AS "cvd_total_costs"',
+        cost_metrics_select_wt_esp <- paste(
+          'SUM(chd_direct_costs * wt_esp) AS chd_direct_costs',
+          'SUM(stroke_direct_costs * wt_esp) AS stroke_direct_costs',
+          'SUM(cvd_direct_costs * wt_esp) AS cvd_direct_costs',
+          'SUM(chd_productivity_costs * wt_esp) AS chd_productivity_costs',
+          'SUM(stroke_productivity_costs * wt_esp) AS stroke_productivity_costs',
+          'SUM(cvd_productivity_costs * wt_esp) AS cvd_productivity_costs',
+          'SUM(chd_informal_costs * wt_esp) AS chd_informal_costs',
+          'SUM(stroke_informal_costs * wt_esp) AS stroke_informal_costs',
+          'SUM(cvd_informal_costs * wt_esp) AS "cvd_informal_costs"',
+          'SUM(chd_indirect_costs * wt_esp) AS chd_indirect_costs',
+          'SUM(stroke_indirect_costs * wt_esp) AS stroke_indirect_costs',
+          'SUM(cvd_indirect_costs * wt_esp) AS cvd_indirect_costs',
+          'SUM(chd_total_costs * wt_esp) AS chd_total_costs',
+          'SUM(stroke_total_costs * wt_esp) AS stroke_total_costs',
+          'SUM(cvd_total_costs * wt_esp) AS cvd_total_costs',
           sep = ", "
         )
 
-        cost_metrics_select_wt_esp <- gsub(
-          "wt",
-          "wt_esp",
-          cost_metrics_select_wt
+        # Generate one SELECT per view
+        queries_per_view_esp <- vapply(
+          costs_scn_views,
+          function(view) {
+            sprintf(
+              "SELECT %s, SUM(wt_esp) AS popsize, %s 
+              FROM %s 
+              GROUP BY %s",
+              quoted_strata_cols_sql,
+              cost_metrics_select_wt_esp,
+              view,
+              quoted_strata_cols_sql
+            )
+          },
+          character(1)
         )
 
-        # --- Scaled-up Costs ---
-        # Modified query to include scenario in GROUP BY and ORDER BY
-        query_scaled_up <- sprintf(
-          "SELECT %s, SUM(wt) AS popsize, %s
-           FROM %s
-           GROUP BY %s
-           ORDER BY %s",
-          quoted_strata_cols_sql,
-          cost_metrics_select_wt,
-          costs_view_name,
-          quoted_strata_cols_sql,
+        # Combine them with UNION ALL
+        union_query_body_esp <- paste(
+          queries_per_view_esp,
+          collapse = "
+         UNION ALL 
+         "
+        )
+
+        # Wrap with ordering
+        query_esp <- sprintf(
+          "SELECT * FROM ( 
+          %s
+           ) ORDER BY %s",
+          union_query_body_esp,
           quoted_strata_cols_sql
+        )
+
+        output_path_esp <- private$output_dir(
+          paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
+        )
+
+        private$execute_db_diskwrite_with_retry(
+          duckdb_con,
+          query_esp,
+          output_path_esp
+        )
+
+        # --- Scale Up Costs ---
+        query_scaled_up <- gsub(
+          "wt_esp",
+          "wt",
+          query_esp
         )
 
         output_path_scaled_up <- private$output_dir(
@@ -5022,34 +5088,14 @@ Simulation <-
           output_path_scaled_up
         )
 
-        # --- ESP Costs ---
-        # Modified query to include scenario in GROUP BY and ORDER BY
-        query_esp <- sprintf(
-          "SELECT %s, SUM(wt_esp) AS popsize, %s
-           FROM %s
-           GROUP BY %s
-           ORDER BY %s",
-          quoted_strata_cols_sql,
-          cost_metrics_select_wt_esp,
-          costs_view_name,
-          quoted_strata_cols_sql,
-          quoted_strata_cols_sql
-        )
-        output_path_esp <- private$output_dir(
-          paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
-        )
 
-        private$execute_db_diskwrite_with_retry(
-          duckdb_con,
-          query_esp,
-          output_path_esp
-        )
-
-        # Drop the temporary view if it's no longer needed for this mcaggr
-        private$execute_sql(
-          duckdb_con,
-          sprintf("DROP VIEW IF EXISTS %s;", costs_view_name)
-        )
+        # Drop the temporary views if they're no longer needed for this mcaggr
+        sapply(costs_scn_views, function(view_name) {
+          private$execute_sql(
+            duckdb_con,
+            sprintf("DROP VIEW IF EXISTS %s;", view_name)
+          )
+        })
 
         NULL
       }

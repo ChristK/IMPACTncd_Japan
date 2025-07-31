@@ -2777,6 +2777,24 @@ Simulation <-
           }
         )
       },
+      
+      # profile_sql_view ----
+      profile_sql_view = function(con, view_name) {        
+        private$query_sql(
+          con = con,
+          sql = paste0("EXPLAIN ANALYZE SELECT * FROM ", view_name),
+          context = ""
+        )
+      },
+
+      # profile_sql_query ----
+      profile_sql_query = function(con, sql_query) {
+        private$query_sql(
+          con = con,
+          sql = paste0("EXPLAIN ANALYZE ", sql_query),
+          context = ""
+        )
+      },
 
       # run_sim ----
       # Runs the simulation in one core. mc is scalar
@@ -3372,11 +3390,21 @@ Simulation <-
         input_table_name,
         output_view_name
       ) {
-
-        # --- Memory-Optimized Approach ---
-        # Instead of loading external files and creating many intermediate tables,
-        # we'll create the cost parameters directly in SQL using hardcoded values
-        # This reduces memory usage by ~90% compared to the previous approach
+        # get scenario names
+        scnams <- gsub("^scenario=", "", list.dirs(
+          private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))),
+          full.names = FALSE,
+          recursive = FALSE
+        ))
+        # Safer but slow
+        # scnam <- private$query_sql(
+        #   duckdb_con,
+        #   sprintf(
+        #     "SELECT DISTINCT scenario FROM %s WHERE mc = %d;",
+        #     input_table_name,
+        #     mcaggr
+        #   )
+        # )
 
         # --- Inflation Factors ---
         prod_informal_inflation_factor <- 1.025
@@ -3694,86 +3722,98 @@ Simulation <-
         )
 
         # --- Step 4: Create Final Output View with All Cost Columns ---
-        # Modified to include all scenarios for the given mc iteration
-        # Cost parameters are calculated from sc0 baseline but applied to all scenarios
+        # One view per scenario named paste0(output_view_name, "_", scnams, "_view")
         final_view_creation_sql <- sprintf(
           "
           CREATE OR REPLACE TEMP VIEW %s AS
           WITH base_filtered AS (
             SELECT mc, scenario, year, agegrp, sex, chd_dgns, all_cause_mrtl, stroke_dgns, wt, wt_esp
-            FROM %s WHERE mc = %d
-          ),
-          chd_prod_prvl_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM chd_prvl_prdv_cost_param_view),
-          chd_prod_mrtl_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM chd_mrtl_prdv_cost_param_view),
-          stroke_prod_prvl_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM stroke_prvl_prdv_cost_param_view),
-          stroke_prod_mrtl_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM stroke_mrtl_prdv_cost_param_view),
-          chd_inf_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM chd_informal_cost_param_view),
-          stroke_inf_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM stroke_informal_cost_param_view),
-          chd_dir_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM chd_direct_cost_param_view),
-          stroke_dir_cost AS (SELECT agegrp, sex, COALESCE(cost_param, 0) AS val FROM stroke_direct_cost_param_view)
-          SELECT
-            m.mc,
-            m.scenario,
-            m.year,
-            m.agegrp,
-            m.sex,
-            m.chd_dgns,
-            m.all_cause_mrtl,
-            m.stroke_dgns,
-            m.wt,
-            m.wt_esp,
-            CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END AS chd_prvl_prdv_costs,
-            CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END AS chd_mrtl_prdv_costs,
-            (CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END) AS chd_productivity_costs,
-
-            CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END AS stroke_prvl_prdv_costs,
-            CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END AS stroke_mrtl_prdv_costs,
-            (CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END) AS stroke_productivity_costs,
-
-            CASE WHEN m.chd_dgns > 0 THEN cic.val ELSE 0 END AS chd_informal_costs,
-            CASE WHEN m.stroke_dgns > 0 THEN sic.val ELSE 0 END AS stroke_informal_costs,
-
-            CASE WHEN m.chd_dgns > 0 THEN cdc.val ELSE 0 END AS chd_direct_costs,
-            CASE WHEN m.stroke_dgns > 0 THEN sdc.val ELSE 0 END AS stroke_direct_costs,
-
-            -- Totals and Indirect
-            ((CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END) + CASE WHEN m.chd_dgns > 0 THEN cic.val ELSE 0 END + CASE WHEN m.chd_dgns > 0 THEN cdc.val ELSE 0 END) AS chd_total_costs,
-            ((CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END) + CASE WHEN m.chd_dgns > 0 THEN cic.val ELSE 0 END) AS chd_indirect_costs,
-
-            ((CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END) + CASE WHEN m.stroke_dgns > 0 THEN sic.val ELSE 0 END + CASE WHEN m.stroke_dgns > 0 THEN sdc.val ELSE 0 END) AS stroke_total_costs,
-            ((CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END) + CASE WHEN m.stroke_dgns > 0 THEN sic.val ELSE 0 END) AS stroke_indirect_costs,
-
-            -- CVD Costs (Sum of CHD and Stroke costs)
-            (((CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END) + CASE WHEN m.chd_dgns > 0 THEN cic.val ELSE 0 END + CASE WHEN m.chd_dgns > 0 THEN cdc.val ELSE 0 END) +
-             ((CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END) + CASE WHEN m.stroke_dgns > 0 THEN sic.val ELSE 0 END + CASE WHEN m.stroke_dgns > 0 THEN sdc.val ELSE 0 END)
-            ) AS cvd_total_costs,
-            (((CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END) + CASE WHEN m.chd_dgns > 0 THEN cic.val ELSE 0 END) +
-             ((CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END) + CASE WHEN m.stroke_dgns > 0 THEN sic.val ELSE 0 END)
-            ) AS cvd_indirect_costs,
-            (CASE WHEN m.chd_dgns > 0 THEN cdc.val ELSE 0 END + CASE WHEN m.stroke_dgns > 0 THEN sdc.val ELSE 0 END) AS cvd_direct_costs,
-            ((CASE WHEN m.chd_dgns > 0 THEN cppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 2 THEN cpmc.val ELSE 0 END) +
-             (CASE WHEN m.stroke_dgns > 0 THEN sppc.val ELSE 0 END + CASE WHEN m.all_cause_mrtl = 3 THEN spmc.val ELSE 0 END)
-            ) AS cvd_productivity_costs,
-            (CASE WHEN m.chd_dgns > 0 THEN cic.val ELSE 0 END + CASE WHEN m.stroke_dgns > 0 THEN sic.val ELSE 0 END) AS cvd_informal_costs
-          FROM base_filtered m
-          LEFT JOIN chd_prod_prvl_cost cppc ON m.agegrp = cppc.agegrp AND m.sex = cppc.sex
-          LEFT JOIN chd_prod_mrtl_cost cpmc ON m.agegrp = cpmc.agegrp AND m.sex = cpmc.sex
-          LEFT JOIN stroke_prod_prvl_cost sppc ON m.agegrp = sppc.agegrp AND m.sex = sppc.sex
-          LEFT JOIN stroke_prod_mrtl_cost spmc ON m.agegrp = spmc.agegrp AND m.sex = spmc.sex
-          LEFT JOIN chd_inf_cost cic ON m.agegrp = cic.agegrp AND m.sex = cic.sex
-          LEFT JOIN stroke_inf_cost sic ON m.agegrp = sic.agegrp AND m.sex = sic.sex
-          LEFT JOIN chd_dir_cost cdc ON m.agegrp = cdc.agegrp AND m.sex = cdc.sex
-          LEFT JOIN stroke_dir_cost sdc ON m.agegrp = sdc.agegrp AND m.sex = sdc.sex;
+            FROM %s 
+            WHERE mc = %d AND scenario = %s
+            ),
+            chd_costs AS (
+              SELECT agegrp, sex,
+                COALESCE(cppc.cost_param, 0) AS chd_prvl_prdv,
+                COALESCE(cpmc.cost_param, 0) AS chd_mrtl_prdv,
+                COALESCE(cic.cost_param, 0) AS chd_informal,
+                COALESCE(cdc.cost_param, 0) AS chd_direct
+              FROM chd_prvl_prdv_cost_param_view cppc
+              LEFT JOIN chd_mrtl_prdv_cost_param_view cpmc USING(agegrp, sex)
+              LEFT JOIN chd_informal_cost_param_view cic USING(agegrp, sex)
+              LEFT JOIN chd_direct_cost_param_view cdc USING(agegrp, sex)
+            ),
+            stroke_costs AS (
+              SELECT agegrp, sex,
+                COALESCE(sppc.cost_param, 0) AS stroke_prvl_prdv,
+                COALESCE(spmc.cost_param, 0) AS stroke_mrtl_prdv,
+                COALESCE(sic.cost_param, 0) AS stroke_informal,
+                COALESCE(sdc.cost_param, 0) AS stroke_direct
+              FROM stroke_prvl_prdv_cost_param_view sppc
+              LEFT JOIN stroke_mrtl_prdv_cost_param_view spmc USING(agegrp, sex)
+              LEFT JOIN stroke_informal_cost_param_view sic USING(agegrp, sex)
+              LEFT JOIN stroke_direct_cost_param_view sdc USING(agegrp, sex)
+            )
+            SELECT
+              m.mc, m.scenario, m.year, m.agegrp, m.sex,
+              m.chd_dgns, m.all_cause_mrtl, m.stroke_dgns, m.wt, m.wt_esp,
+            
+              CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END AS chd_prvl_prdv_costs,
+              CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END AS chd_mrtl_prdv_costs,
+              CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END AS chd_informal_costs,
+              CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END AS chd_direct_costs,
+            
+              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END AS stroke_prvl_prdv_costs,
+              CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END AS stroke_mrtl_prdv_costs,
+              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END AS stroke_informal_costs,
+              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS stroke_direct_costs,
+            
+              -- CHD totals
+              CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END
+               + CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END
+               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END
+               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END AS chd_total_costs,
+            
+              -- Stroke totals
+              CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END
+               + CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END
+               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END
+               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS stroke_total_costs,
+            
+              -- CVD total costs
+              CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END
+               + CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END
+               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END
+               + CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END
+               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END
+               + CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END
+               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END
+               + CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS cvd_total_costs
+            
+            FROM base_filtered m
+            LEFT JOIN chd_costs cc ON m.agegrp = cc.agegrp AND m.sex = cc.sex
+            LEFT JOIN stroke_costs sc ON m.agegrp = sc.agegrp AND m.sex = sc.sex;
         ",
-          output_view_name,
+          paste0(output_view_name, "_", scnams, "_view"),
           input_table_name,
-          mcaggr
+          mcaggr, 
+          paste0("'", scnams, "'")
         )
-        private$execute_sql(
-          duckdb_con,
-          final_view_creation_sql,
-          paste("Final cost view:", output_view_name)
-        )
+
+        sapply(final_view_creation_sql, function(sql) {
+          private$execute_sql(
+            duckdb_con,
+            sql,
+            paste0("Final cost views per scenario:", output_view_name)
+          )
+        })
+
+        # final_view_creation_sql <- paste(final_view_creation_sql, collapse = "\n")
+
+        # private$execute_sql(
+        #   duckdb_con,
+        #   final_view_creation_sql,
+        #   paste0("Final cost views per scenario:", output_view_name, "_scn_view")
+        # )
 
         # Do not clean up intermediate tables/views to save memory. They are needed during runtime
 
@@ -4913,7 +4953,7 @@ Simulation <-
         lc_table_name <- "lc_table"
 
         # Define the name for the temporary view that calc_costs will create
-        costs_view_name <- "lc_with_costs_view"
+        costs_view_name <- "lc_with_costs"
 
         # Call calc_costs to create/replace the temporary view with cost columns.
         # This calculates cost parameters using sc0 baseline scenario data,

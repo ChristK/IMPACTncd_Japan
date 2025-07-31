@@ -42,4 +42,6 @@ if (exists("t1") && exists("t2") && !all.equal(t1, t2)) {
 all.equal(t1, t2)
 
 
-# t1 <- as.data.table(open_dataset(dir1))
+# t1 <- as.data.table(open_dataset("/mnt/storage_fast4/jpn/outputs/summaries/costs_esp/5_costs_esp.parquet"))
+# t2 <- as.data.table(open_dataset("/mnt/storage_fast4/jpn/outputs/summaries_noscenariobatching/costs_esp/5_costs_esp.parquet"))
+# all.equal(t1, t2)

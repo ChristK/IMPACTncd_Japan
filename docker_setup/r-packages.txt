@@ -4,6 +4,7 @@
 # See https://packagemanager.posit.co/client/#/repos/cran/setup for available snapshots
 
 arrow
+callr
 digest
 dqrng
 doParallel
@@ -25,7 +26,7 @@ roxygen2
 tinytest
 wrswoR
 yaml
-dbplyr
+# dbplyr
 dplyr
 data.table
 # required currently but to be removed in the future

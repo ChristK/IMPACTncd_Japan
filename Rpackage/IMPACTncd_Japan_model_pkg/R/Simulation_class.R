@@ -5027,66 +5027,73 @@ Simulation <-
           sep = ", "
         )
 
-        # Generate one SELECT per view
-        queries_per_view_esp <- vapply(
-          costs_scn_views,
-          function(view) {
-            sprintf(
-              "SELECT %s, SUM(wt_esp) AS popsize, %s 
-              FROM %s 
-              GROUP BY %s",
-              quoted_strata_cols_sql,
-              cost_metrics_select_wt_esp,
-              view,
-              quoted_strata_cols_sql
-            )
-          },
-          character(1)
-        )
+        # Memory-efficient approach: Process scenarios one at a time
+        # Initialize result collectors for both ESP and scaled-up results
+        esp_results <- list()
+        scaled_up_results <- list()
+        
+        # Process each scenario individually to avoid loading all scenarios in RAM
+        for (i in seq_along(scnams)) {
+          scnam <- scnams[i]
+          view_name <- costs_scn_views[i]
+          
+          # ESP query for current scenario
+          query_esp_scenario <- sprintf(
+            "SELECT %s, SUM(wt_esp) AS popsize, %s
+             FROM %s
+             GROUP BY %s",
+            quoted_strata_cols_sql,
+            cost_metrics_select_wt_esp,
+            view_name,
+            quoted_strata_cols_sql
+          )
+          
+          # Execute and store result for ESP
+          esp_results[[i]] <- as.data.table(private$query_sql(duckdb_con, query_esp_scenario, paste("ESP costs for scenario", scnam)))
+          
+          # Scaled-up query for current scenario (replace wt_esp with wt)
+          cost_metrics_select_wt <- gsub("wt_esp", "wt", cost_metrics_select_wt_esp)
+          query_scaled_up_scenario <- sprintf(
+            "SELECT %s, SUM(wt) AS popsize, %s
+             FROM %s
+             GROUP BY %s",
+            quoted_strata_cols_sql,
+            cost_metrics_select_wt,
+            view_name,
+            quoted_strata_cols_sql
+          )
+          
+          # Execute and store result for scaled-up
+          scaled_up_results[[i]] <- as.data.table(private$query_sql(duckdb_con, query_scaled_up_scenario, paste("Scaled-up costs for scenario", scnam)))
+        }
+        
+        # Combine all ESP results and write to disk
+        if (length(esp_results) > 0) {
+          combined_esp <- rbindlist(esp_results, use.names = TRUE, fill = TRUE)
+          rm(esp_results)
+          # Order by strata columns
+          setkeyv(combined_esp, strata)
+          
+          output_path_esp <- private$output_dir(
+            paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
+          )
+          
+          arrow::write_parquet(combined_esp, output_path_esp)
+        }
+        
+        # Combine all scaled-up results and write to disk
+        if (length(scaled_up_results) > 0) {
+          combined_scaled_up <- rbindlist(scaled_up_results, use.names = TRUE, fill = TRUE)
+          rm(scaled_up_results)
+          # Order by strata columns
+          setkeyv(combined_scaled_up, strata)
 
-        # Combine them with UNION ALL
-        union_query_body_esp <- paste(
-          queries_per_view_esp,
-          collapse = "
-         UNION ALL 
-         "
-        )
-
-        # Wrap with ordering
-        query_esp <- sprintf(
-          "SELECT * FROM ( 
-          %s
-           ) ORDER BY %s",
-          union_query_body_esp,
-          quoted_strata_cols_sql
-        )
-
-        output_path_esp <- private$output_dir(
-          paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
-        )
-
-        private$execute_db_diskwrite_with_retry(
-          duckdb_con,
-          query_esp,
-          output_path_esp
-        )
-
-        # --- Scale Up Costs ---
-        query_scaled_up <- gsub(
-          "wt_esp",
-          "wt",
-          query_esp
-        )
-
-        output_path_scaled_up <- private$output_dir(
-          paste0("summaries/costs_scaled_up/", mcaggr, "_costs_scaled_up.", ext)
-        )
-
-        private$execute_db_diskwrite_with_retry(
-          duckdb_con,
-          query_scaled_up,
-          output_path_scaled_up
-        )
+          output_path_scaled_up <- private$output_dir(
+            paste0("summaries/costs_scaled_up/", mcaggr, "_costs_scaled_up.", ext)
+          )
+          
+          arrow::write_parquet(combined_scaled_up, output_path_scaled_up)
+        }
 
 
         # Drop the temporary views if they're no longer needed for this mcaggr

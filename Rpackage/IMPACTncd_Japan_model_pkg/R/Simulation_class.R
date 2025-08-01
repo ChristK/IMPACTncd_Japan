@@ -75,7 +75,9 @@ Simulation <-
 
         # Create folders if don't exist
         # TODO write hlp function and use lapply
-        message("Creating output subfolders.")
+        if (self$design$sim_prm$logs) {
+          message("Creating output subfolders.")
+        }
         private$create_new_folder(
           self$design$sim_prm$output_dir,
           self$design$sim_prm$logs
@@ -123,7 +125,9 @@ Simulation <-
 
         private$create_empty_calibration_prms_file(replace = FALSE)
 
-        message("Loading exposures.")
+        if (self$design$sim_prm$logs) {
+          message("Loading exposures.")
+        }
         # RR Create a named list of Exposure objects for the files in
         # ./inputs/RR
         fl <- list.files(
@@ -150,7 +154,9 @@ Simulation <-
         rm(fl)
 
         # Generate diseases
-        message("Loading diseases.")
+        if (self$design$sim_prm$logs) {
+          message("Loading diseases.")
+        }
         self$diseases <- lapply(self$design$sim_prm$diseases, function(x) {
           x[["design_"]] <- self$design
           x[["RR"]] <- self$RR
@@ -162,7 +168,9 @@ Simulation <-
           "name"
         )
 
-        message("Generating microsimulation structure.")
+        if (self$design$sim_prm$logs) {
+          message("Generating microsimulation structure.")
+        }
         # Generate the graph with the causality structure
         ds <- unlist(strsplit(names(self$RR), "~"))
         ds[grep("^smok_", ds)] <- "smoking"
@@ -306,9 +314,11 @@ Simulation <-
         ) {
           # stop("Results from a previous simulation exists in the output
           #      folder. Please remove them before run a new one.")
-          message(
-            "Results from a previous simulation exists in the output folder. Please remove them if this was unintentional."
-          )
+          if (self$design$sim_prm$logs) {
+            message(
+              "Results from a previous simulation exists in the output folder. Please remove them if this was unintentional."
+            )
+          }
         }
 
         # Generate PARF files if they don't exist. Note that generation is
@@ -513,7 +523,9 @@ Simulation <-
             ])[1] ==
               0
           ) {
-            message("All ages have been calibrated. Skipping calibration.")
+            if (self$design$sim_prm$logs) {
+              message("All ages have been calibrated. Skipping calibration.")
+            }
             return(invisible(self))
           }
           age_start <- clbr[
@@ -524,7 +536,9 @@ Simulation <-
               nonmodelled_ftlt_clbr_fctr == 1,
             min(age)
           ] # Unsafe but rarely
-          message(paste0("Starting calibration from age ", age_start, "."))
+          if (self$design$sim_prm$logs) {
+            message("Starting calibration from age ", age_start, ".")
+          }
         }
 
         # Run the simulation from min to max age
@@ -1021,11 +1035,13 @@ Simulation <-
         }
 
         if (length(mc_set) == 0) {
-          message(
-            "All required Monte Carlo iterations already processed for type: ",
-            paste(type, collapse = ", "),
-            ". Skipping summary export."
-          )
+          if (self$design$sim_prm$logs) {
+            message(
+              "All required Monte Carlo iterations already processed for type: ",
+              paste(type, collapse = ", "),
+              ". Skipping summary export."
+            )
+          }
           return(invisible(self)) # Exit if nothing left to process
         }
         # end of logic
@@ -3381,7 +3397,7 @@ Simulation <-
       },
 
       # calc_costs ----
-      # Memory-optimized version of calc_costs using DuckDB SQL.
+      # Memory-optimised version of calc_costs using DuckDB SQL.
       # Creates a temporary view named 'output_view_name' in DuckDB,
       # which is the 'input_table_name' (filtered by mcaggr) augmented with calculated cost columns.
       calc_costs = function(
@@ -3627,7 +3643,7 @@ Simulation <-
           "stroke_direct_tcost_view"
         )
 
-        # Optimized cost parameter calculation - single SQL statement approach
+        # Optimised cost parameter calculation - single SQL statement approach
         cost_param_sql <- "
           CREATE OR REPLACE TEMP VIEW %s AS
           WITH joined_data AS (
@@ -3675,7 +3691,7 @@ Simulation <-
           )
         }
 
-        # Direct cost parameters with optimized SQL
+        # Direct cost parameters with optimised SQL
         direct_cost_sql <- "
           CREATE OR REPLACE TEMP VIEW %s AS
           WITH lc_with_agegrp2 AS (
@@ -3833,8 +3849,6 @@ Simulation <-
         # )
 
         # Do not clean up intermediate tables/views to save memory. They are needed during runtime
-
-        if (self$design$sim_prm$logs) message(sprintf("Memory-optimized costs calculated for MC run %d", mcaggr))
 
         return(invisible(NULL))
       }, # end calc_costs
@@ -4209,14 +4223,25 @@ Simulation <-
         nm <- grep("_prvl$", all_cols, value = TRUE)
 
         # Construct the SQL query dynamically
-        select_cols <- paste(strata_noagegrp, collapse = ", ")
+        # Ensure agegrp is excluded from grouping to aggregate over it
+        select_cols_no_agegrp <- paste(setdiff(strata_noagegrp, "agegrp"), collapse = ", ")
 
         if (length(nm) > 0) {
-          # Build queries for all diseases
-          union_queries <- lapply(nm, function(disease_col) {
-            disease_name <- gsub("_prvl$", "", disease_col)
+          # Memory-efficient approach: Process diseases one at a time
+          disease_results_scaled_up <- list()
+          disease_results_esp <- list()
+          
+          # Get disease names without _prvl suffix
+          disease_names <- gsub("_prvl$", "", nm)
+          
+          # Process each disease individually to avoid memory issues
+          for (i in seq_along(nm)) {
+            disease_col <- nm[i]
+            disease_name <- disease_names[i]
             quoted_disease_col <- paste0('"', disease_col, '"')
-            sprintf(
+            
+            # Query for current disease (scaled_up version)
+            disease_query_scaled_up <- sprintf(
               "SELECT %s, '%s' AS disease,
                SUM(wt) AS cases,
                SUM(CASE WHEN %s = 1 THEN age * wt ELSE 0 END) / NULLIF(SUM(CASE WHEN %s = 1 THEN wt ELSE 0 END), 0) AS mean_age_incd,
@@ -4227,7 +4252,7 @@ Simulation <-
                FROM %s
                WHERE mc = %d AND %s > 0
                GROUP BY %s",
-              select_cols,
+              select_cols_no_agegrp,
               disease_name,
               quoted_disease_col,
               quoted_disease_col,
@@ -4235,54 +4260,86 @@ Simulation <-
               lc_table_name,
               mcaggr,
               quoted_disease_col,
-              select_cols
+              select_cols_no_agegrp
             )
-          })
-
-          # Combine all disease queries
-          full_union_query <- paste(union_queries, collapse = " UNION ALL ")
-
-          # Create PIVOT query
-          pivot_query <- sprintf(
-            "SELECT *
-             FROM (
-               %s
-             )
-             PIVOT (
-               COALESCE(SUM(cases), 0) AS ___cases,
-               COALESCE(AVG(mean_duration), 0) AS ___mean_duration,
-               COALESCE(AVG(mean_age_incd), 0) AS ___mean_age_incd,
-               COALESCE(AVG(mean_age_prvl), 0) AS ___mean_age_prvl,
-               COALESCE(AVG(mean_cms_score), 0) AS ___mean_cms_score,
-               COALESCE(AVG(mean_cms_count), 0) AS ___mean_cms_count
-               FOR disease IN (%s)
-             )",
-            full_union_query,
-            paste0("'", gsub("_prvl$", "", nm), "'", collapse = ", ")
-          )
-
-          # Final query with column renaming
-          final_sql <- sprintf(
-            "SELECT %s, COLUMNS('(.*)____(.*)') AS '\\2_\\1'
-             FROM (%s)
-             ORDER BY %s",
-            select_cols,
-            pivot_query,
-            select_cols
-          )
-
-          # Write scaled_up version
-          output_path <- private$output_dir(
-            paste0("summaries/dis_characteristics_scaled_up/", mcaggr, "_dis_characteristics_scaled_up.", ext)
-          )
-          private$execute_db_diskwrite_with_retry(duckdb_con, final_sql, output_path)
-
-          # Write ESP version
-          final_sql_esp <- gsub("wt", "wt_esp", final_sql)
-          output_path_esp <- private$output_dir(
-            paste0("summaries/dis_characteristics_esp/", mcaggr, "_dis_characteristics_esp.", ext)
-          )
-          private$execute_db_diskwrite_with_retry(duckdb_con, final_sql_esp, output_path_esp)
+            
+            # Execute and store result for scaled_up
+            result_scaled_up <- private$query_sql(duckdb_con, disease_query_scaled_up, paste("Disease characteristics for", disease_name, "(scaled_up)"))
+            if (nrow(result_scaled_up) > 0) {
+              disease_results_scaled_up[[i]] <- result_scaled_up
+            }
+            
+            # Query for current disease (ESP version)
+            disease_query_esp <- gsub("wt", "wt_esp", disease_query_scaled_up)
+            
+            # Execute and store result for ESP
+            result_esp <- private$query_sql(duckdb_con, disease_query_esp, paste("Disease characteristics for", disease_name, "(ESP)"))
+            if (nrow(result_esp) > 0) {
+              disease_results_esp[[i]] <- result_esp
+            }
+          }
+          
+          # Combine and process scaled_up results
+          if (length(disease_results_scaled_up) > 0) {
+            # Remove NULL entries
+            disease_results_scaled_up <- disease_results_scaled_up[!sapply(disease_results_scaled_up, is.null)]
+            
+            if (length(disease_results_scaled_up) > 0) {
+              combined_scaled_up <- rbindlist(disease_results_scaled_up)
+              setDT(combined_scaled_up)
+              
+              # Get strata columns without agegrp for formula
+              strata_no_agegrp <- setdiff(strata_noagegrp, "agegrp")
+              
+              # Create pivot transformation using data.table dcast
+              pivot_result_scaled_up <- dcast(
+                combined_scaled_up,
+                formula = as.formula(paste(paste(strata_no_agegrp, collapse = " + "), "~ disease")),
+                value.var = c("cases", "mean_age_incd", "mean_age_prvl", "mean_duration", "mean_cms_score", "mean_cms_count"),
+                fill = 0
+              )
+              
+              # Order by strata columns (excluding agegrp)
+              setkeyv(pivot_result_scaled_up, strata_no_agegrp)
+              
+              # Write scaled_up version
+              output_path <- private$output_dir(
+                paste0("summaries/dis_characteristics_scaled_up/", mcaggr, "_dis_characteristics_scaled_up.", ext)
+              )
+              arrow::write_parquet(pivot_result_scaled_up, output_path)
+            }
+          }
+          
+          # Combine and process ESP results
+          if (length(disease_results_esp) > 0) {
+            # Remove NULL entries
+            disease_results_esp <- disease_results_esp[!sapply(disease_results_esp, is.null)]
+            
+            if (length(disease_results_esp) > 0) {
+              combined_esp <- rbindlist(disease_results_esp)
+              setDT(combined_esp)
+              
+              # Get strata columns without agegrp for formula
+              strata_no_agegrp <- setdiff(strata_noagegrp, "agegrp")
+              
+              # Create pivot transformation using data.table dcast
+              pivot_result_esp <- dcast(
+                combined_esp,
+                formula = as.formula(paste(paste(strata_no_agegrp, collapse = " + "), "~ disease")),
+                value.var = c("cases", "mean_age_incd", "mean_age_prvl", "mean_duration", "mean_cms_score", "mean_cms_count"),
+                fill = 0
+              )
+              
+              # Order by strata columns (excluding agegrp)
+              setkeyv(pivot_result_esp, strata_no_agegrp)
+              
+              # Write ESP version
+              output_path_esp <- private$output_dir(
+                paste0("summaries/dis_characteristics_esp/", mcaggr, "_dis_characteristics_esp.", ext)
+              )
+              arrow::write_parquet(pivot_result_esp, output_path_esp)
+            }
+          }
         }
 
         NULL

@@ -3,8 +3,8 @@ library(data.table)
 library(fs) # for path_rel()
 
 # Define directories
-dir1 <- "/mnt/storage_fast4/jpn/outputs/summaries_noscenariobatching/dis_characteristics_esp"
-dir2 <- "/mnt/storage_fast4/jpn/outputs/summaries/dis_characteristics_esp"
+dir1 <- "/mnt/storage_fast4/jpn/outputs/summaries_noscenariobatching/"
+dir2 <- "/mnt/storage_fast4/jpn/outputs/summaries/"
 
 # Get relative file paths from dir1
 files1 <- list.files(
@@ -42,7 +42,8 @@ if (exists("t1") && exists("t2") && !all.equal(t1, t2)) {
 all.equal(t1, t2)
 
 
-# t1 <- as.data.table(open_dataset("/mnt/storage_fast4/jpn/outputs/summaries/costs_esp/5_costs_esp.parquet"))
-# t2 <- as.data.table(open_dataset("/mnt/storage_fast4/jpn/outputs/summaries_noscenariobatching/costs_esp/5_costs_esp.parquet"))
-# all.equal(t1$chd_total_costs, t2$chd_total_costs)
+# t1 <- as.data.table(open_dataset("/mnt/storage_fast4/jpn/outputs/summaries/dis_characteristics_esp/5_dis_characteristics_esp.parquet"))
+# t2 <- as.data.table(open_dataset("/mnt/storage_fast4/jpn/outputs/summaries_noscenariobatching/dis_characteristics_esp/"))[mc == 5]
+# t2 <- t2[complete.cases(t2), ]
+# all.equal(t1$mean_age_incd_htn, t2$mean_age_incd_htn)
 

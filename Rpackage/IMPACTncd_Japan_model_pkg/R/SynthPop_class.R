@@ -235,16 +235,22 @@ SynthPop <-
       #' @param scenario_nam The scenario name. Logic is different if "sc0".
       #' @return The invisible self for chaining.
       update_pop_weights = function(scenario_nam = "sc0") {
-        if (scenario_nam == "sc0" && !"wt" %in% names(self$pop)) { # baseline
+        if (scenario_nam == "sc0") {
+          # baseline
           self$pop[, tmp := sum(wt_immrtl), keyby = .(year, age, sex)]
           set(self$pop, NULL, "wt", 0)
-          self$pop[!is.na(all_cause_mrtl), wt := wt_immrtl * tmp / sum(wt_immrtl),
+          self$pop[
+            !is.na(all_cause_mrtl),
+            wt := wt_immrtl * tmp / sum(wt_immrtl),
             by = .(year, age, sex)
           ]
 
           self$pop[, tmp := NULL]
-        } else if (scenario_nam != "sc0" && !"wt" %in% names(self$pop)) {
-          # For policy scenarios.
+        } else if (scenario_nam != "sc0") {
+          # For policy scenarios. 
+          # Note that the wt_esp treatment is just an approximation to make them
+          # available for policy scenarios. They need to be recalculated
+          # properly after the cpp code and with deads removed
 
           fnam <- file.path(
             private$design$sim_prm$output_dir,
@@ -254,28 +260,44 @@ SynthPop <-
           )
 
           t0 <- open_dataset(fnam)
-          t0 <- as.data.table(t0[, c("pid", "year", "wt")])
+          t0 <- as.data.table(t0[, c("pid", "year", "wt", "wt_esp")])
 
           # For some reason pid and year get read incorrectly as character sometimes
           # TODO check if this is still necessary
-          if (!is.integer(t0$pid))        t0[, pid := as.integer(pid)]
-          if (!is.integer(self$pop$pid))  self$pop[, pid := as.integer(pid)]
-          if (!is.integer(t0$year))       t0[, year := as.integer(year)]
-          if (!is.integer(self$pop$year)) self$pop[, year := as.integer(year)]
-          
+          if (!is.integer(t0$pid)) {
+            t0[, pid := as.integer(pid)]
+          }
+          if (!is.integer(self$pop$pid)) {
+            self$pop[, pid := as.integer(pid)]
+          }
+          if (!is.integer(t0$year)) {
+            t0[, year := as.integer(year)]
+          }
+          if (!is.integer(self$pop$year)) {
+            self$pop[, year := as.integer(year)]
+          }
+
           setkeyv(t0, c("pid", "year"))
-          self$pop[t0, on = c("pid", "year"), wt := i.wt]
-          
-          # New way of calculating policy scenario population weights   
-          setkeyv(self$pop, c("pid", "year"))       
+          self$pop[
+            t0,
+            on = c("pid", "year"),
+            `:=`(wt = i.wt, wt_esp = i.wt_esp)
+          ]
+
+          # New way of calculating policy scenario population weights
+          setkeyv(self$pop, c("pid", "year"))
           setnafill(self$pop, type = "locf", cols = "wt")
+          setnafill(self$pop, type = "locf", cols = "wt_esp")
           self$pop[is.na(all_cause_mrtl), wt := 0]
+          self$pop[is.na(all_cause_mrtl), wt_esp := 0]
 
           # Old way of calculating policy scenario population weights
           # self$pop[is.na(all_cause_mrtl), wt := 0]
           # self$pop[is.na(wt), wt := wt_immrtl]
         } else {
-          stop("The baseline scenario need to be named 'sc0' and simulated first, before any policy scenarios.") # TODO more informative message
+          stop(
+            "The baseline scenario need to be named 'sc0' and simulated first, before any policy scenarios."
+          ) # TODO more informative message
         }
 
         invisible(self)

@@ -2845,7 +2845,13 @@ Simulation <-
           )
         })
 
+        # make pop weight available to scenarios
+        # message("Updating weights")
+        if (scenario_nam != "sc0") sp$update_pop_weights(scenario_nam)
+        # message("Updating weights finished")
+
         private$primary_prevention_scn(sp) # apply primary pevention scenario
+        # message("scenario finished")
 
         lapply(self$diseases, function(x) {
           x$set_rr(sp, self$design)$set_incd_prb(sp, self$design)$set_dgns_prb(
@@ -2853,9 +2859,11 @@ Simulation <-
             self$design
           )$set_mrtl_prb(sp, self$design)
         })
+        # message("incd finished")
 
         private$secondary_prevention_scn(sp) # apply secondary pevention scenario
-
+        # message("2nd scenario finished")
+        
         # ds <- copy(self$diseases) # Necessary for parallelisation
         # lapply(self$diseases, function(x) {
         #   if (self$design$sim_prm$logs) print(x$name)
@@ -2868,13 +2876,15 @@ Simulation <-
         # })
 
         l <- private$mk_scenario_init(sp, scenario_nam)
+        # message("l scenario finished")
         simcpp(sp$pop, l, sp$mc)
+        # message("cpp finished")
         # it doesn't matter if mc or mc_aggr is used in the above, because it is
         # only used for the RNG stream and the pid are different in each mc_aggr
         # pop
 
-        sp$update_pop_weights(scenario_nam)
-
+        if (scenario_nam == "sc0") sp$update_pop_weights(scenario_nam)
+        # message("wt update finished")
         # Prune pop (NOTE that assignment in the function env makes this
         # data.table local)
         sp$pop <- sp$pop[
@@ -2882,12 +2892,14 @@ Simulation <-
             year >= self$design$sim_prm$init_year_long &
             between(age, self$design$sim_prm$ageL, self$design$sim_prm$ageH),
         ]
+        # message("clean deads finished")
         setkey(sp$pop, pid, year)
         sp$pop[, pid_mrk := mk_new_simulant_markers(pid)]
 
-        # apply ESP weights
+        # apply ESP weights (correctly overwrite the approximate wt_esp weights
+        # that sp$update_pop_weights generates.)
         to_agegrp(sp$pop, 5, 99)
-        absorb_dt(sp$pop, private$esp_weights)
+        absorb_dt(sp$pop, private$esp_weights, exclude_col = "wt_esp")
         sp$pop[,
           wt_esp := wt_esp * unique(wt_esp) / sum(wt_esp),
           by = .(year, agegrp, sex)

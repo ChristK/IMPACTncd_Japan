@@ -1,9 +1,9 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# create_env.sh
+# create_dev_env.sh
 #
 # Usage:
-#   ./create_env.sh [path_to_yaml] [--use-volumes]
+#   ./create_dev_env.sh [path_to_yaml] [--use-volumes]
 #
 # Description:
 #   This script builds and runs a Docker container for the IMPACTncd Japan project.
@@ -40,7 +40,7 @@ PROJECT_ROOT=$(realpath "$SCRIPT_DIR/..")
 
 # Variable definitions
 IMAGE_NAME="impactncd-japan-r-prerequisite:latest"
-DOCKERFILE="Dockerfile.prerequisite"
+DOCKERFILE="Dockerfile.prerequisite.IMPACTncdJPN"
 HASH_FILE="$SCRIPT_DIR/.docker_build_hash" # Store hash file in script directory
 YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root
 CURRENT_USER=$(whoami)
@@ -66,7 +66,7 @@ if ! docker info > /dev/null 2>&1; then
   echo "     sudo usermod -aG docker $USER"
   echo "     (You'll need to log out and back in for this change to take effect)"
   echo "  3. Or run this script using 'sudo':"
-  echo "     sudo ./create_env.sh [options]"
+  echo "     sudo ./create_dev_env.sh [options]"
   echo "---------------------------------------------------------------------"
   exit 1
 fi
@@ -301,6 +301,14 @@ if [ "$USE_VOLUMES" = true ]; then
     -v "$VOLUME_SYNTHPOP_NAME":/volume \
     -v "$SYNTHPOP_DIR":/backup \
     rsync-alpine rsync -avc --no-owner --no-group --no-times /volume/ /backup/
+  # Sync simulation folder back to the project directory
+  SIMULATION_DIR="$PROJECT_ROOT/simulation"
+  echo "Syncing simulation folder back to: $SIMULATION_DIR"
+  docker run --rm \
+    --user "${USER_ID}:${GROUP_ID}" \
+    -v "$VOLUME_PROJECT":/project \
+    -v "$SIMULATION_DIR":/backup \
+    rsync-alpine rsync -avc --no-owner --no-group --no-times /project/simulation/ /backup/
 
   # Clean up all the Docker volumes used for the simulation.
   echo "Cleaning up Docker volumes..."

@@ -1,4 +1,4 @@
-<file name=build_and_push_IMPACTncd.ps1 path=/home/ckyprid/My_Models/IMPACTncd/docker_setup><# 
+<file name=build_push_IMPACTncdJPN.ps1 path=/home/ckyprid/My_Models/IMPACTncd/docker_setup><# 
 .SYNOPSIS 
     This script automates building and pushing a Docker image to Docker Hub on Windows. 
 
@@ -7,14 +7,14 @@
       - Loads environment variables from a .env file if present. 
       - Prompts for Docker Hub username if not set. 
       - Logs into Docker Hub using the DOCKERHUB_TOKEN, or asks for manual login if not provided. 
-      - Builds the Docker image from Dockerfile.IMPACTncd using the parent directory as context. 
+      - Builds the Docker image from Dockerfile.IMPACTncdJPN using the parent directory as context. 
       - Optionally pushes the image to Docker Hub if the --push flag is provided. 
 
 .PARAMETER --push 
     Optional flag to push the Docker image after building it. 
 
 .EXAMPLE 
-    .\build_and_push_IMPACTncd.ps1 --push 
+    .\build_push_IMPACTncdJPN.ps1 --push 
     This will build the image and push it to Docker Hub. 
 #> 
 
@@ -86,9 +86,9 @@ if (-not $env:DOCKERHUB_USERNAME -or -not $env:DOCKERHUB_TOKEN) {
 } 
 
 # Build the Docker image using the parent directory as the build context 
-Log "Building Docker image from Dockerfile.IMPACTncd..." 
+Log "Building Docker image from Dockerfile.IMPACTncdJPN..." 
 try { 
-    docker build --no-cache -f Dockerfile.IMPACTncd -t $IMAGE_NAME .. 
+    docker build --no-cache -f Dockerfile.IMPACTncdJPN -t $IMAGE_NAME .. 
     if ($LASTEXITCODE -eq 0) { 
         Log "Docker image built successfully." 
     } else { 

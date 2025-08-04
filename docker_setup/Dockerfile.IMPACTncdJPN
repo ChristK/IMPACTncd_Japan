@@ -1,0 +1,47 @@
+# Base image with R and prerequisites
+FROM chriskypri/impactncd-japan-r-prerequisite:latest 
+# Maintainer information
+LABEL maintainer="Chris Kypridemos <ckyprid@liverpool.ac.uk>" 
+RUN git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan
+# Reconstruct large files from their chunks that are stored on GitHub
+RUN cd /IMPACTncd_Japan && \
+    if [ -f "./simulation/large_files_indx.csv" ]; then \
+        tail -n +2 "./simulation/large_files_indx.csv" | while IFS=, read -r pths rest; do \
+            file=$(echo "$pths" | tr -d '"'); \
+            if [ ! -f "$file" ]; then \
+                if ls "${file}".chunk* 1> /dev/null 2>&1; then \
+                    cat "${file}".chunk* > "$file" && \
+                    rm "${file}".chunk*; \
+                fi; \
+            fi; \
+        done; \
+    fi
+# Add littler tools to PATH
+ENV PATH="/usr/local/lib/R/site-library/littler/bin:${PATH}" 
+# Add littler examples to PATH
+ENV PATH="/usr/local/lib/R/site-library/littler/examples:${PATH}" 
+# Create directory for the project
+# RUN mkdir /IMPACTncd_Japan 
+# Copy current directory contents into the project directory
+# COPY . /IMPACTncd_Japan 
+# Create directories based on configuration file
+RUN mkdir -p $(awk -F ': ' '/^(output_dir|synthpop_dir):/ {gsub(/'\''/, "", $2); print $2}' /IMPACTncd_Japan/inputs/sim_design.yaml)
+# Change working directory to the package directory
+WORKDIR /IMPACTncd_Japan/Rpackage/IMPACTncd_Japan_model_pkg
+# Generate documentation using Roxygen 
+RUN roxy.r 
+# Build the package
+RUN build.r 
+# Dynamically construct the .tar.gz filename for the local R package from its DESCRIPTION file and install it 
+RUN PACKAGE=$(grep "^Package:" DESCRIPTION | awk '{print $2}') && \ 
+    VERSION=$(grep "^Version:" DESCRIPTION | awk '{print $2}') && \ 
+    TARBALL="${PACKAGE}_${VERSION}.tar.gz" && \
+    install2.r "$TARBALL"
+
+WORKDIR /IMPACTncd_Japan/
+
+CMD ["/bin/bash"]
+
+# docker build --no-cache -f Dockerfile.IMPACTncdJPN -t impactncd_japan ..
+# docker run -it --name test impactncd_japan /bin/bash
+# docker run -it --name test chriskypri/impactncd_japan /bin/bash

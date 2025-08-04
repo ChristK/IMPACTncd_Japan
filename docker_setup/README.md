@@ -51,12 +51,12 @@ Choose your platform and run the setup:
 
 ### Windows (PowerShell)
 ```powershell
-.\create_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+.\create_dev_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 ```
 
 ### macOS/Linux (Bash)
 ```bash
-./create_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]
+./create_dev_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]
 ```
 
 ### Options Explained
@@ -138,7 +138,7 @@ The following sections contain technical details, advanced usage, and developer 
 - **Package Manager:** [RStudio Package Manager](https://packagemanager.posit.co/client/#/)
 
 ### File Structure
-- **`Dockerfile.prerequisite`**: Main Docker configuration with intelligent installer
+- **`Dockerfile.prerequisite.IMPACTncdJPN`**: Main Docker configuration with intelligent installer
 - **`apt-packages.txt`**: System packages with pinned versions
 - **`r-packages.txt`**: R packages list
 - **`install_packages.sh`**: Intelligent package installer script
@@ -151,16 +151,16 @@ The following sections contain technical details, advanced usage, and developer 
 ### Basic Docker Build
 ```bash
 # All platforms
-docker build -f Dockerfile.prerequisite -t impactncd-japan .
+docker build -f Dockerfile.prerequisite.IMPACTncdJPN -t impactncd-japan .
 ```
 
 ### Verbose Build (See Package Updates)
 ```bash
 # Windows PowerShell
-docker build -f Dockerfile.prerequisite --progress=plain --no-cache -t my-image . 2>&1 | Select-String -Pattern "(Processing package|Successfully installed|Version.*not available|Installing available|PACKAGE VERSION)"
+docker build -f Dockerfile.prerequisite.IMPACTncdJPN --progress=plain --no-cache -t my-image . 2>&1 | Select-String -Pattern "(Processing package|Successfully installed|Version.*not available|Installing available|PACKAGE VERSION)"
 
 # macOS/Linux Bash  
-docker build -f Dockerfile.prerequisite --progress=plain --no-cache -t my-image . 2>&1 | grep -E "(Processing package|Successfully installed|Version.*not available|Installing available|PACKAGE VERSION)"
+docker build -f Dockerfile.prerequisite.IMPACTncdJPN --progress=plain --no-cache -t my-image . 2>&1 | grep -E "(Processing package|Successfully installed|Version.*not available|Installing available|PACKAGE VERSION)"
 ```
 
 ### Update Package Versions
@@ -236,12 +236,12 @@ git pull
 Build and optionally push Docker images:
 
 **Prerequisite Container:**
-- Linux/macOS: `./build_and_push_prerequisite.sh [--push]`
-- Windows: `build_and_push_prerequisite.ps1 [-Push]`
+- Linux/macOS: `./build_push_prerequisite.sh [--push]`
+- Windows: `build_push_prerequisite.ps1 [-Push]`
 
 **IMPACTncd Container:**
-- Linux/macOS: `./build_and_push_IMPACTncd.sh [--push]`
-- Windows: `build_and_push_IMPACTncd.ps1 [-Push]`
+- Linux/macOS: `./build_push_IMPACTncdJPN.sh [--push]`
+- Windows: `build_push_IMPACTncdJPN.ps1 [-Push]`
 
 ## 🔍 Advanced Troubleshooting
 

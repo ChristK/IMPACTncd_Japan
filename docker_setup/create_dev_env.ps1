@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# create_env.ps1
+# create_dev_env.ps1
 #
 # PowerShell script for building and running a Docker container for the
 # IMPACTncd Japan project. This version supports two operation modes:
@@ -23,7 +23,7 @@
 # The entrypoint.sh script creates the appropriate user with the Windows username.
 #
 # Usage:
-#   .\create_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+#   .\create_dev_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
 # If you get an execution policy error, run:
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -53,7 +53,7 @@ Write-Host "Using configuration file: $SimDesignYaml"
 
 # Variable definitions
 $ImageName   = "impactncd-japan-r-prerequisite:latest"
-$Dockerfile  = "Dockerfile.prerequisite"
+$Dockerfile  = "Dockerfile.prerequisite.IMPACTncdJPN"
 $HashFile    = ".docker_build_hash"
 
 # Get current user (for user-specific volume names)
@@ -333,12 +333,16 @@ if ($UseVolumes) {
     & docker $dockerArgs
 
     # After the container exits:
-    # Synchronize the output and synthpop volumes back to the local directories using rsync.
+    # Synchronize the output, synthpop, and simulation volumes back to the local directories using rsync.
     Write-Host "Container exited. Syncing volumes back to local directories using rsync (checksum mode)..."
     # Use ${} to delimit variable name before the colon and add permission flags
     # Added --no-perms and --chmod=ugo=rwX to prevent permission issues on Windows
     docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /volume/ /backup/
     docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /volume/ /backup/
+    # Sync simulation folder back to the project directory
+    $SimulationDir = "$ProjectRoot/simulation" -replace '\\', '/'
+    Write-Host "Syncing simulation folder back to: $SimulationDir"
+    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeProject}:/project" -v "${SimulationDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /project/simulation/ /backup/
 
     # Clean up all the Docker volumes used for the simulation.
     Write-Host "Cleaning up Docker volumes..."

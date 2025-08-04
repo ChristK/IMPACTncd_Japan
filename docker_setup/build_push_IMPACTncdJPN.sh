@@ -3,24 +3,24 @@
 # This script automates building and pushing a Docker image to Docker Hub.
 #
 # Features:
-# - Automatically sources environment variables from a `.env` file if it exists.
-# - Uses DOCKERHUB_USERNAME and DOCKERHUB_TOKEN from the environment or `.env`.
-# - If DOCKERHUB_USERNAME is missing, it prompts for it at runtime.
-# - Constructs the image name as: <DOCKERHUB_USERNAME>/impactncd-japan-r-prerequisite:latest
-# - Uses token-based login if available; otherwise prompts for manual login.
-# - Logs each step with timestamps and exits on failure.
+# - Sources environment variables from `.env` if present.
+# - Prompts for Docker Hub username if not set.
+# - Builds from Dockerfile.IMPACTncdJPN, with build context one folder up.
+# - Tags image as <DOCKERHUB_USERNAME>/impactncd_japan:latest
+# - Pushes the image to Docker Hub with logging and error handling.
 #
 # Usage:
-# 1. (Optional) Create a `.env` file in the same directory:
+# 1. (Optional) Create a `.env` file in the same directory with the following variables:
 #       DOCKERHUB_USERNAME=yourusername
 #       DOCKERHUB_TOKEN=youraccesstoken
 #
-# 2. Run the script:
-#       ./build_and_push_prerequisite.sh [--push]
+# 2. Run the script as follows:
+#       ./build_push_IMPACTncdJPN.sh [--push]
 #
 #    Use the '--push' flag to push the Docker image to Docker Hub. Without the flag, the script will only build the image.
 
 set -euo pipefail
+
 # Check if push to Docker should be executed
 PUSH_IMAGE=false
 if [[ "$#" -gt 0 && "$1" == "--push" ]]; then
@@ -34,18 +34,19 @@ if [[ -f ".env" ]]; then
   source .env
 fi
 
+# Prompt for Docker Hub username if not set
 if [[ -z "${DOCKERHUB_USERNAME:-}" ]]; then
   read -p "Enter your Docker Hub username: " DOCKERHUB_USERNAME
 fi
 
-IMAGE_NAME="${DOCKERHUB_USERNAME}/impactncd-japan-r-prerequisite:latest"
+IMAGE_NAME="${DOCKERHUB_USERNAME}/impactncd_japan:latest"
 
-# Function for timestamped log messages
+# Timestamped logging function
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
-# Log in to Docker Hub, using environment variables if available
+# Docker login
 log "Logging into Docker Hub..."
 if [[ -z "${DOCKERHUB_USERNAME:-}" || -z "${DOCKERHUB_TOKEN:-}" ]]; then
   log "Environment variables DOCKERHUB_USERNAME and/or DOCKERHUB_TOKEN not set."
@@ -60,16 +61,16 @@ else
   fi
 fi
 
-# Build the Docker image
-log "Building Docker image..."
-if docker build --no-cache -f Dockerfile.prerequisite -t "$IMAGE_NAME" .; then
+# Build the Docker image using the parent folder as build context
+log "Building Docker image from Dockerfile.IMPACTncdJPN..."
+if docker build --no-cache -f Dockerfile.IMPACTncdJPN -t "$IMAGE_NAME" ..; then
   log "Docker image built successfully."
 else
   log "Docker image build failed."
   exit 1
 fi
 
-# Push the Docker image to Docker Hub
+# Push the Docker image
 if [ "$PUSH_IMAGE" = true ]; then
   log "Pushing Docker image to Docker Hub..."
   if docker push "$IMAGE_NAME"; then

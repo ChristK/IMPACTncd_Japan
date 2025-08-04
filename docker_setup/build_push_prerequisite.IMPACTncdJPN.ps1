@@ -7,7 +7,7 @@
            DOCKERHUB_TOKEN=youraccesstoken
 
     2. Run the script as follows:
-           .\build_and_push_prerequisite.ps1 [-Push]
+           .\build_push_prerequisite.ps1 [-Push]
 
        Use the -Push switch to push the Docker image to Docker Hub. Without the switch, the script will only build the image.
 #>
@@ -70,7 +70,7 @@ if (-not $DockerHubToken) {
 
 # Build
 Log "Building Docker image..."
-docker build --no-cache -f Dockerfile.prerequisite -t $ImageName .
+docker build --no-cache -f Dockerfile.prerequisite.IMPACTncdJPN -t $ImageName .
 if ($LASTEXITCODE -eq 0) {
     Log "Docker image built successfully."
 } else {

@@ -51,12 +51,12 @@ Choose your platform and run the setup:
 
 ### Windows (PowerShell)
 ```powershell
-.\create_dev_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+.\setup_dev_docker_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 ```
 
 ### macOS/Linux (Bash)
 ```bash
-./create_dev_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]
+./setup_dev_docker_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]
 ```
 
 ### Options Explained

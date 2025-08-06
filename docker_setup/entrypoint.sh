@@ -47,7 +47,7 @@
 #
 # USAGE:
 # This script is automatically called as the Docker ENTRYPOINT when the container
-# starts. The create_dev_env.sh script passes the necessary environment variables:
+# starts. The setup_dev_docker_env.sh script passes the necessary environment variables:
 #   -e USER_ID="$(id -u)"
 #   -e GROUP_ID="$(id -g)"
 #   -e USER_NAME="$(whoami)"

@@ -1,9 +1,9 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# create_dev_env.sh
+# setup_dev_docker_env.sh
 #
 # Usage:
-#   ./create_dev_env.sh [path_to_yaml] [--use-volumes]
+#   ./setup_dev_docker_env.sh [path_to_yaml] [--use-volumes]
 #
 # Description:
 #   This script builds and runs a Docker container for the IMPACTncd Japan project.
@@ -66,7 +66,7 @@ if ! docker info > /dev/null 2>&1; then
   echo "     sudo usermod -aG docker $USER"
   echo "     (You'll need to log out and back in for this change to take effect)"
   echo "  3. Or run this script using 'sudo':"
-  echo "     sudo ./create_dev_env.sh [options]"
+  echo "     sudo ./setup_dev_docker_env.sh [options]"
   echo "---------------------------------------------------------------------"
   exit 1
 fi

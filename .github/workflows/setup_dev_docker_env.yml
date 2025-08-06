@@ -7,6 +7,7 @@ on:
       - docker_setup/apt-packages.txt
       - docker_setup/r-packages.txt
       - docker_setup/entrypoint.sh
+      - .github/workflows/setup_dev_docker_env.yml
 
 jobs:
   build:

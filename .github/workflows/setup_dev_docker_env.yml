@@ -31,5 +31,5 @@ jobs:
           context: .
           push: true
           no-cache: true # Ensures no cache is used during the build
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncd-Japan-r-prerequisite:${{ github.ref_name }}
-          file: Dockerfile.prerequisite
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncd-japan-r-prerequisite:${{ github.ref_name }}
+          file: docker_setup/Dockerfile.prerequisite.IMPACTncdJPN

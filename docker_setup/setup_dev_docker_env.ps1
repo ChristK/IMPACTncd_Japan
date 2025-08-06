@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# create_dev_env.ps1
+# setup_dev_docker_env.ps1
 #
 # PowerShell script for building and running a Docker container for the
 # IMPACTncd Japan project. This version supports two operation modes:
@@ -23,7 +23,7 @@
 # The entrypoint.sh script creates the appropriate user with the Windows username.
 #
 # Usage:
-#   .\create_dev_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+#   .\setup_dev_docker_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
 # If you get an execution policy error, run:
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass

@@ -3,6 +3,7 @@
 # But keep these
 !.gitignore
 !.gitattributes
+!.github
 # Session Data files
 .RData
 # User-specific files

@@ -52,7 +52,7 @@ if (-not (Test-Path $SimDesignYaml)) {
 Write-Host "Using configuration file: $SimDesignYaml"
 
 # Variable definitions
-$ImageName   = "impactncd-japan-r-prerequisite:latest"
+$ImageName   = "prerequisite.impactncdjpn:local"
 $Dockerfile  = "Dockerfile.prerequisite.IMPACTncdJPN"
 $HashFile    = ".docker_build_hash"
 

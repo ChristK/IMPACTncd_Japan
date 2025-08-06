@@ -39,7 +39,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_ROOT=$(realpath "$SCRIPT_DIR/..")
 
 # Variable definitions
-IMAGE_NAME="impactncd-japan-r-prerequisite:latest"
+IMAGE_NAME="prerequisite.impactncdjpn:local"
 DOCKERFILE="Dockerfile.prerequisite.IMPACTncdJPN"
 HASH_FILE="$SCRIPT_DIR/.docker_build_hash" # Store hash file in script directory
 YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root

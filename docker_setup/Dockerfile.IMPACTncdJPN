@@ -1,5 +1,5 @@
 # Base image with R and prerequisites
-FROM chriskypri/impactncd-japan-r-prerequisite:latest 
+FROM chriskypri/prerequisite.impactncdjpn:local
 # Maintainer information
 LABEL maintainer="Chris Kypridemos <ckyprid@liverpool.ac.uk>" 
 RUN git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan

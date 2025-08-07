@@ -134,7 +134,7 @@ jobs:
       #
       # Note: This change is ephemeral (only in the workflow runner) and
       # does not modify the repository's Dockerfile.
-      - name: Update base image tag
+      - name: Update base image tag and git clone branch
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
@@ -142,6 +142,7 @@ jobs:
             BRANCH_NAME="${{ github.ref_name }}"
           fi
           sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
+          sed -i "s|RUN git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|RUN git clone -b ${BRANCH_NAME} https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|" docker_setup/Dockerfile.IMPACTncdJPN
 
       # STEP 4: Docker Environment Setup
       # Configure Docker Buildx for enhanced build capabilities including:

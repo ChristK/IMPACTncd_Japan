@@ -12,7 +12,7 @@ COPY apt-packages.txt /tmp/apt-packages.txt
 # Copy the intelligent package installer script
 COPY install_packages.sh /tmp/install_packages.sh
 
-# System packages pinned as of 2025-03-21 for reproducibility
+# System packages pinned as of 2025-07-31 for reproducibility
 # get version of packages i.e. for libicu-dev  with 
 # docker run --rm -it rocker/r-ver:4.5.0 bash -c "apt-get update -qq && apt-cache policy libicu-dev"
 RUN apt-get update -qq && \
@@ -39,8 +39,8 @@ RUN sed -i '1s/^\xEF\xBB\xBF//' /tmp/r-packages.txt && \
     && rm -rf /tmp/downloaded_packages \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
-RUN installGithub.r "ChristK/CKutils@master"
-# RUN installGithub.r "ChristK/CKutils@c32aad3f359184233440686a12536884d8e9860c" # the HEAD as of 21/07/2025
+# RUN installGithub.r "ChristK/CKutils@master"
+RUN installGithub.r "ChristK/CKutils@59661401d9ea0a5736219e5349b511e902fc88a2" # the HEAD as of 31/07/2025
 
 # The following commented out lines are an example on how to load a specific version of a package
 # RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz

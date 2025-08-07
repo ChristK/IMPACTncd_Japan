@@ -10,10 +10,15 @@
 #
 # WORKFLOW LOGIC:
 # - Triggers on every push to any branch
-# - Only executes the build job if specific prerequisite files are modified
-# - Uses conditional logic to check for changes in prerequisite-related files
+# - Uses reliable file change detection to determine if build is needed
+# - Only executes Docker build steps if specific prerequisite files are modified
 # - Coordinates with the main workflow (build_push_impactncdjpn.yml) which
 #   waits for this workflow to complete when both are triggered simultaneously
+#
+# IMPROVED CHANGE DETECTION:
+# Uses tj-actions/changed-files action for reliable file change detection
+# instead of GitHub's commits.*.modified property which can be unreliable
+# for documentation changes or certain push scenarios.
 #
 # COORDINATION WITH MAIN WORKFLOW:
 # 1. Both workflows can trigger on the same push
@@ -70,53 +75,71 @@ on:
 jobs:
   # JOB: run_if_needed
   # This job only executes if prerequisite-related files have been modified
-  # in the current push. It uses GitHub's commit information to check for
-  # changes in specific files that affect the prerequisite Docker image.
+  # in the current push. It uses a reliable file change detection method
+  # to check for changes in specific files that affect the prerequisite Docker image.
   run_if_needed:
     runs-on: ubuntu-latest
     
-    # CONDITIONAL EXECUTION:
-    # Only run this job if any of the prerequisite files were modified.
-    # This approach allows the workflow to always trigger (for coordination
-    # with the main workflow) but only consume resources when necessary.
-    #
-    # NOTE: The 'modified' property may show linting warnings but is valid
-    # for push events and works correctly in practice.
-    if: ${{ 
-          contains(join(github.event.commits.*.modified, ','), 'docker_setup/Dockerfile.prerequisite.IMPACTncdJPN') ||
-          contains(join(github.event.commits.*.modified, ','), 'docker_setup/apt-packages.txt') ||
-          contains(join(github.event.commits.*.modified, ','), 'docker_setup/r-packages.txt') ||
-          contains(join(github.event.commits.*.modified, ','), 'docker_setup/entrypoint.sh') ||
-          contains(join(github.event.commits.*.modified, ','), '.github/workflows/build_push_prerequisite_impactncdjpn.yml')
-        }}
     steps:
-      # STEP 1: Notification
-      # Log that the workflow is running due to prerequisite file changes
-      - run: echo "Build Push prerequisite.impactncdjpn is running because relevant files changed."
-
-      # STEP 2: Source Code Checkout
-      # Get the repository source code for the Docker build context
+      # STEP 1: Source Code Checkout
+      # Get the repository source code to analyze file changes
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for change detection
 
-      # STEP 3: Docker Environment Setup
+      # STEP 2: Detect File Changes
+      # Use a reliable action to detect if prerequisite files have changed
+      # This approach is more reliable than GitHub's commits.*.modified property
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            docker_setup/Dockerfile.prerequisite.IMPACTncdJPN
+            docker_setup/apt-packages.txt
+            docker_setup/r-packages.txt
+            docker_setup/entrypoint.sh
+            .github/workflows/build_push_prerequisite_impactncdjpn.yml
+
+      # STEP 3: Notification (conditional)
+      # Log that the workflow is running due to prerequisite file changes
+      - name: Log prerequisite files changed
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          echo "Build Push prerequisite.impactncdjpn is running because relevant files changed:"
+          echo "${{ steps.changed-files.outputs.all_changed_files }}"
+
+      # STEP 4: Skip notification (conditional)
+      # Log when no prerequisite files were changed
+      - name: Log no prerequisite files changed
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: echo "No prerequisite files changed. Skipping build."
+
+      # STEP 5: Docker Environment Setup (conditional)
       # Configure Docker Buildx for multi-platform builds and advanced features
+      # Only run if prerequisite files have changed
       - name: Set up Docker Buildx
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: docker/setup-buildx-action@v3
 
-      # STEP 4: Docker Registry Authentication
+      # STEP 6: Docker Registry Authentication (conditional)
       # Log into Docker Hub using stored secrets for pushing the built image
+      # Only run if prerequisite files have changed
       - name: Log in to Docker Hub
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # STEP 5: Docker Image Build and Push
+      # STEP 7: Docker Image Build and Push (conditional)
       # Build the prerequisite Docker image and push to Docker Hub
       # This image contains the R environment and system dependencies
       # needed by the main IMPACTncd Japan application
+      # Only run if prerequisite files have changed
       - name: Build and push Docker image
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: docker_setup # Build context directory containing Dockerfile and dependencies
@@ -146,5 +169,12 @@ jobs:
 # - Check that prerequisite files (Dockerfile, package lists) are valid
 # - Ensure the docker_setup directory structure is correct
 # - Monitor resource usage as R package installation can be memory-intensive
+# - If workflow doesn't trigger on file changes, check the file paths in the changed-files action
+# - Review workflow logs to see which files were detected as changed
+#
+# CHANGE DETECTION IMPROVEMENTS:
+# This workflow now uses tj-actions/changed-files for reliable change detection
+# instead of GitHub's commits.*.modified property which was causing issues
+# with documentation updates and certain push scenarios.
 #
 # =============================================================================

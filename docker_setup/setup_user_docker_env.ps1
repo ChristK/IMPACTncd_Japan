@@ -1,14 +1,19 @@
 # -----------------------------------------------------------------------------
-# setup_dev_docker_env.ps1
+# setup_user_docker_env.ps1
 #
-# PowerShell script for building and running a Docker container for the
+# PowerShell script for pulling and running a Docker container for the
 # IMPACTncd Japan project. This version supports two operation modes:
+#
+# Container Selection:
+#   - If Tag is "main" (default): pulls and uses "chriskypri/impactncdjpn:main"
+#   - If Tag is not specified or is "local": pulls and uses "impactncdjpn:local"
+#   - If Tag is any other value: pulls and uses "chriskypri/impactncdjpn:<tag>"
+#
+# Note: The Docker images already contain the /IMPACTncd_Japan project folder,
+# so no project directory mounting or copying is required.
 #
 # 1. Using Docker-managed volumes for enhanced I/O performance (recommended
 #    for macOS and Windows). In this mode:
-#      - The entire project directory (one level above docker_setup) is copied
-#        into a Docker volume (project volume) that becomes the main drive during
-#        simulation.
 #      - Separate Docker volumes for the output_dir and synthpop_dir (as defined
 #        in the YAML file) are created and pre-populated from the local folders.
 #      - After the container exits, the contents of the output and synthpop volumes
@@ -23,7 +28,7 @@
 # The entrypoint.sh script creates the appropriate user with the Windows username.
 #
 # Usage:
-#   .\setup_dev_docker_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+#   .\setup_user_docker_env.ps1 [-Tag <tag>] [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
 # If you get an execution policy error, run:
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -31,6 +36,7 @@
 # -----------------------------------------------------------------------------
 
 param (
+    [string]$Tag = "main",
     [string]$SimDesignYaml = "..\inputs\sim_design.yaml",
     [switch]$UseVolumes
 )
@@ -52,9 +58,14 @@ if (-not (Test-Path $SimDesignYaml)) {
 Write-Host "Using configuration file: $SimDesignYaml"
 
 # Variable definitions
-$ImageName   = "prerequisite.impactncdjpn:local"
-$Dockerfile  = "Dockerfile.prerequisite.IMPACTncdJPN"
-$HashFile    = ".docker_build_hash"
+# Determine the Docker image name based on the tag
+if ($Tag -eq "local") {
+    $ImageName = "impactncdjpn:local"
+} else {
+    $ImageName = "chriskypri/impactncdjpn:$Tag"
+}
+
+Write-Host "Using Docker image: $ImageName"
 
 # Get current user (for user-specific volume names)
 $CurrentUser = $env:USERNAME
@@ -74,8 +85,7 @@ $UserName = $CurrentUser
 # Use a safe group name - if it conflicts, the entrypoint will create a fallback
 $GroupName = "dockergroup"
 
-# Define user-specific Docker volume names using sanitized username
-$VolumeProject   = "impactncd_japan_project_$SafeCurrentUser"
+# Define user-specific Docker volume names using sanitized username (only for output and synthpop)
 $VolumeOutput    = "impactncd_japan_output_$SafeCurrentUser"
 $VolumeSynthpop  = "impactncd_japan_synthpop_$SafeCurrentUser"
 
@@ -104,57 +114,21 @@ if ($LASTEXITCODE -ne 0) {
 # --- End Docker Permission Check ---
 
 # -----------------------------
-# Build hash and rebuild logic
+# Pull the Docker image
 # -----------------------------
-# Helper function to normalize file contents
-function Get-NormalizedContent {
-    param([string]$Path)
-    $content = Get-Content -Raw -Encoding UTF8 $Path
-    return ($content -replace "`r`n", "`n").TrimEnd()
-}
-
-# Compute robust build hash from Dockerfile, package lists, and entrypoint script
-$FilesToHash = @(
-    Get-NormalizedContent -Path $Dockerfile
-    Get-NormalizedContent -Path "apt-packages.txt"
-    Get-NormalizedContent -Path "r-packages.txt"
-    Get-NormalizedContent -Path "entrypoint.sh"
-)
-$JoinedContent = ($FilesToHash -join "`n")
-$Bytes = [System.Text.Encoding]::UTF8.GetBytes($JoinedContent)
-$HashAlgorithm = [System.Security.Cryptography.SHA256]::Create()
-$HashBytes = $HashAlgorithm.ComputeHash($Bytes)
-$BuildHash = ([BitConverter]::ToString($HashBytes) -replace "-", "")
-
-$NeedsBuild = $false
-Write-Host "Checking for Docker image: '$ImageName'"
-docker image inspect $ImageName > $null 2>&1
-$InspectExitCode = $LASTEXITCODE
-Write-Host "docker image inspect exit code: $InspectExitCode"
-
-if ($InspectExitCode -ne 0) {
-    Write-Host "Docker image does not exist or inspect failed. Need to build."
-    $NeedsBuild = $true
-} elseif (-not (Test-Path $HashFile)) {
-    Write-Host "No previous build hash found. Need to build."
-    $NeedsBuild = $true
-} else {
-    $LastHash = (Get-Content -Raw -Encoding UTF8 $HashFile).Trim()
-    if ($LastHash -ne $BuildHash) {
-        Write-Host "Detected changes in build inputs. Rebuilding Docker image..."
-        $NeedsBuild = $true
-    } else {
-        Write-Host "No changes detected. Skipping Docker build."
+Write-Host "Pulling Docker image: $ImageName"
+docker pull $ImageName
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Failed to pull Docker image: $ImageName" -ForegroundColor Red
+    Write-Host "Please check:" -ForegroundColor Yellow
+    Write-Host "  1. The image exists and is accessible"
+    Write-Host "  2. You have the correct permissions"
+    Write-Host "  3. Your internet connection is working"
+    if ($Tag -ne "local") {
+        Write-Host "  4. The tag '$Tag' exists in the chriskypri/impactncdjpn repository"
     }
-}
-
-# Build Docker image if needed
-if ($NeedsBuild) {
-    Write-Host "Building Docker image using --no-cache..."
-    docker build --no-cache -f $Dockerfile -t $ImageName .
-    $BuildHash | Set-Content -NoNewline -Encoding UTF8 $HashFile
-} else {
-    Write-Host "Docker image is up to date. Skipping build."
+    Pop-Location
+    Exit 1
 }
 
 # -----------------------------
@@ -200,7 +174,7 @@ $synthpopDir  = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "synthpop_dir" -
 
 # --- Path Validation and Creation ---
 # Helper function to check and create directory
-function Ensure-DirectoryExists {
+function Test-AndCreateDirectory {
     param(
         [string]$Path,
         [string]$PathKey # For logging purposes (e.g., "output_dir")
@@ -238,13 +212,13 @@ function Ensure-DirectoryExists {
 }
 
 # Validate or create output directory
-if (-not (Ensure-DirectoryExists -Path $outputDir -PathKey "output_dir")) {
+if (-not (Test-AndCreateDirectory -Path $outputDir -PathKey "output_dir")) {
     Pop-Location
     Exit 1
 }
 
 # Validate or create synthpop directory
-if (-not (Ensure-DirectoryExists -Path $synthpopDir -PathKey "synthpop_dir")) {
+if (-not (Test-AndCreateDirectory -Path $synthpopDir -PathKey "synthpop_dir")) {
     Pop-Location
     Exit 1
 }
@@ -258,7 +232,7 @@ Write-Host "Mounting synthpop_dir:  $synthpopDir"      # Keep using forward slas
 # Run Docker container
 # -----------------------------
 if ($UseVolumes) {
-    Write-Host "`nUsing Docker volumes for project, outputs, and synthpop..."
+    Write-Host "`nUsing Docker volumes for outputs and synthpop..."
 
     # Build rsync-alpine image if it doesn't already exist.
     $rsyncImage = "rsync-alpine"
@@ -280,12 +254,10 @@ if ($UseVolumes) {
 
     # Remove any existing volumes (ignore errors if not removable)
     Write-Host "Removing any existing volumes (if possible)..."
-    docker volume rm $VolumeProject -f 2>$null
     docker volume rm $VolumeOutput -f 2>$null
     docker volume rm $VolumeSynthpop -f 2>$null
 
     # Create fresh Docker-managed volumes
-    docker volume create $VolumeProject | Out-Null
     docker volume create $VolumeOutput | Out-Null
     docker volume create $VolumeSynthpop | Out-Null
 
@@ -293,17 +265,11 @@ if ($UseVolumes) {
     # Docker volumes are created with root ownership by default. We need to fix
     # the ownership before we can populate them as the calling user.
     Write-Host "Setting correct ownership for Docker volumes..."
-    docker run --rm -v "${VolumeProject}:/destination" alpine sh -c "chown ${UserId}:${GroupId} /destination"
     docker run --rm -v "${VolumeOutput}:/volume" alpine sh -c "chown ${UserId}:${GroupId} /volume"
     docker run --rm -v "${VolumeSynthpop}:/volume" alpine sh -c "chown ${UserId}:${GroupId} /volume"
 
     # Pre-populate volumes:
-    # 1. The project volume is populated with the entire project directory using tar, excluding dot files/folders.
-    # 2. The output and synthpop volumes are populated from the respective local folders.
-    Write-Host "Populating project volume from host project directory (excluding dot files/folders)..."
-    # Use tar to copy project files, excluding folders starting with .
-    docker run --rm --user "${UserId}:${GroupId}" -v "${ProjectRoot}:/source" -v "${VolumeProject}:/destination" alpine sh -c "cd /source && tar cf - --exclude='./.*' . | (cd /destination && tar xf -)"
-
+    # The output and synthpop volumes are populated from the respective local folders.
     Write-Host "Populating output volume from local folder..."
     # Use permission-tolerant copy with fallback logic
     docker run --rm --user "${UserId}:${GroupId}" -v "${outputDir}:/source" -v "${VolumeOutput}:/volume" alpine sh -c "cp -r /source/. /volume/ 2>/dev/null || cp -a /source/. /volume/ 2>/dev/null || true"
@@ -321,9 +287,8 @@ if ($UseVolumes) {
         "-e", "GROUP_ID=$GroupId", 
         "-e", "USER_NAME=$UserName",
         "-e", "GROUP_NAME=$GroupName",
-        # Use -v syntax within the array elements
-        "-v", "${VolumeProject}:/IMPACTncd_Japan",
-        "-v", "${VolumeOutput}:/outputs",
+        # Use -v syntax within the array elements (no project volume needed)
+        "-v", "${VolumeOutput}:/output",
         "-v", "${VolumeSynthpop}:/synthpop",
         "--workdir", "/IMPACTncd_Japan",
         $ImageName,
@@ -333,21 +298,16 @@ if ($UseVolumes) {
     & docker $dockerArgs
 
     # After the container exits:
-    # Synchronize the output, synthpop, and simulation volumes back to the local directories using rsync.
+    # Synchronize the output and synthpop volumes back to the local directories using rsync.
     Write-Host "Container exited. Syncing volumes back to local directories using rsync (checksum mode)..."
     # Use ${} to delimit variable name before the colon and add permission flags
     # Added --no-perms and --chmod=ugo=rwX to prevent permission issues on Windows
     docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeOutput}:/volume" -v "${outputDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /volume/ /backup/
     docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeSynthpop}:/volume" -v "${synthpopDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /volume/ /backup/
-    # Sync simulation folder back to the project directory
-    $SimulationDir = "$ProjectRoot/simulation" -replace '\\', '/'
-    Write-Host "Syncing simulation folder back to: $SimulationDir"
-    docker run --rm --user "${UserId}:${GroupId}" -v "${VolumeProject}:/project" -v "${SimulationDir}:/backup" $rsyncImage rsync -avc --no-owner --no-group --no-times --no-perms --chmod=ugo=rwX /project/simulation/ /backup/
 
     # Clean up all the Docker volumes used for the simulation.
     Write-Host "Cleaning up Docker volumes..."
     docker container prune -f | Out-Null
-    docker volume rm $VolumeProject | Out-Null
     docker volume rm $VolumeOutput | Out-Null
     docker volume rm $VolumeSynthpop | Out-Null
 
@@ -371,25 +331,22 @@ if ($UseVolumes) {
         }
     }
 
-    Write-Host "`nUsing direct bind mounts for project, outputs, and synthpop..."
+    Write-Host "`nUsing direct bind mounts for outputs and synthpop..."
 
     # Convert paths for Docker bind mount
-    $DockerProjectRoot = Convert-PathToDockerFormat -Path $ProjectRoot
     $DockerOutputDir = Convert-PathToDockerFormat -Path $outputDir
     $DockerSynthpopDir = Convert-PathToDockerFormat -Path $synthpopDir
 
-    Write-Host "Docker Project Root: $DockerProjectRoot"
     Write-Host "Docker Output Dir:   $DockerOutputDir"
     Write-Host "Docker Synthpop Dir: $DockerSynthpopDir"
 
-    # Pass mount arguments correctly to docker run
+    # Pass mount arguments correctly to docker run (no project mount needed)
     docker run -it --rm `
         -e "USER_ID=$UserId" `
         -e "GROUP_ID=$GroupId" `
         -e "USER_NAME=$UserName" `
         -e "GROUP_NAME=$GroupName" `
-        --mount "type=bind,source=$DockerProjectRoot,target=/IMPACTncd_Japan" `
-        --mount "type=bind,source=$DockerOutputDir,target=/outputs" `
+        --mount "type=bind,source=$DockerOutputDir,target=/output" `
         --mount "type=bind,source=$DockerSynthpopDir,target=/synthpop" `
         --workdir /IMPACTncd_Japan `
         $ImageName `

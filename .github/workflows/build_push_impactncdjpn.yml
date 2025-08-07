@@ -121,19 +121,26 @@ jobs:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       # STEP 3: Dynamic Dockerfile Configuration
-      # Updates the Dockerfile to use the correct prerequisite image tag.
-      # The Dockerfile contains a default ':local' tag that needs to be replaced
-      # with the appropriate branch name to match the prerequisite image.
+      # Updates the Dockerfile to use the correct prerequisite image tag and
+      # clone the correct branch. The Dockerfile contains:
+      # 1. A default ':local' tag that needs to be replaced with the branch name
+      # 2. A git clone command that needs to target the specific branch
       #
       # Branch name selection logic:
       # - For WORKFLOW_RUN events: Use the branch that triggered prerequisite
       # - For PUSH events: Use the current branch being pushed
       #
       # This ensures the main image builds against the correct prerequisite
-      # image version and maintains branch-specific isolation.
+      # image version AND contains code from the same branch, maintaining
+      # complete branch-specific isolation.
       #
-      # Note: This change is ephemeral (only in the workflow runner) and
-      # does not modify the repository's Dockerfile.
+      # Updates performed:
+      # - FROM prerequisite.impactncdjpn:local → FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}
+      # - FROM chriskypri/prerequisite.impactncdjpn:local → FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}
+      # - git clone → git clone -b ${BRANCH_NAME} (within the conditional RUN command)
+      #
+      # Note: These changes are ephemeral (only in the workflow runner) and
+      # do not modify the repository's Dockerfile.
       - name: Update base image tag and git clone branch
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
@@ -141,8 +148,9 @@ jobs:
           else
             BRANCH_NAME="${{ github.ref_name }}"
           fi
+          sed -i "s|^FROM prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
           sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
-          sed -i "s|RUN git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|RUN git clone -b ${BRANCH_NAME} https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|" docker_setup/Dockerfile.IMPACTncdJPN
+          sed -i "s|git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|git clone -b ${BRANCH_NAME} https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|" docker_setup/Dockerfile.IMPACTncdJPN
 
       # STEP 4: Docker Environment Setup
       # Configure Docker Buildx for enhanced build capabilities including:
@@ -178,6 +186,7 @@ jobs:
       # - Forces no-cache rebuild to ensure latest code and dependencies
       # - Tags with branch name for branch-specific image versions
       # - Uses the main application Dockerfile
+      # - Sets SOURCE_METHOD=git to use git clone approach
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -186,6 +195,8 @@ jobs:
           no-cache: true # Force complete rebuild without using cached layers
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
           file: docker_setup/Dockerfile.IMPACTncdJPN # Main application Dockerfile
+          build-args: |
+            SOURCE_METHOD=git
 
 # =============================================================================
 # WORKFLOW COMPLETION AND OUTCOMES:

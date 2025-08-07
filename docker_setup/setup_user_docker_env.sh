@@ -1,34 +1,36 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# setup_dev_docker_env.sh
+# setup_user_docker_env.sh
 #
 # Usage:
-#   ./setup_dev_docker_env.sh [path_to_yaml] [--UseVolumes]
+#   ./setup_user_docker_env.sh [<tag>] [path_to_yaml] [--UseVolumes]
 #
 # Description:
-#   This script builds and runs a Docker container for the IMPACTncd Japan project.
-#   It rebuilds the Docker image only if build inputs have changed.
+#   This script pulls and runs a Docker container for the IMPACTncd Japan project.
+#   
+#   Container Selection:
+#     - If <tag> is "main" (default): pulls and uses "chriskypri/impactncdjpn:main"
+#     - If <tag> is not specified or is "local": pulls and uses "impactncdjpn:local"
+#     - If <tag> is any other value: pulls and uses "chriskypri/impactncdjpn:<tag>"
+#     
+#   Note: The Docker images already contain the /IMPACTncd_Japan project folder,
+#   so no project directory mounting or copying is required.
 #   
 #   Security: All containers run as the calling user (non-root) to prevent permission
 #   issues and improve security. The script automatically detects the current user's
 #   UID and GID and passes them to Docker.
 #
 #   When the --UseVolumes flag is provided:
-#     1. The entire project directory (one level above docker_setup) is copied 
-#        into a Docker volume (VOLUME_PROJECT). This volume is used as the main drive 
-#        during simulation.
-#     2. Separate Docker volumes for 'output_dir' (VOLUME_OUTPUT_NAME) and 
-#        'synthpop_dir' (VOLUME_SYNTHPOP_NAME) are created and pre-populated from
-#        the local host folders.
-#     3. The container runs using these volumes (project, outputs, and synthpop) for 
-#        enhanced performance.
-#     4. Upon container exit, the contents of the output and synthpop volumes are 
+#     1. Docker volumes for 'output_dir' (VOLUME_OUTPUT_NAME) and 'synthpop_dir' 
+#        (VOLUME_SYNTHPOP_NAME) are created and pre-populated from the local host folders.
+#     2. The container runs using these volumes (outputs and synthpop) for enhanced performance.
+#     3. Upon container exit, the contents of the output and synthpop volumes are 
 #        synchronized (copied) back to the local folders using rsync.
-#     5. Finally, all the created volumes are removed.
+#     4. Finally, all the created volumes are removed.
 #
-#   When not using volumes, the script uses direct bind mounts. This is less
-#   efficient, particularly on macOS, but allows for interactive access of the
-#   model, outputs, and synthpop directories.
+#   When not using volumes, the script uses direct bind mounts for output and synthpop
+#   directories. This is less efficient, particularly on macOS, but allows for 
+#   interactive access.
 #
 # Compatible with Linux and macOS (requires coreutils on macOS).
 # -----------------------------------------------------------------------------
@@ -39,9 +41,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_ROOT=$(realpath "$SCRIPT_DIR/..")
 
 # Variable definitions
-IMAGE_NAME="prerequisite.impactncdjpn:local"
-DOCKERFILE="Dockerfile.prerequisite.IMPACTncdJPN"
-HASH_FILE="$SCRIPT_DIR/.docker_build_hash" # Store hash file in script directory
+DOCKER_TAG="main"  # Default tag
 YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root
 CURRENT_USER=$(whoami)
 # Get current user's UID and GID for running containers as non-root
@@ -49,8 +49,7 @@ USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 USER_NAME=$(whoami)
 GROUP_NAME=$(id -gn)
-# User-specific Docker volume names to avoid conflicts
-VOLUME_PROJECT="impactncd_japan_project_${CURRENT_USER}"
+# User-specific Docker volume names to avoid conflicts (only for output and synthpop)
 VOLUME_OUTPUT_NAME="impactncd_japan_output_${CURRENT_USER}"
 VOLUME_SYNTHPOP_NAME="impactncd_japan_synthpop_${CURRENT_USER}"
 
@@ -76,8 +75,15 @@ fi
 echo "Removing stopped containers..."
 docker container prune -f
 
-# Process command-line arguments for YAML file and volume usage flag
+# Process command-line arguments for YAML file, volume usage flag, and Docker tag
 USE_VOLUMES=false # Default to not using volumes
+# First argument is the tag if it doesn't match other patterns
+if [[ $# -gt 0 && "$1" != *.yaml && "$1" != *.yml && "$1" != "--UseVolumes" ]]; then
+  DOCKER_TAG="$1"
+  shift
+fi
+
+# Process remaining arguments
 for arg in "$@"; do
   if [[ "$arg" == --UseVolumes ]]; then
     USE_VOLUMES=true
@@ -91,15 +97,14 @@ for arg in "$@"; do
   fi
 done
 
-# Default to not using volumes if flag is not provided
-USE_VOLUMES=false
+# Determine the Docker image name based on the tag
+if [[ "$DOCKER_TAG" == "local" ]]; then
+  IMAGE_NAME="impactncdjpn:local"
+else
+  IMAGE_NAME="chriskypri/impactncdjpn:${DOCKER_TAG}"
+fi
 
-# Check again for --UseVolumes flag
-for arg in "$@"; do
-  if [[ "$arg" == "--UseVolumes" ]]; then
-    USE_VOLUMES=true
-  fi
-done
+echo "Using Docker image: $IMAGE_NAME"
 
 if [ ! -f "$YAML_FILE" ]; then
   echo "Error: YAML file not found at $YAML_FILE"
@@ -134,73 +139,39 @@ SYNTHPOP_DIR="$(realpath "$SYNTHPOP_DIR_TEMP")"
 echo "Mounting output_dir: $OUTPUT_DIR"
 echo "Mounting synthpop_dir: $SYNTHPOP_DIR"
 
-# Detect OS and choose appropriate hash command
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  HASH_CMD="sha256sum"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  if command -v gsha256sum > /dev/null; then
-    HASH_CMD="gsha256sum"
-  else
-    echo "Error: gsha256sum not found. Please install coreutils."
-    echo "If you use Homebrew, run: brew install coreutils"
-    exit 1
+# Pull the Docker image
+echo "Pulling Docker image: $IMAGE_NAME"
+if ! docker pull "$IMAGE_NAME"; then
+  echo "Error: Failed to pull Docker image: $IMAGE_NAME"
+  echo "Please check:"
+  echo "  1. The image exists and is accessible"
+  echo "  2. You have the correct permissions"
+  echo "  3. Your internet connection is working"
+  if [[ "$DOCKER_TAG" != "local" ]]; then
+    echo "  4. The tag '$DOCKER_TAG' exists in the chriskypri/impactncdjpn repository"
   fi
-else
-  echo "Unsupported OS: $OSTYPE"
   exit 1
-fi
-
-# Compute hash of build inputs (Dockerfile, apt-packages.txt, r-packages.txt, entrypoint.sh)
-BUILD_HASH=$(cat "$SCRIPT_DIR/$DOCKERFILE" "$SCRIPT_DIR/apt-packages.txt" "$SCRIPT_DIR/r-packages.txt" "$SCRIPT_DIR/entrypoint.sh" | $HASH_CMD | cut -d ' ' -f1)
-
-# Determine whether rebuild of the Docker image is needed
-NEEDS_BUILD=false
-if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
-  echo "Docker image does not exist. Need to build."
-  NEEDS_BUILD=true
-elif [ ! -f "$HASH_FILE" ]; then
-  echo "No previous build hash found. Need to build."
-  NEEDS_BUILD=true
-else
-  LAST_HASH=$(cat "$HASH_FILE")
-  if [ "$BUILD_HASH" != "$LAST_HASH" ]; then
-    echo "Detected changes in build inputs. Rebuilding Docker image..."
-    NEEDS_BUILD=true
-  else
-    echo "No changes detected. Skipping Docker build."
-  fi
-fi
-
-# Build Docker image if needed
-if [ "$NEEDS_BUILD" = true ]; then
-  docker build --no-cache -f "$DOCKERFILE" -t "$IMAGE_NAME" .
-  echo "$BUILD_HASH" > "$HASH_FILE"
 fi
 
 # -----------------------------------------------------------------------------
 # Optionally create and use Docker volumes for simulation
 #
 # When using volumes:
-#
-#   - The entire project directory (parent of docker_setup) is copied to a Docker
-#     volume (VOLUME_PROJECT). This volume acts as the main drive during simulation.
-#
 #   - Separate volumes (VOLUME_OUTPUT_NAME and VOLUME_SYNTHPOP_NAME) for the outputs 
 #     and synthpop directories (as specified in the YAML file) are created.
-#
 #   - Prior to simulation, the local outputs and synthpop folders are copied into these volumes.
-#
 #   - The container runs with these Docker volumes mounted. This improves I/O performance.
-#
 #   - After the container exits, the content of the output and synthpop volumes is 
 #     synchronized back to the corresponding local folders using rsync.
-#
 #   - Finally, all these Docker volumes are removed to clean up.
 #
-# When not using volumes, the script uses direct bind mounts.
+# When not using volumes, the script uses direct bind mounts for output and synthpop directories.
+#
+# Note: The Docker image already contains the /IMPACTncd_Japan project, so no project
+# volume or bind mount is needed.
 # -----------------------------------------------------------------------------
 if [ "$USE_VOLUMES" = true ]; then
-  echo "Using Docker volumes for project, outputs, and synthpop..."
+  echo "Using Docker volumes for outputs and synthpop..."
 
   # Build rsync-alpine image (only if it doesn't already exist)
   if ! docker image inspect rsync-alpine > /dev/null 2>&1; then
@@ -220,12 +191,10 @@ if [ "$USE_VOLUMES" = true ]; then
 
   # Remove any existing volumes (ignore errors if not removable)
   echo "Removing any existing volumes (if possible)..."
-  docker volume rm "$VOLUME_PROJECT" 2>/dev/null
   docker volume rm "$VOLUME_OUTPUT_NAME" 2>/dev/null
   docker volume rm "$VOLUME_SYNTHPOP_NAME" 2>/dev/null
 
   # Create fresh Docker-managed volumes
-  docker volume create "$VOLUME_PROJECT"
   docker volume create "$VOLUME_OUTPUT_NAME"
   docker volume create "$VOLUME_SYNTHPOP_NAME"
 
@@ -235,32 +204,17 @@ if [ "$USE_VOLUMES" = true ]; then
   # Docker volumes are created with root ownership by default. We need to fix
   # the ownership before we can populate them as the calling user.
   #
-  # 1. The project volume is populated with the entire project directory (from
-  #    one level above the docker_setup folder), excluding dot files/folders.
-  #    This volume serves as the main drive.
-  #
-  # 2. The output and synthpop volumes are populated from the respective local folders.
+  # The output and synthpop volumes are populated from the respective local folders.
   # --------------------------------------------------------------------------
   
   # Fix ownership of volume directories first (run as root, then change ownership)
   echo "Setting correct ownership for Docker volumes..."
-  docker run --rm \
-    -v "${VOLUME_PROJECT}":/destination \
-    alpine sh -c "chown ${USER_ID}:${GROUP_ID} /destination"
   docker run --rm \
     -v "$VOLUME_OUTPUT_NAME":/volume \
     alpine sh -c "chown ${USER_ID}:${GROUP_ID} /volume"
   docker run --rm \
     -v "$VOLUME_SYNTHPOP_NAME":/volume \
     alpine sh -c "chown ${USER_ID}:${GROUP_ID} /volume"
-
-  echo "Populating project volume from host project directory (excluding dot files/folders)..."
-  # Use tar to copy, excluding dot files/folders at the root of the source
-  docker run --rm \
-    --user "${USER_ID}:${GROUP_ID}" \
-    -v "${PROJECT_ROOT}":/source \
-    -v "${VOLUME_PROJECT}":/destination \
-    alpine sh -c "tar -C /source --exclude='./.*' -cf - . | tar -C /destination -xf -"
 
   echo "Populating output and synthpop volumes from local folders..."
   docker run --rm \
@@ -274,15 +228,14 @@ if [ "$USE_VOLUMES" = true ]; then
     -v "$VOLUME_SYNTHPOP_NAME":/volume \
     alpine sh -c "cp -r /source/. /volume/ 2>/dev/null || cp -a /source/. /volume/ 2>/dev/null || true"
 
-  # Run the main container with the project volume mounted in place of the project bind mount.
+  # Run the main container using the pre-built image
   echo "Running the main container using Docker volumes..."
   docker run -it --rm \
     -e USER_ID="${USER_ID}" \
     -e GROUP_ID="${GROUP_ID}" \
     -e USER_NAME="${USER_NAME}" \
     -e GROUP_NAME="${GROUP_NAME}" \
-    --mount type=volume,source="$VOLUME_PROJECT",target=/IMPACTncd_Japan \
-    --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/outputs \
+    --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
     --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
     --workdir /IMPACTncd_Japan \
     "$IMAGE_NAME" \
@@ -301,31 +254,21 @@ if [ "$USE_VOLUMES" = true ]; then
     -v "$VOLUME_SYNTHPOP_NAME":/volume \
     -v "$SYNTHPOP_DIR":/backup \
     rsync-alpine rsync -avc --no-owner --no-group --no-times /volume/ /backup/
-  # Sync simulation folder back to the project directory
-  SIMULATION_DIR="$PROJECT_ROOT/simulation"
-  echo "Syncing simulation folder back to: $SIMULATION_DIR"
-  docker run --rm \
-    --user "${USER_ID}:${GROUP_ID}" \
-    -v "$VOLUME_PROJECT":/project \
-    -v "$SIMULATION_DIR":/backup \
-    rsync-alpine rsync -avc --no-owner --no-group --no-times /project/simulation/ /backup/
 
   # Clean up all the Docker volumes used for the simulation.
   echo "Cleaning up Docker volumes..."
   docker container prune -f
-  docker volume rm "$VOLUME_PROJECT"
   docker volume rm "$VOLUME_OUTPUT_NAME"
   docker volume rm "$VOLUME_SYNTHPOP_NAME"
 else
-  echo "Using direct bind mounts for project, outputs, and synthpop..."
+  echo "Using direct bind mounts for outputs and synthpop..."
 
   docker run -it --rm \
     -e USER_ID="${USER_ID}" \
     -e GROUP_ID="${GROUP_ID}" \
     -e USER_NAME="${USER_NAME}" \
     -e GROUP_NAME="${GROUP_NAME}" \
-    --mount type=bind,source="$PROJECT_ROOT",target=/IMPACTncd_Japan \
-    --mount type=bind,source="$OUTPUT_DIR",target=/outputs \
+    --mount type=bind,source="$OUTPUT_DIR",target=/output \
     --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
     --workdir /IMPACTncd_Japan \
     "$IMAGE_NAME" \

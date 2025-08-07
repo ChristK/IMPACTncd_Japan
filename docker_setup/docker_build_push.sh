@@ -131,7 +131,17 @@ fi
 
 # Build the Docker image
 log "Building Docker image..."
-if docker build --no-cache -f "$DOCKERFILE" -t "$BUILD_IMAGE_NAME" .; then
+# Use parent directory as build context for Dockerfile.IMPACTncdJPN to include entire project
+# Use current directory for other dockerfiles
+if [[ "$(basename "$DOCKERFILE")" == "Dockerfile.IMPACTncdJPN" ]]; then
+  BUILD_CONTEXT=".."
+  log "Using parent directory (..) as build context for Dockerfile.IMPACTncdJPN"
+else
+  BUILD_CONTEXT="."
+  log "Using current directory (.) as build context for $(basename "$DOCKERFILE")"
+fi
+
+if docker build --no-cache -f "$DOCKERFILE" -t "$BUILD_IMAGE_NAME" "$BUILD_CONTEXT"; then
   log "Docker image built successfully."
 else
   log "Docker image build failed."

@@ -1,13 +1,6 @@
----
-title: "IMPACTncd_Japan Docker Setup - Complete Guide"
-format:
-  html:
-    self-contained: true
----
-
 # IMPACTncd_Japan Docker Setup - Complete Guide
 
-This repository contains the Docker configuration and cross-platform setup scripts for the **IMPACTncd Japan** project. The system provides robust, reproducible containerized environments with automatic package version management across Windows, macOS, and Linux.
+This repository contains the Docker configuration and cross-platform setup scripts for the **IMPACTncd Japan** project. The system provides robust, reproducible containerized environments using pre-built Docker images.
 
 ---
 
@@ -30,7 +23,7 @@ First, install Docker for your operating system:
 
 **macOS:**
 ```bash
-# Install coreutils which provides gsha256sum
+# Install coreutils which provides gsha256sum (only needed for certain operations)
 brew install coreutils
 ```
 
@@ -47,21 +40,65 @@ sudo usermod -aG docker $USER
 
 ## 🚀 Quick Start
 
+### Container Selection
+
+The scripts now use pre-built Docker images instead of building locally:
+
+- **Default (main):** `chriskypri/impactncdjpn:main` - pulls from Docker Hub
+- **Local images:** `impactncdjpn:local` - uses local Docker registry (when tag="local")
+- **Remote images:** `chriskypri/impactncdjpn:<tag>` - pulls from Docker Hub
+
+### Basic Usage
+
 Choose your platform and run the setup:
 
 ### Windows (PowerShell)
 ```powershell
-.\setup_dev_docker_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+# Default main image
+.\setup_user_docker_env.ps1
+
+# Use local image
+.\setup_user_docker_env.ps1 -Tag "local"
+
+# Use specific remote tag
+.\setup_user_docker_env.ps1 -Tag "v1.2.3"
+
+# Use volumes for better performance
+.\setup_user_docker_env.ps1 -Tag "latest" -UseVolumes
+
+# Custom YAML with remote image
+.\setup_user_docker_env.ps1 -Tag "v1.2.3" -SimDesignYaml "C:\path\to\custom_sim_design.yaml"
 ```
 
 ### macOS/Linux (Bash)
 ```bash
-./setup_dev_docker_env.sh [optional_path_to_sim_design.yaml] [--use-volumes]
+# Default main image
+./setup_user_docker_env.sh
+
+# Use local image
+./setup_user_docker_env.sh local
+
+# Use specific remote tag
+./setup_user_docker_env.sh v1.2.3
+
+# Use volumes for better performance
+./setup_user_docker_env.sh latest --UseVolumes
+
+# Custom YAML with remote image
+./setup_user_docker_env.sh v1.2.3 /path/to/custom_sim_design.yaml
 ```
 
-### Options Explained
-- **SimDesignYaml**: Optional path to your simulation design YAML file
-- **UseVolumes**: Use Docker volumes for better performance with large datasets (recommended for large simulations)
+### Script Parameters
+
+**Bash Script (`setup_user_docker_env.sh`):**
+- `[tag]`: Optional Docker image tag (default: "main") - first positional argument
+- `[path_to_yaml]`: Optional path to simulation design YAML file
+- `--UseVolumes`: Use Docker volumes for enhanced I/O performance
+
+**PowerShell Script (`setup_user_docker_env.ps1`):**
+- `-Tag <tag>`: Docker image tag (default: "main") - first parameter
+- `-SimDesignYaml <path>`: Optional path to simulation design YAML file
+- `-UseVolumes`: Switch for Docker volumes
 
 ---
 
@@ -71,9 +108,35 @@ When you run the setup, the following directories are mounted:
 
 | Host Path | Container Mount | Description |
 |-----------|-----------------|-------------|
-| **Project Root** (above docker_setup) | `/IMPACTncd_Japan` | Main project directory |
+| **Pre-built in image** | `/IMPACTncd_Japan` | Main project directory (already in Docker image) |
 | `output_dir` from `sim_design.yaml` | `/output` | Simulation outputs |
 | `synthpop_dir` from `sim_design.yaml` | `/synthpop` | Synthetic population data |
+
+**Note:** The Docker images already contain the `/IMPACTncd_Japan` project folder, so no project directory mounting or copying is required.
+
+## 🐳 Docker Images
+
+### Image Selection Logic
+- **Tag = "local"** → Uses `impactncdjpn:local`
+- **Tag = "main" (default)** → Uses `chriskypri/impactncdjpn:main`
+- **Tag = anything else** → Uses `chriskypri/impactncdjpn:<tag>`
+
+### Available Tags
+Check Docker Hub for available tags: https://hub.docker.com/r/chriskypri/impactncdjpn/tags
+
+### Volume vs Bind Mount Modes
+
+**Volume Mode (`--UseVolumes` / `-UseVolumes`):**
+- Recommended for Windows and macOS
+- Better I/O performance
+- Creates temporary Docker volumes
+- Syncs data back to host after container exit
+
+**Bind Mount Mode (default):**
+- Recommended for Linux
+- Direct filesystem access
+- Real-time file visibility
+- Lower overhead on Linux
 
 ---
 
@@ -86,8 +149,11 @@ When you run the setup, the following directories are mounted:
 - **Linux:** Start Docker service: `sudo systemctl start docker`
 - **Test:** Run `docker info` to verify Docker is accessible
 
-**macOS: "gsha256sum command not found"**
-- Install with Homebrew: `brew install coreutils`
+**"Failed to pull Docker image"**
+- **Check image exists:** Verify the tag exists on Docker Hub or locally
+- **Network connectivity:** Ensure internet connection for remote images
+- **Authentication:** For private repositories, run `docker login`
+- **Manual test:** Try `docker pull impactncdjpn:local` or `docker pull chriskypri/impactncdjpn:latest`
 
 **Windows: "Execution policy" error**  
 - Run in PowerShell: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
@@ -199,7 +265,7 @@ docker build ... 2>&1 | ./update-apt-packages.sh
 - More flexible but potentially slower
 
 ### Volume Mode (Recommended for Large Simulations)
-Use `--use-volumes` (Bash) or `-UseVolumes` (PowerShell):
+Use `--UseVolumes` (Bash) or `-UseVolumes` (PowerShell):
 - Project directory copied to Docker-managed volume
 - Better performance for large datasets
 - Includes post-simulation sync back to host

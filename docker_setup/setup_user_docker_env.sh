@@ -3,7 +3,7 @@
 # setup_user_docker_env.sh
 #
 # Usage:
-#   ./setup_user_docker_env.sh [<tag>] [path_to_yaml] [--UseVolumes]
+#   ./setup_user_docker_env.sh [<tag>] [path_to_scenarios] [path_to_yaml] [--UseVolumes]
 #
 # Description:
 #   This script pulls and runs a Docker container for the IMPACTncd Japan project.
@@ -15,6 +15,11 @@
 #     
 #   Note: The Docker images already contain the /IMPACTncd_Japan project folder,
 #   so no project directory mounting or copying is required.
+#   
+#   Scenarios Directory:
+#     - If [path_to_scenarios] is provided, that directory will be mounted as
+#       /IMPACTncd_Japan/scenarios inside the container, making the scenarios
+#       files available at runtime regardless of volume usage mode.
 #   
 #   Security: All containers run as the calling user (non-root) to prevent permission
 #   issues and improve security. The script automatically detects the current user's
@@ -43,6 +48,7 @@ PROJECT_ROOT=$(realpath "$SCRIPT_DIR/..")
 # Variable definitions
 DOCKER_TAG="main"  # Default tag
 YAML_FILE="$PROJECT_ROOT/inputs/sim_design.yaml" # Default YAML path relative to project root
+SCENARIOS_DIR=""  # Scenarios directory to copy into container
 CURRENT_USER=$(whoami)
 # Get current user's UID and GID for running containers as non-root
 USER_ID=$(id -u)
@@ -75,11 +81,17 @@ fi
 echo "Removing stopped containers..."
 docker container prune -f
 
-# Process command-line arguments for YAML file, volume usage flag, and Docker tag
+# Process command-line arguments for scenarios folder, YAML file, volume usage flag, and Docker tag
 USE_VOLUMES=false # Default to not using volumes
 # First argument is the tag if it doesn't match other patterns
-if [[ $# -gt 0 && "$1" != *.yaml && "$1" != *.yml && "$1" != "--UseVolumes" ]]; then
+if [[ $# -gt 0 && "$1" != *.yaml && "$1" != *.yml && "$1" != "--UseVolumes" && ! -d "$1" ]]; then
   DOCKER_TAG="$1"
+  shift
+fi
+
+# Second argument could be scenarios directory if it's a directory
+if [[ $# -gt 0 && -d "$1" ]]; then
+  SCENARIOS_DIR="$(realpath "$1")"
   shift
 fi
 
@@ -94,6 +106,9 @@ for arg in "$@"; do
     else
         YAML_FILE="$arg"
     fi
+  elif [[ -d "$arg" && -z "$SCENARIOS_DIR" ]]; then
+    # If it's a directory and we haven't set scenarios dir yet
+    SCENARIOS_DIR="$(realpath "$arg")"
   fi
 done
 
@@ -112,6 +127,14 @@ if [ ! -f "$YAML_FILE" ]; then
 fi
 
 echo "Using configuration from: $YAML_FILE"
+
+if [[ -n "$SCENARIOS_DIR" ]]; then
+  if [ ! -d "$SCENARIOS_DIR" ]; then
+    echo "Error: Scenarios directory not found at $SCENARIOS_DIR"
+    exit 1
+  fi
+  echo "Using scenarios from: $SCENARIOS_DIR"
+fi
 
 # Set simulation design file and extract output directories from YAML
 SIM_DESIGN_FILE="$YAML_FILE"
@@ -230,16 +253,32 @@ if [ "$USE_VOLUMES" = true ]; then
 
   # Run the main container using the pre-built image
   echo "Running the main container using Docker volumes..."
-  docker run -it --rm \
-    -e USER_ID="${USER_ID}" \
-    -e GROUP_ID="${GROUP_ID}" \
-    -e USER_NAME="${USER_NAME}" \
-    -e GROUP_NAME="${GROUP_NAME}" \
-    --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
-    --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
-    --workdir /IMPACTncd_Japan \
-    "$IMAGE_NAME" \
-    bash
+  
+  # Prepare docker run command with scenarios mount if provided
+  if [[ -n "$SCENARIOS_DIR" ]]; then
+    docker run -it --rm \
+      -e USER_ID="${USER_ID}" \
+      -e GROUP_ID="${GROUP_ID}" \
+      -e USER_NAME="${USER_NAME}" \
+      -e GROUP_NAME="${GROUP_NAME}" \
+      --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
+      --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
+      --mount type=bind,source="$SCENARIOS_DIR",target=/IMPACTncd_Japan/scenarios \
+      --workdir /IMPACTncd_Japan \
+      "$IMAGE_NAME" \
+      bash
+  else
+    docker run -it --rm \
+      -e USER_ID="${USER_ID}" \
+      -e GROUP_ID="${GROUP_ID}" \
+      -e USER_NAME="${USER_NAME}" \
+      -e GROUP_NAME="${GROUP_NAME}" \
+      --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
+      --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
+      --workdir /IMPACTncd_Japan \
+      "$IMAGE_NAME" \
+      bash
+  fi
 
   # After the container exits:
   # - Synchronize the volumes back to the local directories using rsync (checksum mode).
@@ -263,14 +302,29 @@ if [ "$USE_VOLUMES" = true ]; then
 else
   echo "Using direct bind mounts for outputs and synthpop..."
 
-  docker run -it --rm \
-    -e USER_ID="${USER_ID}" \
-    -e GROUP_ID="${GROUP_ID}" \
-    -e USER_NAME="${USER_NAME}" \
-    -e GROUP_NAME="${GROUP_NAME}" \
-    --mount type=bind,source="$OUTPUT_DIR",target=/output \
-    --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
-    --workdir /IMPACTncd_Japan \
-    "$IMAGE_NAME" \
-    bash
+  # Prepare docker run command with scenarios mount if provided
+  if [[ -n "$SCENARIOS_DIR" ]]; then
+    docker run -it --rm \
+      -e USER_ID="${USER_ID}" \
+      -e GROUP_ID="${GROUP_ID}" \
+      -e USER_NAME="${USER_NAME}" \
+      -e GROUP_NAME="${GROUP_NAME}" \
+      --mount type=bind,source="$OUTPUT_DIR",target=/output \
+      --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
+      --mount type=bind,source="$SCENARIOS_DIR",target=/IMPACTncd_Japan/scenarios \
+      --workdir /IMPACTncd_Japan \
+      "$IMAGE_NAME" \
+      bash
+  else
+    docker run -it --rm \
+      -e USER_ID="${USER_ID}" \
+      -e GROUP_ID="${GROUP_ID}" \
+      -e USER_NAME="${USER_NAME}" \
+      -e GROUP_NAME="${GROUP_NAME}" \
+      --mount type=bind,source="$OUTPUT_DIR",target=/output \
+      --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
+      --workdir /IMPACTncd_Japan \
+      "$IMAGE_NAME" \
+      bash
+  fi
 fi

@@ -12,6 +12,11 @@
 # Note: The Docker images already contain the /IMPACTncd_Japan project folder,
 # so no project directory mounting or copying is required.
 #
+# Scenarios Directory:
+#   - If ScenariosDir is provided, that directory will be mounted as
+#     /IMPACTncd_Japan/scenarios inside the container, making the scenarios
+#     files available at runtime regardless of volume usage mode.
+#
 # 1. Using Docker-managed volumes for enhanced I/O performance (recommended
 #    for macOS and Windows). In this mode:
 #      - Separate Docker volumes for the output_dir and synthpop_dir (as defined
@@ -28,7 +33,7 @@
 # The entrypoint.sh script creates the appropriate user with the Windows username.
 #
 # Usage:
-#   .\setup_user_docker_env.ps1 [-Tag <tag>] [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+#   .\setup_user_docker_env.ps1 [-Tag <tag>] [-ScenariosDir <path\to\scenarios>] [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
 # If you get an execution policy error, run:
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -37,6 +42,7 @@
 
 param (
     [string]$Tag = "main",
+    [string]$ScenariosDir = "",
     [string]$SimDesignYaml = "..\inputs\sim_design.yaml",
     [switch]$UseVolumes
 )
@@ -56,6 +62,19 @@ if (-not (Test-Path $SimDesignYaml)) {
 }
 
 Write-Host "Using configuration file: $SimDesignYaml"
+
+# Validate scenarios directory if provided
+if ($ScenariosDir -and -not (Test-Path $ScenariosDir -PathType Container)) {
+    Write-Host "Error: Scenarios directory not found at '$ScenariosDir'"
+    Pop-Location
+    Exit 1
+}
+
+if ($ScenariosDir) {
+    # Resolve to absolute path with forward slashes
+    $ScenariosDir = (Resolve-Path $ScenariosDir).Path -replace '\\', '/'
+    Write-Host "Using scenarios from: $ScenariosDir"
+}
 
 # Variable definitions
 # Determine the Docker image name based on the tag
@@ -228,6 +247,25 @@ if (-not (Test-AndCreateDirectory -Path $synthpopDir -PathKey "synthpop_dir")) {
 Write-Host "Mounting output_dir:    $outputDir"       # Keep using forward slashes for Docker mounts
 Write-Host "Mounting synthpop_dir:  $synthpopDir"      # Keep using forward slashes for Docker mounts
 
+# Helper function to convert Windows path to Docker Desktop/WSL format
+function Convert-PathToDockerFormat {
+    param([string]$Path)
+    # Input example: P:/My_Models/IMPACTncd_Japan
+    # Match drive letter (e.g., P) and the rest of the path
+    if ($Path -match '^([A-Za-z]):/(.*)') {
+        $driveLetter = $matches[1].ToLower()
+        $restOfPath = $matches[2]
+        # Construct the Docker path: /<drive_letter>/<rest_of_path>
+        $dockerPath = "/$driveLetter/$restOfPath"
+        # Remove trailing slash if present
+        $dockerPath = $dockerPath -replace '/$', ''
+        return $dockerPath
+    } else {
+        Write-Warning "Path '$Path' did not match expected Windows format (e.g., C:/path/to/dir)"
+        return $Path # Return original path if format is unexpected
+    }
+}
+
 # -----------------------------
 # Run Docker container
 # -----------------------------
@@ -289,11 +327,22 @@ if ($UseVolumes) {
         "-e", "GROUP_NAME=$GroupName",
         # Use -v syntax within the array elements (no project volume needed)
         "-v", "${VolumeOutput}:/output",
-        "-v", "${VolumeSynthpop}:/synthpop",
-        "--workdir", "/IMPACTncd_Japan",
-        $ImageName,
-        "bash"
+        "-v", "${VolumeSynthpop}:/synthpop"
     )
+    
+    # Add scenarios mount if provided
+    if ($ScenariosDir) {
+        $DockerScenariosDir = Convert-PathToDockerFormat -Path $ScenariosDir
+        $dockerArgs += "--mount"
+        $dockerArgs += "type=bind,source=$DockerScenariosDir,target=/IMPACTncd_Japan/scenarios"
+    }
+    
+    # Add final arguments
+    $dockerArgs += "--workdir"
+    $dockerArgs += "/IMPACTncd_Japan"
+    $dockerArgs += $ImageName
+    $dockerArgs += "bash"
+    
     # Execute docker with the arguments array
     & docker $dockerArgs
 
@@ -312,25 +361,6 @@ if ($UseVolumes) {
     docker volume rm $VolumeSynthpop | Out-Null
 
 } else {
-    # Helper function to convert Windows path to Docker Desktop/WSL format
-    function Convert-PathToDockerFormat {
-        param([string]$Path)
-        # Input example: P:/My_Models/IMPACTncd_Japan
-        # Match drive letter (e.g., P) and the rest of the path
-        if ($Path -match '^([A-Za-z]):/(.*)') {
-            $driveLetter = $matches[1].ToLower()
-            $restOfPath = $matches[2]
-            # Construct the Docker path: /<drive_letter>/<rest_of_path>
-            $dockerPath = "/$driveLetter/$restOfPath"
-            # Remove trailing slash if present
-            $dockerPath = $dockerPath -replace '/$', ''
-            return $dockerPath
-        } else {
-            Write-Warning "Path '$Path' did not match expected Windows format (e.g., C:/path/to/dir)"
-            return $Path # Return original path if format is unexpected
-        }
-    }
-
     Write-Host "`nUsing direct bind mounts for outputs and synthpop..."
 
     # Convert paths for Docker bind mount
@@ -341,16 +371,31 @@ if ($UseVolumes) {
     Write-Host "Docker Synthpop Dir: $DockerSynthpopDir"
 
     # Pass mount arguments correctly to docker run (no project mount needed)
-    docker run -it --rm `
-        -e "USER_ID=$UserId" `
-        -e "GROUP_ID=$GroupId" `
-        -e "USER_NAME=$UserName" `
-        -e "GROUP_NAME=$GroupName" `
-        --mount "type=bind,source=$DockerOutputDir,target=/output" `
-        --mount "type=bind,source=$DockerSynthpopDir,target=/synthpop" `
-        --workdir /IMPACTncd_Japan `
-        $ImageName `
-        bash
+    if ($ScenariosDir) {
+        $DockerScenariosDir = Convert-PathToDockerFormat -Path $ScenariosDir
+        docker run -it --rm `
+            -e "USER_ID=$UserId" `
+            -e "GROUP_ID=$GroupId" `
+            -e "USER_NAME=$UserName" `
+            -e "GROUP_NAME=$GroupName" `
+            --mount "type=bind,source=$DockerOutputDir,target=/output" `
+            --mount "type=bind,source=$DockerSynthpopDir,target=/synthpop" `
+            --mount "type=bind,source=$DockerScenariosDir,target=/IMPACTncd_Japan/scenarios" `
+            --workdir /IMPACTncd_Japan `
+            $ImageName `
+            bash
+    } else {
+        docker run -it --rm `
+            -e "USER_ID=$UserId" `
+            -e "GROUP_ID=$GroupId" `
+            -e "USER_NAME=$UserName" `
+            -e "GROUP_NAME=$GroupName" `
+            --mount "type=bind,source=$DockerOutputDir,target=/output" `
+            --mount "type=bind,source=$DockerSynthpopDir,target=/synthpop" `
+            --workdir /IMPACTncd_Japan `
+            $ImageName `
+            bash
+    }
 }
 
 # Restore the original directory

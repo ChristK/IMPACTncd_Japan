@@ -1,38 +1,99 @@
+# =============================================================================
+# Build Push IMPACTncdJPN Workflow
+# =============================================================================
+#
+# PURPOSE:
+# This workflow builds and pushes the main IMPACTncd Japan Docker image that
+# contains the complete application with all dependencies, source code, and
+# R packages installed. This image is used to run the IMPACTncd Japan model
+# simulations in containerized environments.
+#
+# DUAL TRIGGER STRATEGY:
+# This workflow uses a sophisticated dual-trigger approach to coordinate with
+# the prerequisite workflow while ensuring builds happen after every push:
+#
+# 1. PUSH TRIGGER: Runs on every push to any branch
+# 2. WORKFLOW_RUN TRIGGER: Runs when prerequisite workflow completes
+#
+# COORDINATION SCENARIOS:
+# The workflow handles three distinct scenarios automatically:
+#
+# Scenario 1: Push includes prerequisite file changes
+# - Both prerequisite and main workflows start simultaneously
+# - Main workflow waits for prerequisite to complete successfully
+# - Then builds using the newly updated prerequisite image
+# - Ensures latest dependencies are included in the final image
+#
+# Scenario 2: Push doesn't affect prerequisite files
+# - Only the main workflow runs (prerequisite workflow skips execution)
+# - Main workflow waits briefly for any prerequisite check (none exists)
+# - Then proceeds to build with the existing prerequisite image
+# - Efficient execution without unnecessary prerequisite rebuilds
+#
+# Scenario 3: Prerequisite workflow completes independently
+# - Main workflow triggers via workflow_run when prerequisite finishes
+# - This ensures the main image is rebuilt after prerequisite updates
+# - Maintains consistency between prerequisite and main images
+#
+# WORKFLOW SYNCHRONIZATION:
+# - Uses conditional logic to handle different trigger types
+# - Implements waiting mechanisms to prevent race conditions
+# - Ensures proper sequencing of prerequisite → main image builds
+# - Handles failures gracefully by proceeding with existing images
+#
+# =============================================================================
+
 name: Build Push IMPACTncdJPN
 
-# How It Works:
-# Scenario 1: You push files that trigger the prerequisite workflow
-
-# Both workflows start simultaneously
-# The main workflow waits for the prerequisite to complete
-# Then builds using the updated prerequisite image
-# Scenario 2: You push files that don't trigger the prerequisite workflow
-
-# Only the main workflow runs
-# It waits briefly for any prerequisite check (which won't exist)
-# Then proceeds to build with the existing prerequisite image
-# Scenario 3: The prerequisite workflow completes (from any previous push)
-
-# The main workflow also runs via the workflow_run trigger
-# This ensures the main image is rebuilt after prerequisite updates
+# WORKFLOW TRIGGERS:
+# This workflow uses a dual-trigger strategy for comprehensive coverage
+# and proper coordination with the prerequisite workflow.
 
 on:
-  # Run on every push
+  # TRIGGER 1: Push Events
+  # Runs on every push to any branch to ensure the main image is always
+  # built after code changes, regardless of whether prerequisites change.
+  # This guarantees that application updates are containerized promptly.
   push:
-  # Also run after the prerequisite workflow finishes
+  
+  # TRIGGER 2: Prerequisite Workflow Completion
+  # Runs automatically when the prerequisite workflow finishes successfully.
+  # This ensures the main image is rebuilt whenever the base environment
+  # is updated, maintaining consistency between layers.
   workflow_run:
     workflows: ["Build Push prerequisite.IMPACTncdJPN"]
     types:
       - completed
 
 jobs:
+  # JOB: build
+  # Builds and pushes the main IMPACTncd Japan Docker image
+  # Handles coordination with prerequisite workflow through conditional logic
   build:
     runs-on: ubuntu-latest
-    # If triggered by workflow_run, only proceed if prerequisite succeeded
-    # If triggered by push, always proceed
+    
+    # CONDITIONAL EXECUTION LOGIC:
+    # This condition ensures proper workflow coordination:
+    # 
+    # For PUSH events: Always proceed
+    # - Ensures builds happen after every code change
+    # - Coordination with prerequisites handled in subsequent steps
+    #
+    # For WORKFLOW_RUN events: Only proceed if prerequisite succeeded
+    # - Prevents building on failed prerequisite updates
+    # - Ensures main image uses successfully built prerequisite
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     steps:
-      # Wait for prerequisite workflow if it's running (only for push events)
+      # STEP 1: Prerequisite Workflow Coordination
+      # For push events, wait for any running prerequisite workflow to complete.
+      # This prevents race conditions where both workflows might run simultaneously
+      # and ensures we use the latest prerequisite image if it's being updated.
+      #
+      # The step:
+      # - Only runs for push-triggered events (not workflow_run events)
+      # - Waits for the "run_if_needed" job from prerequisite workflow
+      # - Continues regardless of prerequisite outcome (success/failure/skip)
+      # - Uses 30-second intervals to check completion status
       - name: Wait for prerequisite workflow
         if: github.event_name == 'push'
         uses: lewagon/wait-on-check-action@v1.3.4
@@ -43,14 +104,36 @@ jobs:
           wait-interval: 30
           allowed-conclusions: success,failure,cancelled,skipped
 
+      # STEP 2: Source Code Checkout
+      # Checkout the repository source code with the appropriate commit reference
+      # based on how the workflow was triggered:
+      #
+      # For PUSH events: Use github.sha (current commit being pushed)
+      # For WORKFLOW_RUN events: Use github.event.workflow_run.head_sha 
+      #   (commit that triggered the prerequisite workflow)
+      #
+      # This ensures we're always building the correct version of the code
+      # and maintaining consistency between prerequisite and main builds.
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # Use the appropriate commit reference based on trigger type
+          # Dynamic commit reference selection based on trigger type
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
-      # Replace default ':local' tag in Dockerfile with the triggering branch name
-      # (this change is ephemeral in the workflow runner; it won't be pushed back)
+      # STEP 3: Dynamic Dockerfile Configuration
+      # Updates the Dockerfile to use the correct prerequisite image tag.
+      # The Dockerfile contains a default ':local' tag that needs to be replaced
+      # with the appropriate branch name to match the prerequisite image.
+      #
+      # Branch name selection logic:
+      # - For WORKFLOW_RUN events: Use the branch that triggered prerequisite
+      # - For PUSH events: Use the current branch being pushed
+      #
+      # This ensures the main image builds against the correct prerequisite
+      # image version and maintains branch-specific isolation.
+      #
+      # Note: This change is ephemeral (only in the workflow runner) and
+      # does not modify the repository's Dockerfile.
       - name: Update base image tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
@@ -60,20 +143,117 @@ jobs:
           fi
           sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
 
+      # STEP 4: Docker Environment Setup
+      # Configure Docker Buildx for enhanced build capabilities including:
+      # - Multi-platform builds (if needed)
+      # - Advanced caching strategies
+      # - Build output options
+      # - Extended build features
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # STEP 5: Docker Registry Authentication
+      # Authenticate with Docker Hub using stored repository secrets.
+      # Required for pushing the built image to the registry.
+      # Secrets should be configured in repository settings:
+      # - DOCKERHUB_USERNAME: Docker Hub username
+      # - DOCKERHUB_TOKEN: Docker Hub access token (not password)
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # STEP 6: Docker Image Build and Push
+      # Build the main IMPACTncd Japan Docker image and push to Docker Hub.
+      # This creates the complete application image that includes:
+      # - All source code from the repository
+      # - Built R package with documentation
+      # - Configured environment for running simulations
+      # - All dependencies from the prerequisite image
+      #
+      # Build configuration:
+      # - Uses docker_setup as build context (contains Dockerfiles and configs)
+      # - Forces no-cache rebuild to ensure latest code and dependencies
+      # - Tags with branch name for branch-specific image versions
+      # - Uses the main application Dockerfile
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: docker_setup # Set the build context to the docker_setup directory
-          push: true
-          no-cache: true # Ensures no cache is used during the build
+          context: docker_setup # Build context directory containing Dockerfile and configurations
+          push: true # Push the built image to Docker Hub registry
+          no-cache: true # Force complete rebuild without using cached layers
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
-          file: docker_setup/Dockerfile.IMPACTncdJPN
+          file: docker_setup/Dockerfile.IMPACTncdJPN # Main application Dockerfile
+
+# =============================================================================
+# WORKFLOW COMPLETION AND OUTCOMES:
+#
+# SUCCESSFUL COMPLETION RESULTS:
+# Upon successful completion, this workflow produces:
+# 1. A new main application Docker image at:
+#    chriskypri/impactncdjpn:<branch_name>
+#
+# 2. The image contains:
+#    - Complete IMPACTncd Japan application source code
+#    - Built and installed R package with documentation
+#    - All system dependencies and R packages from prerequisite image
+#    - Configured environment ready for simulation execution
+#
+# BRANCH-SPECIFIC IMAGES:
+# - Each branch gets its own image tag for isolated development
+# - Main/production branch images can be used for stable deployments
+# - Feature branch images allow testing without affecting main deployments
+#
+# USAGE SCENARIOS:
+# The resulting Docker images can be used for:
+# - Running IMPACTncd Japan model simulations in containers
+# - Deploying the application in cloud environments
+# - Creating reproducible research environments
+# - Distributing the application to collaborators
+# - Setting up development environments
+#
+# WORKFLOW COORDINATION SUCCESS:
+# When both prerequisite and main workflows run successfully:
+# 1. Latest system dependencies and R packages are included
+# 2. Application code is built against updated environment
+# 3. Resulting image has all latest components
+# 4. Branch consistency is maintained across image layers
+#
+# TROUBLESHOOTING:
+#
+# Common Issues and Solutions:
+# 
+# 1. Prerequisite Workflow Failures:
+#    - Check prerequisite workflow logs for dependency issues
+#    - Verify R package installations in prerequisite build
+#    - Main workflow will proceed with existing prerequisite image
+#
+# 2. Authentication Issues:
+#    - Verify DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets
+#    - Ensure Docker Hub token has push permissions
+#    - Check that repository secrets are properly configured
+#
+# 3. Build Failures:
+#    - Check Dockerfile syntax and build context
+#    - Verify that prerequisite image exists for the branch
+#    - Review application code for compilation errors
+#    - Check available disk space and build resources
+#
+# 4. Coordination Issues:
+#    - Verify prerequisite workflow name matches exactly
+#    - Check that both workflows are enabled
+#    - Review trigger conditions and branch filters
+#
+# 5. Resource Issues:
+#    - R package compilation can be memory-intensive
+#    - Large file reconstruction may require additional disk space
+#    - Consider using build caching for development branches
+#
+# MONITORING:
+# - Monitor workflow execution times for performance issues
+# - Track image sizes to identify bloat
+# - Review logs for deprecated dependencies or warnings
+# - Set up notifications for workflow failures
+#
+# ============================================================================= # Main application Dockerfile

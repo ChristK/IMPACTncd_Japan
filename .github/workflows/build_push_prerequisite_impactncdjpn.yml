@@ -1,10 +1,55 @@
+# =============================================================================
+# Build Push prerequisite.IMPACTncdJPN Workflow
+# =============================================================================
+#
+# PURPOSE:
+# This workflow builds and pushes the prerequisite Docker image that contains
+# the base R environment, system dependencies, and R packages needed for the
+# IMPACTncd Japan model. This image serves as the base for the main application
+# Docker image.
+#
+# WORKFLOW LOGIC:
+# - Triggers on every push to any branch
+# - Only executes the build job if specific prerequisite files are modified
+# - Uses conditional logic to check for changes in prerequisite-related files
+# - Coordinates with the main workflow (build_push_impactncdjpn.yml) which
+#   waits for this workflow to complete when both are triggered simultaneously
+#
+# COORDINATION WITH MAIN WORKFLOW:
+# 1. Both workflows can trigger on the same push
+# 2. Main workflow waits for this prerequisite workflow to complete
+# 3. Main workflow then uses the updated prerequisite image as its base
+# 4. If prerequisite files aren't changed, this workflow skips execution
+#    and the main workflow proceeds with the existing prerequisite image
+#
+# MONITORED FILES:
+# The workflow only builds when these files are modified:
+# - docker_setup/Dockerfile.prerequisite.IMPACTncdJPN (base Dockerfile)
+# - docker_setup/apt-packages.txt (system packages)
+# - docker_setup/r-packages.txt (R packages)
+# - docker_setup/entrypoint.sh (container startup script)
+# - .github/workflows/build_push_prerequisite_impactncdjpn.yml (this workflow)
+#
+# OUTPUT:
+# Builds and pushes Docker image to:
+# chriskypri/prerequisite.impactncdjpn:<branch_name>
+#
+# =============================================================================
+
 name: Build Push prerequisite.IMPACTncdJPN
 
 
-# NOTE the following logic is disabled because it cannot be used to synchronise
-# this workflow with Build Push impactncdjpn. Build Push impactncdjpn need to
-# run after this workflow.
+# WORKFLOW TRIGGERS:
+# Currently triggers on every push, but only executes if prerequisite files change.
+# The commented-out section below shows the preferred approach using path filters,
+# but this was disabled because it couldn't properly coordinate with the main workflow.
+# With path filters, the main workflow couldn't reliably detect if this workflow
+# was triggered, leading to synchronization issues.
 
+# DISABLED PATH-BASED TRIGGERING (kept for reference):
+# The ideal approach would be to use path-based triggers to only run when
+# relevant files change, but this creates coordination problems with the
+# main workflow that needs to know if this workflow is running.
 
 # on:
 #   push:
@@ -15,12 +60,28 @@ name: Build Push prerequisite.IMPACTncdJPN
 #       - docker_setup/entrypoint.sh
 #       - .github/workflows/setup_dev_docker_env.yml
 
+# CURRENT APPROACH:
+# Run on every push but use conditional job execution based on file changes.
+# This allows the main workflow to always see this workflow in the run history
+# and properly coordinate execution timing.
 on:
   push:
 
 jobs:
+  # JOB: run_if_needed
+  # This job only executes if prerequisite-related files have been modified
+  # in the current push. It uses GitHub's commit information to check for
+  # changes in specific files that affect the prerequisite Docker image.
   run_if_needed:
     runs-on: ubuntu-latest
+    
+    # CONDITIONAL EXECUTION:
+    # Only run this job if any of the prerequisite files were modified.
+    # This approach allows the workflow to always trigger (for coordination
+    # with the main workflow) but only consume resources when necessary.
+    #
+    # NOTE: The 'modified' property may show linting warnings but is valid
+    # for push events and works correctly in practice.
     if: ${{ 
           contains(join(github.event.commits.*.modified, ','), 'docker_setup/Dockerfile.prerequisite.IMPACTncdJPN') ||
           contains(join(github.event.commits.*.modified, ','), 'docker_setup/apt-packages.txt') ||
@@ -29,25 +90,61 @@ jobs:
           contains(join(github.event.commits.*.modified, ','), '.github/workflows/build_push_prerequisite_impactncdjpn.yml')
         }}
     steps:
+      # STEP 1: Notification
+      # Log that the workflow is running due to prerequisite file changes
       - run: echo "Build Push prerequisite.impactncdjpn is running because relevant files changed."
 
+      # STEP 2: Source Code Checkout
+      # Get the repository source code for the Docker build context
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # STEP 3: Docker Environment Setup
+      # Configure Docker Buildx for multi-platform builds and advanced features
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # STEP 4: Docker Registry Authentication
+      # Log into Docker Hub using stored secrets for pushing the built image
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # STEP 5: Docker Image Build and Push
+      # Build the prerequisite Docker image and push to Docker Hub
+      # This image contains the R environment and system dependencies
+      # needed by the main IMPACTncd Japan application
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: docker_setup # Set the build context to the docker_setup directory
-          push: true
-          no-cache: true # Ensures no cache is used during the build
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/prerequisite.impactncdjpn:${{ github.ref_name }}
-          file: docker_setup/Dockerfile.prerequisite.IMPACTncdJPN
+          context: docker_setup # Build context directory containing Dockerfile and dependencies
+          push: true # Push the built image to Docker Hub
+          no-cache: true # Force rebuild without using cache to ensure latest dependencies
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/prerequisite.impactncdjpn:${{ github.ref_name }} # Tag with branch name
+          file: docker_setup/Dockerfile.prerequisite.IMPACTncdJPN # Specific Dockerfile for prerequisites
+
+# =============================================================================
+# WORKFLOW COMPLETION AND NEXT STEPS:
+#
+# Upon successful completion of this workflow:
+# 1. A new prerequisite Docker image is available at:
+#    chriskypri/prerequisite.impactncdjpn:<branch_name>
+#
+# 2. The main workflow (build_push_impactncdjpn.yml) will automatically:
+#    - Detect this workflow's completion via workflow_run trigger
+#    - Use the updated prerequisite image as its base
+#    - Build and push the main application image
+#
+# 3. If this workflow fails:
+#    - The main workflow will proceed with the existing prerequisite image
+#    - Check the build logs for dependency or configuration issues
+#
+# TROUBLESHOOTING:
+# - Verify Docker Hub credentials are correctly configured in repository secrets
+# - Check that prerequisite files (Dockerfile, package lists) are valid
+# - Ensure the docker_setup directory structure is correct
+# - Monitor resource usage as R package installation can be memory-intensive
+#
+# =============================================================================

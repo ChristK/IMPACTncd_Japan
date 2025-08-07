@@ -117,7 +117,18 @@ if (-not $Dockerfile) {
 
 # Build
 Log "Building Docker image..."
-docker build --no-cache -f $Dockerfile -t $BuildImageName .
+# Use parent directory as build context for Dockerfile.IMPACTncdJPN to include entire project
+# Use current directory for other dockerfiles
+$DockerfileName = (Split-Path $Dockerfile -Leaf)
+if ($DockerfileName -eq "Dockerfile.IMPACTncdJPN") {
+    $BuildContext = ".."
+    Log "Using parent directory (..) as build context for Dockerfile.IMPACTncdJPN"
+} else {
+    $BuildContext = "."
+    Log "Using current directory (.) as build context for $DockerfileName"
+}
+
+docker build --no-cache -f $Dockerfile -t $BuildImageName $BuildContext
 if ($LASTEXITCODE -eq 0) {
     Log "Docker image built successfully."
 } else {

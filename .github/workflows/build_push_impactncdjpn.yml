@@ -1,7 +1,25 @@
 name: Build Push IMPACTncdJPN
 
+# How It Works:
+# Scenario 1: You push files that trigger the prerequisite workflow
+
+# Both workflows start simultaneously
+# The main workflow waits for the prerequisite to complete
+# Then builds using the updated prerequisite image
+# Scenario 2: You push files that don't trigger the prerequisite workflow
+
+# Only the main workflow runs
+# It waits briefly for any prerequisite check (which won't exist)
+# Then proceeds to build with the existing prerequisite image
+# Scenario 3: The prerequisite workflow completes (from any previous push)
+
+# The main workflow also runs via the workflow_run trigger
+# This ensures the main image is rebuilt after prerequisite updates
+
 on:
-  # Only run after the prerequisite workflow finishes
+  # Run on every push
+  push:
+  # Also run after the prerequisite workflow finishes
   workflow_run:
     workflows: ["Build Push prerequisite.IMPACTncdJPN"]
     types:
@@ -9,21 +27,38 @@ on:
 
 jobs:
   build:
-    # only proceed if the prerequisite completed successfully
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    # If triggered by workflow_run, only proceed if prerequisite succeeded
+    # If triggered by push, always proceed
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     steps:
+      # Wait for prerequisite workflow if it's running (only for push events)
+      - name: Wait for prerequisite workflow
+        if: github.event_name == 'push'
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: "run_if_needed"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success,failure,cancelled,skipped
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # checkout exactly the commit that ran in the prerequisite
-          ref: ${{ github.event.workflow_run.head_sha }}
+          # Use the appropriate commit reference based on trigger type
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       # Replace default ':local' tag in Dockerfile with the triggering branch name
-      # (this change is ephemeral in the workflow runner; it won’t be pushed back)
+      # (this change is ephemeral in the workflow runner; it won't be pushed back)
       - name: Update base image tag
         run: |
-          sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${{ github.ref_name }}|" docker_setup/Dockerfile.IMPACTncdJPN
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
+          else
+            BRANCH_NAME="${{ github.ref_name }}"
+          fi
+          sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -40,5 +75,5 @@ jobs:
           context: docker_setup # Set the build context to the docker_setup directory
           push: true
           no-cache: true # Ensures no cache is used during the build
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.ref_name }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
           file: docker_setup/Dockerfile.IMPACTncdJPN

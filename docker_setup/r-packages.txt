@@ -1,4 +1,10 @@
+# CRAN snapshot date: 2025-07-31
+# This date controls the R package repository snapshot used in the Docker build
+# Update this date to change the package versions. Format: YYYY-MM-DD
+# See https://packagemanager.posit.co/client/#/repos/cran/setup for available snapshots
+
 arrow
+callr
 digest
 dqrng
 doParallel
@@ -20,7 +26,6 @@ roxygen2
 tinytest
 wrswoR
 yaml
-dbplyr
 dplyr
 data.table
 # required currently but to be removed in the future

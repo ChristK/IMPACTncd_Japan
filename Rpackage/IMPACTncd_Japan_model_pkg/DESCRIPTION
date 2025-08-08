@@ -2,7 +2,7 @@ Package: IMPACTncdJapan
 Type: Package
 Title: Utility Functions for IMPACTncdJapan Model
 Version: 0.0.1
-Date: 2023-01-20
+Date: 2025-07-21
 Authors@R: 
     person("Chris", "Kypridemos", , "christodoulosk@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-0746-9229"))
@@ -34,6 +34,8 @@ LinkingTo: Rcpp,
            dqrng,
            sitmo,
            BH,
-           data.table
+           data.table,
+           CKutils
 RoxygenNote: 7.3.2
 SystemRequirements: C++17
+VignetteBuilder: knitr

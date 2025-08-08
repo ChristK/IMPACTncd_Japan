@@ -1,14 +1,14 @@
-## IMPACTncdEngl is an implementation of the IMPACTncd framework, developed by
+## IMPACTncd_Japan is an implementation of the IMPACTncd framework, developed by
 ## Chris Kypridemos with contributions from Peter Crowther (Melandra Ltd), Maria
 ## Guzman-Castillo, Amandine Robert, and Piotr Bandosz. This work has been
-## funded by NIHR  HTA Project: 16/165/01 - IMPACTncdEngl: Health Outcomes
+## funded by NIHR  HTA Project: 16/165/01 - IMPACTncd_Japan: Health Outcomes
 ## Research Simulation Environment.  The views expressed are those of the
 ## authors and not necessarily those of the NHS, the NIHR or the Department of
 ## Health.
 ##
 ## Copyright (C) 2018-2020 University of Liverpool, Chris Kypridemos
 ##
-## IMPACTncdEngl is free software; you can redistribute it and/or modify it
+## IMPACTncd_Japan is free software; you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by the Free
 ## Software Foundation; either version 3 of the License, or (at your option) any
 ## later version. This program is distributed in the hope that it will be
@@ -112,9 +112,9 @@ Design <-
         if (private$is_in_docker()) {
           # if in docker
           if (sim_prm$logs) 
-            message ("R runs within docker.\nSetting output_dir and synthpop_dir set to /output and /synthpop.")
+            message ("R runs within docker.\nSetting output_dir and synthpop_dir set to /outputs and /synthpop.")
           # set the output_dir and synthpop_dir to the docker container paths
-          sim_prm$output_dir <- "/output"
+          sim_prm$output_dir <- "/outputs"
           sim_prm$synthpop_dir <- "/synthpop"
         } else {
           # if not in docker
@@ -242,8 +242,8 @@ Design <-
       # @keywords internal
       is_in_docker = function() {
         file.exists("/.dockerenv") ||
-          any(grepl("docker|kubepods", readLines("/proc/1/cgroup", warn = FALSE)))
+          (file.exists("/proc/1/cgroup") && any(grepl("docker|kubepods", readLines("/proc/1/cgroup", warn = FALSE))))
       }
 
-    )
-  )
+    ) # end of private list
+  ) # end of R6 class

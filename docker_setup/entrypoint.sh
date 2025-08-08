@@ -47,7 +47,7 @@
 #
 # USAGE:
 # This script is automatically called as the Docker ENTRYPOINT when the container
-# starts. The create_env.sh script passes the necessary environment variables:
+# starts. The setup_dev_docker_env.sh script passes the necessary environment variables:
 #   -e USER_ID="$(id -u)"
 #   -e GROUP_ID="$(id -g)"
 #   -e USER_NAME="$(whoami)"
@@ -61,24 +61,55 @@ GROUP_ID=${GROUP_ID:-$(id -g)}
 USER_NAME=${USER_NAME:-"dockeruser"}
 GROUP_NAME=${GROUP_NAME:-"dockergroup"}
 
+echo "Entrypoint debug: USER_ID=$USER_ID, GROUP_ID=$GROUP_ID, USER_NAME=$USER_NAME, GROUP_NAME=$GROUP_NAME"
+
 # If no specific user is requested or running as root, just execute the command
 if [ -z "$USER_ID" ] || [ "$USER_ID" = "0" ]; then
+    echo "Running as root or no USER_ID specified"
     exec "$@"
 fi
 
 # Create group if it doesn't exist
 if ! getent group "$GROUP_ID" > /dev/null 2>&1; then
+    echo "Creating group with ID $GROUP_ID"
+    # If group name already exists but with different ID, use a safe fallback
+    if getent group "$GROUP_NAME" > /dev/null 2>&1; then
+        echo "Group name $GROUP_NAME already exists, using fallback"
+        GROUP_NAME="dockergroup_${GROUP_ID}"
+    fi
     groupadd -g "$GROUP_ID" "$GROUP_NAME"
+    echo "Created group: $GROUP_NAME with ID $GROUP_ID"
+else
+    echo "Group with ID $GROUP_ID already exists"
 fi
 
 # Create user if it doesn't exist
 if ! getent passwd "$USER_ID" > /dev/null 2>&1; then
-    # Create user with home directory
-    useradd -u "$USER_ID" -g "$GROUP_ID" -m -s /bin/bash "$USER_NAME"
+    echo "Creating user with ID $USER_ID"
+    # Sanitize username (replace spaces and special characters with underscores)
+    SAFE_USER_NAME=$(echo "$USER_NAME" | sed 's/[^a-zA-Z0-9]/_/g' | sed 's/__*/_/g' | sed 's/^_\|_$//g')
+    
+    # Ensure we have a valid username
+    if [ -z "$SAFE_USER_NAME" ]; then
+        SAFE_USER_NAME="dockeruser"
+    fi
+    
+    echo "Sanitized username: $SAFE_USER_NAME"
+    
+    # Get the actual group name that was created (in case it was modified above)
+    ACTUAL_GROUP_NAME=$(getent group "$GROUP_ID" | cut -d: -f1)
+    echo "Using group name: $ACTUAL_GROUP_NAME"
+    
+    # Create user with home directory, using the actual group name
+    useradd -u "$USER_ID" -g "$ACTUAL_GROUP_NAME" -m -s /bin/bash "$SAFE_USER_NAME"
     
     # Ensure home directory has correct ownership
-    chown "$USER_ID:$GROUP_ID" "/home/$USER_NAME"
+    chown "$USER_ID:$GROUP_ID" "/home/$SAFE_USER_NAME"
+    echo "Created user: $SAFE_USER_NAME with home /home/$SAFE_USER_NAME"
+else
+    echo "User with ID $USER_ID already exists"
 fi
 
 # Execute the command as the specified user
+echo "Executing command as user $USER_ID:$GROUP_ID"
 exec gosu "$USER_ID:$GROUP_ID" "$@"

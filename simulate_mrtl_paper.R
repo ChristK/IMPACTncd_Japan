@@ -1,4 +1,4 @@
-mcnum <- 200L # Number of iterations
+mcnum <- 10L # Number of iterations
 source("./global.R")
 IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 

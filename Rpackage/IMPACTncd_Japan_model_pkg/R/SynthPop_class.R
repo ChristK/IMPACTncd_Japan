@@ -110,7 +110,7 @@ SynthPop <-
 
         self$mc <- mc_
         self$mc_aggr <-
-          as.integer(ceiling(mc_ / design_$sim_prm$n_synthpop_aggregation))
+          as.integer(ceiling(mc_ / design_$sim_prm$num_chunks))
 
         private$design <- design_
         private$synthpop_dir <- design_$sim_prm$synthpop_dir
@@ -703,8 +703,8 @@ SynthPop <-
           .noexport = NULL # c("time_mark")
         ) %dopar%
           {
-            data.table::setDTthreads(private$design$sim_prm$n_cpus)
-            fst::threads_fst(private$design$sim_prm$n_cpus)
+            data.table::setDTthreads(1L)
+            fst::threads_fst(1L)
             filename <-
               private$gen_synthpop_filename(
                 mc_iter,
@@ -1760,7 +1760,7 @@ SynthPop <-
 
           # Ensure pid does not overlap for files from different mc
           new_n <-
-            it <- as.integer(ceiling(self$mc %% private$design$sim_prm$n_synthpop_aggregation))
+            it <- as.integer(ceiling(self$mc %% private$design$sim_prm$num_chunks))
           if ((max(dt$pid) + it * 1e8) >= .Machine$integer.max) stop("pid larger than int32 limit.")
           dt[, pid := as.integer(pid + it * 1e8)]
 
@@ -1770,10 +1770,10 @@ SynthPop <-
 
           # Ensure pid does not overlap for files from different mc
           # new_n <- uniqueN(dt$pid)
-          # it <- as.integer(ceiling(self$mc %% private$design$sim_prm$n_synthpop_aggregation))
-          # it[it == 0L] <- private$design$sim_prm$n_synthpop_aggregation
+          # it <- as.integer(ceiling(self$mc %% private$design$sim_prm$num_chunks))
+          # it[it == 0L] <- private$design$sim_prm$num_chunks
           # it <- it - 1L
-          # if (max(dt$pid + (private$design$sim_prm$n_synthpop_aggregation - 1) * new_n) < .Machine$integer.max) {
+          # if (max(dt$pid + (private$design$sim_prm$num_chunks - 1) * new_n) < .Machine$integer.max) {
           #  dt[, pid := as.integer(pid + it * new_n)]
           # } else stop("pid larger than int32 limit.")
 
@@ -1821,7 +1821,7 @@ SynthPop <-
         ]
         dt[, wt_immrtl := .N, by = .(year, age, sex)]
         absorb_dt(dt, tt)
-        dt[, wt_immrtl := pops / (wt_immrtl * design$sim_prm$n_synthpop_aggregation)]
+        dt[, wt_immrtl := pops / (wt_immrtl * design$sim_prm$num_chunks)]
         dt[, pops := NULL]
 
         invisible(dt)

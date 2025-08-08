@@ -4068,6 +4068,7 @@ Simulation <-
             output_path
           )
         }
+        NULL
       }, # end export_le_summaries
 
       # Healthy Life Expectancy (HLE) Export Section

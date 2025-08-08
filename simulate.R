@@ -16,6 +16,8 @@ IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 IMPACTncd$
   del_logs()$
   del_outputs()$
+  # del_synthpops()$
+  # del_parfs()$
   run(1:2, multicore = TRUE, "sc0")
 
 # example of primary prevention scenario function

@@ -286,7 +286,7 @@ Simulation <-
         self$reconstruct_large_files()
 
         # check if sequential vector. Necessary if
-        # design$sim_prm$n_synthpop_aggregation > 1
+        # design$sim_prm$num_chunks > 1
         if (
           anyNA(mc) ||
             any(is.infinite(mc)) ||
@@ -300,9 +300,9 @@ Simulation <-
         # NOTE mc is in fact mc_aggr. mc_ is the mc of the synthpop
         mc_sp <-
           (min(mc) *
-            self$design$sim_prm$n_synthpop_aggregation -
-            self$design$sim_prm$n_synthpop_aggregation +
-            1L):(max(mc) * self$design$sim_prm$n_synthpop_aggregation)
+            self$design$sim_prm$num_chunks -
+            self$design$sim_prm$num_chunks +
+            1L):(max(mc) * self$design$sim_prm$num_chunks)
 
         if (
           any(file.exists(

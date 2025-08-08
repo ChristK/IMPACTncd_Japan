@@ -123,7 +123,11 @@ lapply(diseases, function(x) {
     x$set_init_prvl(sp, design)
 })
 
+# scenario_nam <- "FV"
+# if (scenario_nam != "sc0") sp$update_pop_weights(scenario_nam)
+
 # primary_prevention_scn
+private$primary_prevention_scn(sp) # apply primary prevention scenario
 
 lapply(diseases, function(x) {
     print(x)

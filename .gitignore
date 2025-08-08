@@ -3,6 +3,7 @@
 # But keep these
 !.gitignore
 !.gitattributes
+!.github
 # Session Data files
 .RData
 # User-specific files
@@ -41,3 +42,5 @@ simulate2.R
 simulation/calibration_prms_10.csv
 simulation/calibration_prms copy.csv
 docker_setup/README.html
+auxil/memlog.txt
+auxil/memlog.png

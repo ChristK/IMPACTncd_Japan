@@ -48,11 +48,13 @@ if (!dir.exists(user_lib)) {
 
 # Check if the user library is writable
 if (file.access(user_lib, mode = 2) != 0) { # mode = 2 checks for write permission
-  stop(paste(
-    "Error: User library path is not writable:", user_lib,
-    "\nPlease check permissions or set the R_LIBS_USER environment variable to a writable path."
-  ))
+  stop(
+    "User library path is not writable:",
+    user_lib,
+    ". Please check permissions or set the R_LIBS_USER environment variable to a writable path."
+  )
 }
+
 
 # Add the user library to the library paths if not already present
 # Prepending ensures it's the default location for installations
@@ -73,12 +75,17 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 
 # Ensure 'CKutils' is installed from GitHub if missing
 if (!requireNamespace("CKutils", quietly = TRUE)) {
-  remotes::install_github("ChristK/CKutils", upgrade = "ask", force = TRUE)
+  remotes::install_github(
+    "ChristK/CKutils",
+    upgrade = "never",
+    force = TRUE,
+    quiet = TRUE
+  )
 }
 library(CKutils)
 
 # Set development mode flag
-dev_mode <- TRUE # Set to FALSE for production
+dev_mode <- FALSE # Set to FALSE for production
 
 # Environment-specific options
 options(rgl.useNULL = TRUE) # suppress error by demography in rstudio server

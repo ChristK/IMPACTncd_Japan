@@ -4,13 +4,10 @@
 \name{IMPACTncdJapan}
 \alias{-package}
 \alias{IMPACTncdJapan}
-\alias{.datatable.aware}
+\alias{:=}
 \title{IMPACTncdJapan: A package with functions for the IMPACTncdJapan model.}
-\format{
-An object of class \code{logical} of length 1.
-}
 \usage{
-.datatable.aware
+`:=`(...)
 }
 \description{
 Description of your package.
@@ -18,4 +15,3 @@ Description of your package.
 \author{
 Chris Kypridemos
 }
-\keyword{datasets}

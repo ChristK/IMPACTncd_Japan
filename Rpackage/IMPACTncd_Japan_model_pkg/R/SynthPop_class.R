@@ -1,10 +1,10 @@
-## IMPACTncdEngl is an implementation of the IMPACTncd framework, developed by
+## IMPACTncd_Japan is an implementation of the IMPACTncd framework, developed by
 ## Chris Kypridemos with contributions from Peter Crowther (Melandra Ltd), Maria
 ## Guzman-Castillo, Amandine Robert, and Piotr Bandosz.
 ##
 ## Copyright (C) 2018-2020 University of Liverpool, Chris Kypridemos
 ##
-## IMPACTncdEngl is free software; you can redistribute it and/or modify it
+## IMPACTncd_Japan is free software; you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by the Free
 ## Software Foundation; either version 3 of the License, or (at your option) any
 ## later version. This program is distributed in the hope that it will be
@@ -145,34 +145,45 @@ SynthPop <-
             )
           } else if (file.exists(private$filename$metafile) &&
             !all(files_exist)) {
-            # Metafile exists but not all three files. It means that most likely
-            # a generate_synthpop() is still running. So the function waits
-            # until the file is created before it proceeds to load it. Note that
-            # if this is not the case then the loop is infinite!!!
-            while (!all(sapply(private$filename, file.exists))) {
-              Sys.sleep(5)
-              if (design_$sim_prm$logs) {
-                message("Metafile exists without a synthpop file. Check for synthpop after 5 sec.")
+            # Metafile exists but not all files. Bounded wait, then cleanup/regenerate.
+            # Default wait time is 0s (no waiting). To enable waiting, set to 600L below.
+            max_wait_sec <- 0L
+            # max_wait_sec <- 600L  # optional: wait up to 10 minutes
+
+            waited <- 0L
+            while (!all(sapply(private$filename, file.exists)) && waited < max_wait_sec) {
+              Sys.sleep(1)
+              waited <- waited + 1L
+              if (design_$sim_prm$logs && waited %% 5L == 0L) {
+                message("Waiting for synthpop files to appear (", waited, "s)...")
               }
-            }
-            # Ensure the file write is complete (size stable)
-            if (design_$sim_prm$logs) {
-              message("Synthpop file found.")
             }
 
-            sz1 <- file.size(private$filename$synthpop)
-            Sys.sleep(3)
-            sz2 <- file.size(private$filename$synthpop)
-            while (sz1 != sz2) {
+            if (!all(sapply(private$filename, file.exists))) {
               if (design_$sim_prm$logs) {
-                message("Synthpop file size increases.")
+                message("Timeout waiting for incomplete synthpop files. Cleaning up and regenerating...")
               }
-              sz1 <- file.size(private$filename$synthpop)
-              Sys.sleep(3)
-              sz2 <- file.size(private$filename$synthpop)
-            }
-            if (design_$sim_prm$logs) {
-              message("Synthpop file stabilised.")
+              self$delete_incomplete_synthpop()
+              private$gen_synthpop(
+                mc_,
+                private$filename,
+                design_
+              )
+            } else {
+              # Ensure the file write is complete (size stable) with a bound
+              if (design_$sim_prm$logs) message("Synthpop file found. Checking for size stability...")
+              sz1 <- tryCatch(file.size(private$filename$synthpop), error = function(e) NA_real_)
+              Sys.sleep(1)
+              sz2 <- tryCatch(file.size(private$filename$synthpop), error = function(e) NA_real_)
+              attempts <- 0L
+              while (!is.na(sz1) && !is.na(sz2) && sz1 != sz2 && attempts < 30L) {
+                if (design_$sim_prm$logs && attempts %% 5L == 0L) message("Synthpop file growing, waiting to stabilise... (", attempts, ")")
+                sz1 <- tryCatch(file.size(private$filename$synthpop), error = function(e) NA_real_)
+                Sys.sleep(1)
+                sz2 <- tryCatch(file.size(private$filename$synthpop), error = function(e) NA_real_)
+                attempts <- attempts + 1L
+              }
+              if (design_$sim_prm$logs) message("Synthpop file assumed stable.")
             }
           } else if (!file.exists(private$filename$metafile) &&
             !all(files_exist)) {
@@ -685,66 +696,84 @@ SynthPop <-
             "qs",
             "fst",
             "CKutils",
-            "IMPACTncdEngl",
+            "IMPACTncdJapan",
             "data.table"
           ),
           .export = NULL,
           .noexport = NULL # c("time_mark")
-        ) %dopar% {
-          data.table::setDTthreads(private$design$sim_prm$n_cpus)
-          fst::threads_fst(private$design$sim_prm$n_cpus)
-          filename <-
-            private$gen_synthpop_filename(
-              mc_iter,
-              private$checksum,
-              private$design
-            )
+        ) %dopar%
+          {
+            data.table::setDTthreads(private$design$sim_prm$n_cpus)
+            fst::threads_fst(private$design$sim_prm$n_cpus)
+            filename <-
+              private$gen_synthpop_filename(
+                mc_iter,
+                private$checksum,
+                private$design
+              )
 
-          # logic for the synthpop load
-          files_exist <- sapply(filename, file.exists)
-          if (all(!files_exist)) {
-            # No files exist. Create the synthpop and store
-            # the file on disk
-            private$gen_synthpop(
-              mc_iter,
-              filename,
-              private$design
-            )
-          } else if (file.exists(filename$metafile) &&
-            !all(files_exist)) {
-            # Metafile exists but not all three files. It means
-            # that most likely a generate_synthpop() is still running. So the
-            # function waits until the file is created before it proceeds to
-            # load it. Note that if this is not the case then the loop is
-            # infinite!!!
-            while (!all(sapply(filename, file.exists))) {
-              Sys.sleep(5)
-            }
+            # logic for the synthpop load
+            files_exist <- sapply(filename, file.exists)
+            if (all(!files_exist)) {
+              # No files exist. Create the synthpop and store
+              # the file on disk
+              private$gen_synthpop(
+                mc_iter,
+                filename,
+                private$design
+              )
+            } else if (
+              file.exists(filename$metafile) &&
+                !all(files_exist)
+            ) {
+              # Metafile exists but not all files. Bounded wait, then cleanup/regenerate.
+              # Default wait time is 0s (no waiting). To enable waiting, set to 600L below.
+              max_wait_sec <- 0L
+              # max_wait_sec <- 600L  # optional: wait up to 10 minutes
 
-            # Ensure the file write is complete (size stable)
-            sz1 <- file.size(filename$synthpop)
-            Sys.sleep(3)
-            sz2 <- file.size(filename$synthpop)
-            while (sz1 != sz2) {
-              sz1 <- file.size(filename$synthpop)
-              Sys.sleep(3)
-              sz2 <- file.size(filename$synthpop)
+              waited <- 0L
+              while (!all(sapply(filename, file.exists)) && waited < max_wait_sec) {
+                Sys.sleep(1)
+                waited <- waited + 1L
+              }
+
+              if (!all(sapply(filename, file.exists))) {
+                self$delete_incomplete_synthpop()
+                private$gen_synthpop(
+                  mc_iter,
+                  filename,
+                  private$design
+                )
+              } else {
+                # Ensure the file write is complete (size stable) with a bound
+                sz1 <- tryCatch(file.size(filename$synthpop), error = function(e) NA_real_)
+                Sys.sleep(1)
+                sz2 <- tryCatch(file.size(filename$synthpop), error = function(e) NA_real_)
+                attempts <- 0L
+                while (!is.na(sz1) && !is.na(sz2) && sz1 != sz2 && attempts < 30L) {
+                  sz1 <- tryCatch(file.size(filename$synthpop), error = function(e) NA_real_)
+                  Sys.sleep(1)
+                  sz2 <- tryCatch(file.size(filename$synthpop), error = function(e) NA_real_)
+                  attempts <- attempts + 1L
+                }
+              }
+            } else if (
+              !file.exists(filename$metafile) &&
+                !all(files_exist)
+            ) {
+              # Metafile doesn't exist but some other files exist. In this case
+              # delete everything and start from scratch
+              self$delete_incomplete_synthpop()
+              private$gen_synthpop(
+                mc_iter,
+                filename,
+                private$design
+              )
             }
-          } else if (!file.exists(filename$metafile) &&
-            !all(files_exist)) {
-            # Metafile doesn't exist but some other files exist. In this case
-            # delete everything and start from scratch
-            self$delete_incomplete_synthpop()
-            private$gen_synthpop(
-              mc_iter,
-              filename,
-              private$design
-            )
+            # No need to provision for case when all files present.
+
+            return(NULL)
           }
-          # No need to provision for case when all files present.
-
-          return(NULL)
-        }
         if (exists("cl")) {
           stopCluster(cl)
         }

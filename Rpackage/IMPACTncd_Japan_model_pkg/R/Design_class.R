@@ -234,15 +234,68 @@ Design <-
       # @details
       # This method detects whether the current R session is running in a Docker
       # container by checking for the presence of the special file `/.dockerenv` and
-      # examining the `/proc/1/cgroup` system file for identifiers associated with
-      # Docker or Kubernetes.
+      # examining system-specific files for identifiers associated with
+      # Docker or Kubernetes. The function is cross-platform compatible.
       #
       # @return A logical value: `TRUE` if inside a Docker container, otherwise `FALSE`.
       #
       # @keywords internal
       is_in_docker = function() {
-        file.exists("/.dockerenv") ||
-          (file.exists("/proc/1/cgroup") && any(grepl("docker|kubepods", readLines("/proc/1/cgroup", warn = FALSE))))
+        # Check for the standard Docker environment file (works on all platforms)
+        if (file.exists("/.dockerenv")) {
+          return(TRUE)
+        }
+        
+        # Platform-specific checks
+        os_type <- Sys.info()[["sysname"]]
+        
+        if (os_type == "Linux") {
+          # Linux: Check /proc/1/cgroup for docker/kubepods
+          cgroup_file <- "/proc/1/cgroup"
+          if (file.exists(cgroup_file)) {
+            tryCatch({
+              cgroup_content <- readLines(cgroup_file, warn = FALSE)
+              return(any(grepl("docker|kubepods", cgroup_content)))
+            }, error = function(e) {
+              return(FALSE)
+            })
+          }
+        } else if (os_type == "Windows") {
+          # Windows: Check for Docker-specific environment variables
+          docker_vars <- c("DOCKER_CONTAINER", "DOCKER_HOST", "DOCKER_MACHINE_NAME")
+          if (any(sapply(docker_vars, function(x) Sys.getenv(x) != ""))) {
+            return(TRUE)
+          }
+          
+          # Check for Windows container indicators
+          tryCatch({
+            # Check if running in Windows container by looking for container-specific registry
+            system_output <- system("reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\ContainerManager", 
+                                   intern = TRUE, ignore.stderr = TRUE)
+            return(length(system_output) > 0 && !any(grepl("ERROR", system_output)))
+          }, error = function(e) {
+            return(FALSE)
+          })
+        } else if (os_type == "Darwin") {
+          # macOS: Check for Docker-specific environment variables and processes
+          docker_vars <- c("DOCKER_CONTAINER", "DOCKER_HOST", "DOCKER_MACHINE_NAME")
+          if (any(sapply(docker_vars, function(x) Sys.getenv(x) != ""))) {
+            return(TRUE)
+          }
+          
+          # Check for macOS-specific container indicators
+          tryCatch({
+            # Check if we're in a container by examining process hierarchy
+            ps_output <- system("ps -p 1 -o comm=", intern = TRUE, ignore.stderr = TRUE)
+            return(length(ps_output) > 0 && any(grepl("docker|container", ps_output, ignore.case = TRUE)))
+          }, error = function(e) {
+            return(FALSE)
+          })
+        }
+        
+        # Fallback: Check common environment variables that might indicate Docker
+        docker_env_vars <- c("DOCKER_CONTAINER", "CONTAINER", "KUBERNETES_SERVICE_HOST")
+        return(any(sapply(docker_env_vars, function(x) Sys.getenv(x) != "")))
       }
 
     ) # end of private list

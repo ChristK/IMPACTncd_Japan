@@ -29,7 +29,6 @@ yaml
 dplyr
 data.table
 # required currently but to be removed in the future
-qs
 cowplot
 mc2d
 gh

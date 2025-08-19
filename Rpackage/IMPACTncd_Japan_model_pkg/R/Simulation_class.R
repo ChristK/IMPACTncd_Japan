@@ -353,7 +353,7 @@ Simulation <-
                   library(IMPACTncdJapan)
                   library(digest)
                   library(fst)
-                  library(qs)
+                  library(qs2)
                   library(wrswoR)
                   library(gamlss.dist)
                   library(dqrng)
@@ -386,7 +386,7 @@ Simulation <-
               .packages = c(
                 "R6",
                 "digest",
-                "qs",
+                "qs2",
                 "wrswoR",
                 "gamlss.dist",
                 "dqrng",
@@ -464,8 +464,7 @@ Simulation <-
       # finish. The prevalence at older ages fluctuates a lot. This is because the
       # initial values we get from GBD are not aligned with the mortality rates we
       # use. The only way to fix this is by using DISMOD to align the initial
-      # prevalence for the given incidence and mortality. Please remind me if you have
-      # used DISMOD before so you can do this. It would be very helpful. Nonmodelled,
+      # prevalence for the given incidence and mortality. Nonmodelled,
       # CHD and stroke mortalities are underestimated. This is most likely because I
       # calibrate them independently from one another while the risk of mortality is
       # not independent but competing. I think I can change the calibration algorithm
@@ -475,11 +474,65 @@ Simulation <-
       # plots, but I will double-check to make sure.
 
       # calibrate_incd_ftlt ----
-      #' @description generates new calibration parameters and ovwrites old ones.
+      #' @description Generates new calibration parameters for incidence and case fatality rates.
+      #' 
+      #' This method implements a sequential age-based calibration process that aligns
+      #' modeled disease incidence and case fatality rates with user input data from
+      #' external sources (e.g., GBD, national statistics). The calibration ensures
+      #' that simulation outputs match observed epidemiological patterns.
+      #' 
+      #' @section Calibration Process:
+      #' 
+      #' The calibration operates over a specific time period defined by two key parameters:
+      #' \itemize{
+      #'   \item **Start year**: The initial year for in the designated sim_design yaml file
+      #'   \item **End year**: The latest year as defined by the sim_horizon in sim_design yaml file
+      #' }
+      #' 
+      #' The calibration process follows these steps for each age from `ageL` to `ageH`:
+      #' 
+      #' \subsection{1. Incidence Calibration}{
+      #'   For both CHD and stroke:
+      #'   \itemize{
+      #'     \item Runs simulation and extracts uncalibrated incidence rates
+      #'     \item Fits log-log linear models to both benchmark and simulated data over the calibration period
+      #'     \item Calculates calibration factors to align simulated trends with benchmark trends
+      #'     \item Updates prevalence estimates based on incidence corrections
+      #'   }
+      #' }
+      #' 
+      #' \subsection{2. Case Fatality Calibration}{
+      #'   For CHD, stroke, and non-modeled causes:
+      #'   \itemize{
+      #'     \item Incorporates incidence-corrected prevalence estimates
+      #'     \item Calculates calibration factors for case fatality rates
+      #'     \item Ensures mortality rates align with benchmark data
+      #'     \item Applies competing risk adjustments for previous ages
+      #'   }
+      #' }
+      #' 
+      #' 
+      #' @section Implementation Details:
+      #' 
+      #' \itemize{
+      #'   \item **Sequential Processing**: Ages are processed sequentially to ensure proper 
+      #'     prevalence carryover between age groups
+      #'   \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends 
+      #'     in the calibration period
+      #'   \item **Robust Estimation**: Employs median-based estimators to handle 
+      #'     rare events and reduce Monte Carlo variability
+      #   \item **Competing Risks**: Adjusts calibration factors for previously calibrated 
+      #     ages to account for competing mortality risks
+      #' }
+      #' 
       #' @param mc A positive sequential integer vector with the Monte Carlo
       #'   iterations of synthetic population to simulate, or a scalar.
-      #' @param replace If TRUE the calibration deletes the previous calibration file and starts from scratch. Else it continues from the last age.
+      #' @param replace If TRUE the calibration deletes the previous calibration file and 
+      #'   starts from scratch. If FALSE, continues from the last uncalibrated age.
       #' @return The invisible self for chaining.
+      #' 
+      #' @note The calibration parameters are stored in `./simulation/calibration_prms.csv` 
+      #'   and are automatically applied in subsequent simulations.
       calibrate_incd_ftlt = function(mc, replace = FALSE) {
         # recombine the chunks of large files
         # TODO logic to delete these files
@@ -504,10 +557,25 @@ Simulation <-
         memedian <- function(x) {
           out <- median(x)
           if (out == 0L) {
-            out <- mean(x)
+            # For rare events, consider alternative estimators
+            nonzero_vals <- x[x > 0]
+            if (length(nonzero_vals) > 0) {
+              # Option 1: Use median of non-zero values scaled by occurrence probability
+              prob_occurrence <- length(nonzero_vals) / length(x)
+              median_nonzero <- median(nonzero_vals)
+              out <- prob_occurrence * median_nonzero
+              
+              # Option 2: Alternative - use trimmed mean to reduce impact of outliers
+              # trimmed_mean <- mean(x, trim = 0.1)  # Remove top/bottom 10%
+              # out <- max(trimmed_mean, prob_occurrence * median_nonzero)
+            } else {
+              # If all values are 0, keep it as 0
+              out <- 0
+            }
           }
           out
         }
+
         if (replace) {
           age_start <- self$design$sim_prm$ageL
         } else {
@@ -544,7 +612,9 @@ Simulation <-
         # Run the simulation from min to max age
         for (age_ in age_start:self$design$sim_prm$ageH) {
           # Run the simulation and export summaries. TODO restrict ages for efficiency.
-          self$del_logs()$del_outputs()$run(
+          self$del_logs()$
+          del_outputs()$
+          run(
             mc,
             multicore = TRUE,
             "sc0"
@@ -576,10 +646,10 @@ Simulation <-
 
           unclbr <- unclbr[,
             .(
+              age, sex, year, mc,
               chd_incd = chd_incd / popsize,
               stroke_incd = stroke_incd / popsize
-            ),
-            keyby = .(age, sex, year, mc)
+            )
           ][,
             .(
               chd_incd = memedian(chd_incd),
@@ -590,29 +660,24 @@ Simulation <-
 
           # for CHD
           # fit a log-log linear model to the uncalibrated results and store the coefficients
-          unclbr[
-            chd_incd > 0,
-            c("intercept_unclbr", "trend_unclbr") := as.list(coef(lm(
+          tt <- unclbr[
+              chd_incd > 0,
+            as.list(coef(lm(
               log(chd_incd) ~ log(year)
             ))),
             by = sex
           ]
-          unclbr[,
-            intercept_unclbr := nafill(
-              intercept_unclbr,
-              "const",
-              max(intercept_unclbr, na.rm = TRUE)
-            ),
-            by = sex
-          ] # NOTE I use max just to return a value. It doesn't matter what value it is.
-          unclbr[,
-            trend_unclbr := nafill(
-              trend_unclbr,
-              "const",
-              max(trend_unclbr, na.rm = TRUE)
-            ),
-            by = sex
-          ] # NOTE I use max just to return a value. It doesn't matter what value it is.
+
+          unclbr[
+            tt,
+            on = "sex",
+            c("intercept_unclbr", "trend_unclbr") := .(
+              `(Intercept)`,
+              `log(year)`
+            )
+          ]
+          rm(tt)
+                 
           # load benchmark
           benchmark <- read_fst(
             file.path("./inputs/disease_burden", "chd_incd.fst"),
@@ -627,10 +692,11 @@ Simulation <-
             ))),
             by = sex
           ]
+
           # calculate the calibration factors that the uncalibrated log-log model
           # need to be multiplied with so it can match the benchmark log-log model
           unclbr[
-            benchmark[year == max(year)],
+            benchmark[year == max(year)], # specific year is irrelevant here as values only differ by sex
             chd_incd_clbr_fctr := exp(
               intercept_bnchmrk + trend_bnchmrk * log(year)
             ) /
@@ -640,29 +706,24 @@ Simulation <-
           unclbr[, c("intercept_unclbr", "trend_unclbr") := NULL]
 
           # Repeat for stroke
-          unclbr[
-            stroke_incd > 0,
-            c("intercept_unclbr", "trend_unclbr") := as.list(coef(lm(
+          tt <- unclbr[
+              stroke_incd > 0,
+            as.list(coef(lm(
               log(stroke_incd) ~ log(year)
             ))),
             by = sex
           ]
-          unclbr[,
-            intercept_unclbr := nafill(
-              intercept_unclbr,
-              "const",
-              max(intercept_unclbr, na.rm = TRUE)
-            ),
-            by = sex
-          ] # NOTE I use max just to return a value. It doesn't matter what value it is.
-          unclbr[,
-            trend_unclbr := nafill(
-              trend_unclbr,
-              "const",
-              max(trend_unclbr, na.rm = TRUE)
-            ),
-            by = sex
-          ] # NOTE I use max just to return a value. It doesn't matter what value it is.
+
+          unclbr[
+            tt,
+            on = "sex",
+            c("intercept_unclbr", "trend_unclbr") := .(
+              `(Intercept)`,
+              `log(year)`
+            )
+          ]
+          rm(tt)
+
           benchmark <- read_fst(
             file.path("./inputs/disease_burden", "stroke_incd.fst"),
             columns = c("age", "sex", "year", "mu"),
@@ -670,11 +731,15 @@ Simulation <-
           )[age == age_, ]
           benchmark[
             year >= self$design$sim_prm$init_year_long,
-            c("intercept_bnchmrk", "trend_bnchmrk") := as.list(coef(lm(
+            c(
+              "intercept_bnchmrk",
+              "trend_bnchmrk"
+            ) := as.list(coef(lm(
               log(mu) ~ log(year)
             ))),
             by = sex
           ]
+        
           unclbr[
             benchmark[year == max(year)],
             stroke_incd_clbr_fctr := exp(

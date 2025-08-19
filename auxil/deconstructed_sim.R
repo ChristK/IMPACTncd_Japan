@@ -1,6 +1,6 @@
 # change L6 to L10 and remove "#" from L54 to L84 for IMPACT-NCD-JAPAN
 source("./global.R")
-design <- Design$new("./inputs/sim_design.yaml")
+design <- Design$new("./inputs/sim_design_clbr.yaml")
 
 # recombine the chunks of large files
 # TODO logic to delete these files
@@ -72,10 +72,10 @@ mk_scenario_init2 <- function(scenario_name, diseases_, sp, design_) {
     )
 }
 
-# sp <- qs::qread("./simulation/tmp_spfor test.qs")
+# sp <- qs2::qs_read("./simulation/tmp_spfor test.qs")
 # l <- mk_scenario_init2("", diseases, sp, design)
 # simcpp(sp$pop, l, sp$mc)
-# sp2 <- qs::qread("simulation/tmp_spfor testold.qs")
+# sp2 <- qs2::qs_read("simulation/tmp_spfor testold.qs")
 # all.equal(sp$pop, sp2$pop)
 
 # sim <- SynthPop$new(0L, design)
@@ -127,7 +127,7 @@ lapply(diseases, function(x) {
 # if (scenario_nam != "sc0") sp$update_pop_weights(scenario_nam)
 
 # primary_prevention_scn
-private$primary_prevention_scn(sp) # apply primary prevention scenario
+# private$primary_prevention_scn(sp) # apply primary prevention scenario
 
 lapply(diseases, function(x) {
     print(x)
@@ -150,17 +150,14 @@ lapply(diseases, function(x) {
 
 # secondary_prevention_scn
 
-# old <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/backup_inputs_sep23/disease_burden/nonmodelled_ftlt.fst", as.data.table = T)
-# new <- read_fst("/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/nonmodelled_ftlt.fst", as.data.table = T)
-# # new[, c("mu", "mu_lower", "mu_upper") := list(mu/1e5, mu_lower/1e5, mu_upper/1e5)]
-# setnames(new, c("Rate", "Rate_lower", "Rate_upper"), c("mu2", "mu_lower", "mu_upper"))
-# write_fst(new, "/home/ckyprid/My_Models/IMPACTncd_Japan/inputs/disease_burden/nonmodelled_ftlt.fst")
-# qs::qsave(sp, "./simulation/tmp_spfor test.qs")
-# sp <- qs::qread("./simulation/tmp_spfor test.qs")
 l <- mk_scenario_init2("", diseases, sp, design)
+# qs2::qs_savem(sp, l, file = "./simulation/tmp_spfor test.qs")
+# qs2::qs_readm("./simulation/tmp_spfor test.qs")
 simcpp(sp$pop, l, sp$mc)
 
 sp$update_pop_weights()
+sp$pop[, sum(wt), keyby = year]
+
 sp$pop[, mc := sp$mc_aggr]
 
 # self <- IMPACTncd$.__enclos_env__$self
@@ -363,12 +360,12 @@ lapply(diseases, function(x) {
     x$set_mrtl_prb(sp, design)
 })
 # # diseases$t2dm$harmonise_epi_tables(sp)
- # diseases$t2dm$gen_parf(sp, design)
- # diseases$t2dm$set_init_prvl(sp, design)
- # diseases$t2dm$set_rr(sp, design)
- # diseases$t2dm$set_incd_prb(sp, design)
- # diseases$t2dm$set_dgns_prb(sp, design)
- # diseases$t2dm$set_mrtl_prb(sp, design)
+# diseases$t2dm$gen_parf(sp, design)
+# diseases$t2dm$set_init_prvl(sp, design)
+# diseases$t2dm$set_rr(sp, design)
+# diseases$t2dm$set_incd_prb(sp, design)
+# diseases$t2dm$set_dgns_prb(sp, design)
+# diseases$t2dm$set_mrtl_prb(sp, design)
 # #
 # # # diseases$chd$harmonise_epi_tables(sp)
 # diseases$chd$gen_parf_files(design, diseases)
@@ -401,7 +398,7 @@ lapply(diseases, function(x) {
 # diseases$nonmodelled$set_dgns_prb(sp, design)
 # diseases$nonmodelled$set_mrtl_prb(sp, design)
 
-qsave(sp, "./simulation/tmp_s.qs")
+qs_save(sp, "./simulation/tmp_s.qs")
 
 
 lapply(diseases, function(x) {
@@ -414,13 +411,13 @@ lapply(diseases, function(x) {
     set_mrtl_prb(sp, design)
 })
 
-qsave(sp, "./simulation/tmp.qs")
+qs_save(sp, "./simulation/tmp.qs")
 
 transpose(sp$pop[, lapply(.SD, anyNA)], keep.names = "rn")[(V1)]
 
 
-# qsave(sp, "./simulation/tmp.qs")
-# sp <- qread("./simulation/tmp.qs")
+# qs_save(sp, "./simulation/tmp.qs")
+# sp <- qs_read("./simulation/tmp.qs")
 l <- mk_scenario_init2("", diseases, sp, design)
 simcpp(sp$pop, l, sp$mc)
 

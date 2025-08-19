@@ -1,5 +1,5 @@
 source("./global.R")
-IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
+IMPACTncd <- Simulation$new("./inputs/sim_design_clbr.yaml")
 
 IMPACTncd$
   del_logs()$
@@ -9,7 +9,7 @@ IMPACTncd$
   del_logs()$
   del_outputs()
   
-# Run validation if TRUE. 
+# Run validation if TRUE.
 if (TRUE) {
   IMPACTncd$
     run(1:100, multicore = TRUE, "sc0")$

@@ -4,7 +4,8 @@ IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 IMPACTncd$
   del_logs()$
   del_outputs()$
-  calibrate_incd_ftlt(1:100, replace = FALSE)$
+  del_parfs()$
+  calibrate_incd_ftlt(1:100, replace = TRUE)$
   del_logs()$
   del_outputs()
   

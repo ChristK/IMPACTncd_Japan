@@ -44,3 +44,4 @@ simulation/calibration_prms copy.csv
 docker_setup/README.html
 auxil/memlog.txt
 auxil/memlog.png
+auxil/cpp_testing/test_data/tmp_spfor_test.qs

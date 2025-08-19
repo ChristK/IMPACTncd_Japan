@@ -283,7 +283,7 @@ Disease <-
           if (design_$sim_prm$logs) {
             message("Reading file from cache.")
           }
-          ans <- qread(tmpfile, nthreads = design_$sim_prm$clusternumber)
+          ans <- qs_read(tmpfile, nthreads = 1L)
           setDT(ans$pop)
         } else {
           if (design_$sim_prm$logs) {
@@ -326,7 +326,7 @@ Disease <-
                   library(IMPACTncdJapan)
                   library(digest)
                   library(fst)
-                  library(qs)
+                  library(qs2)
                   library(wrswoR)
                   library(gamlss.dist)
                   library(dqrng)
@@ -422,7 +422,7 @@ Disease <-
           if (design_$sim_prm$logs) {
             message("Saving parf cache.")
           }
-          qsave(ans, tmpfile, nthreads = design_$sim_prm$clusternumber)
+          qs_save(ans, tmpfile, nthreads = 1L) # NOTE multithreaded qs_save requires TBB https://cran.r-project.org/web/packages/qs2/vignettes/vignette.html
         } # end tmpfile bypass
 
         self$set_rr(ans, design_, forPARF = TRUE)
@@ -2367,7 +2367,7 @@ Disease <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
           absorb_dt(ff, tbl)
-          ff[, Fruit_vege_curr_xps := qZINBI(rank_Fruit_vege, mu, sigma, nu)]
+          ff[, Fruit_vege_curr_xps := fqZINBI(rank_Fruit_vege, mu, sigma, nu)]
           ff[, c(col_nam, "rank_Fruit_vege") := NULL]
           ff[, year := year + lag]
         }
@@ -2606,7 +2606,7 @@ Disease <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
           absorb_dt(ff, tbl)
-          ff[, HbA1c_curr_xps := qBCT(rank_HbA1c, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
+          ff[, HbA1c_curr_xps := fqBCT(rank_HbA1c, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
 
           ff[, c(col_nam, "rank_HbA1c", "BMI_round") := NULL]
           ff[, year := year + lag]
@@ -2663,7 +2663,7 @@ Disease <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
           absorb_dt(ff, tbl)
-          ff[, LDLc_curr_xps := qBCT(rank_LDLc, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
+          ff[, LDLc_curr_xps := fqBCT(rank_LDLc, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
 
           ff[, c(col_nam, "rank_LDLc", "BMI_round") := NULL]
           ff[, year := year + lag]
@@ -3013,7 +3013,7 @@ Disease <-
         )
 
         if (file.exists(sSnapshotFilePath)) {
-          diseaseSnapShot <- qread(sSnapshotFilePath)
+          diseaseSnapShot <- qs_read(sSnapshotFilePath)
           diseaseSnapShot$path <- private$FixPathSoRelativeWorkDir(
             diseaseSnapShot$path
           )
@@ -3039,7 +3039,7 @@ Disease <-
           } else {
             self$name
           }
-          qsave(
+          qs_save(
             fileSnapshot(
               private$sDiseaseBurdenDirPath,
               timestamp = NULL,

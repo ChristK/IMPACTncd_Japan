@@ -79,7 +79,7 @@ struct disease_epi {
   CharacterVector aggregate;
   double mm_wt;
   bool can_recur;
-  std::unordered_map<int, bool> flag; // per-participant flag for incidence
+  bool flag; // flag for incidence
   int cure;
   int death_code;
 };
@@ -237,8 +237,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop, co
         }
       }
     }
-    for (int num : pid)
-      out.incd.flag[num] = false;
+    out.incd.flag = false;
     out.incd.can_recur = (incd.containsElementNamed("can_recur")) ? as<bool>(incd["can_recur"]) : false;
   }
 
@@ -267,8 +266,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop, co
         out.dgns.influenced_by.disease_prvl.push_back(dtSynthPop[as<string>(names[i])]);
       }
     }
-    for (int num : pid)
-      out.dgns.flag[num] = false;
+    out.dgns.flag = false;
   }
 
   // Mortality settings
@@ -299,8 +297,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop, co
         out.mrtl.influenced_by.lag.push_back(as<int>(ibb["lag"]));
       }
     }
-    for (int num : pid)
-      out.mrtl.flag[num] = false;
+    out.mrtl.flag = false;
   }
   out.seed = as<int>(diseaseFields["seed"]);
   return out;
@@ -322,14 +319,14 @@ namespace ImpactSim {
    * @param i Current simulation time index.
    */
   inline void ResetDiseaseState(disease_meta &dmeta, simul_meta &meta, int i) {
-    if (dmeta.mrtl.flag[meta.pid[i]]) {
+    if (dmeta.mrtl.flag) {
       VECT_ELEM(dmeta.incd.prvl, i) = 0;
       if ((dmeta.dgns.type == "Type0" || dmeta.dgns.type == "Type1") &&
           dmeta.dgns.mm_wt > 0.0 && VECT_ELEM(dmeta.dgns.prvl, i - 1) > 0) {
         meta.mm_score[i] -= dmeta.dgns.mm_wt;
         meta.mm_count[i]--;
       }
-      dmeta.mrtl.flag[meta.pid[i]] = false;
+      dmeta.mrtl.flag = false;
     }
   }
 
@@ -358,11 +355,11 @@ namespace ImpactSim {
           VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
       }
     } else {
-      if (!dsmeta[j].incd.flag[meta.pid[i]] &&
+      if (!dsmeta[j].incd.flag &&
           VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 &&
           rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i)) {
         VECT_ELEM(dsmeta[j].incd.prvl, i) = 1;
-        dsmeta[j].incd.flag[meta.pid[i]] = true;
+        dsmeta[j].incd.flag = true;
       }
       if (dsmeta[j].mrtl.type == "Type2" || dsmeta[j].mrtl.type == "Type4") {
         if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0 &&
@@ -408,11 +405,11 @@ namespace ImpactSim {
           VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
       }
     } else {
-      if (!dsmeta[j].incd.flag[meta.pid[i]] &&
+      if (!dsmeta[j].incd.flag &&
           VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 &&
           rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i) * mltp) {
         VECT_ELEM(dsmeta[j].incd.prvl, i) = 1;
-        dsmeta[j].incd.flag[meta.pid[i]] = true;
+        dsmeta[j].incd.flag = true;
       }
       if (dsmeta[j].mrtl.type == "Type2" || dsmeta[j].mrtl.type == "Type4") {
         if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0 &&
@@ -563,7 +560,7 @@ namespace ImpactSim {
               tempdead.push_back(dsmeta[j].mrtl.death_code);
             }
           } else {
-            dsmeta[j].mrtl.flag[meta.pid[i]] = true;
+            dsmeta[j].mrtl.flag = true;
           }
         }
         // Type 3 mortality
@@ -607,7 +604,7 @@ namespace ImpactSim {
               tempdead.push_back(dsmeta[j].mrtl.death_code);
             }
           } else {
-            dsmeta[j].mrtl.flag[meta.pid[i]] = true;
+            dsmeta[j].mrtl.flag = true;
           }
           mltp = 1.0;
         }
@@ -656,17 +653,35 @@ void simcpp(DataFrame dt, const List l, const int mc) {
     double mltp = 1.0;
     vector<int> tempdead;
     double rn1, rn2;
+    int pid_buffer = meta.pid[0]; // flag for when new pid to reset other flags. Holds the last pid
+    bool pid_mrk = true;
 
     for (int i = 0; i < n; ++i) {
       if ((i == 0 || meta.dead[i - 1] == SIMULANT_ALIVE) &&
           meta.year[i] >= meta.init_year && meta.age[i] >= meta.age_low) {
+
+        if (i > 0 && meta.pid[i] == pid_buffer) // same simulant as the last row?
+        {
+          pid_mrk = false;
+        }
+        else {
+          pid_mrk = true;
+          pid_buffer = meta.pid[i];
+        }
 
         _seed = u32tou64(meta.pid[i], meta.year[i]);
 
         for (int j = 0; j < dn; ++j) {
           _stream = u32tou64(mc, dsmeta[j].seed);
           rng->seed(_seed, _stream);
-          // rn1 = runif_impl();
+          rn1 = runif_impl();
+
+          // reset flags for new simulants
+          if (pid_mrk)
+          {
+            dsmeta[j].incd.flag = false; // denotes that incd occurred
+            dsmeta[j].mrtl.flag = false; // denotes cure
+          }
 
           // Reset disease state if cure/mortality flag is set.
           ImpactSim::ResetDiseaseState(dsmeta[j], meta, i);

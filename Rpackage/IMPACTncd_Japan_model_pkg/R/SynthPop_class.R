@@ -693,7 +693,7 @@ SynthPop <-
             "gamlss.dist",
             # For distr in prevalence.R
             "dqrng",
-            "qs",
+            "qs2",
             "fst",
             "CKutils",
             "IMPACTncdJapan",
@@ -1162,7 +1162,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, Fruit_vege := qZINBI(rank_Fruit_vege, mu, sigma, nu), ] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, Fruit_vege := fqZINBI(rank_Fruit_vege, mu, sigma, nu), ] # , n_cpu = design_$sim_prm$n_cpu)]
 
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_Fruit_vege")
           dt[, c(col_nam) := NULL]
@@ -1588,7 +1588,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, HbA1c := qBCT(minq + rank_HbA1c * (maxq - minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, HbA1c := fqBCT(minq + rank_HbA1c * (maxq - minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_HbA1c")
           dt[, c(col_nam) := NULL]
 
@@ -1634,7 +1634,7 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, LDLc := qBCT(minq + rank_LDLc * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
+          dt[, LDLc := fqBCT(minq + rank_LDLc * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_LDLc")
           dt[, c(col_nam, "BMI_round") := NULL] # del BMI_round because SBP rounds at different precision
 

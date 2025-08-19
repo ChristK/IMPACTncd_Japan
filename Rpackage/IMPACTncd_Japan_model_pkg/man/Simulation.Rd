@@ -9,6 +9,55 @@ A simulation environment.
 \details{
 To be completed...
 }
+\note{
+The calibration parameters are stored in `./simulation/calibration_prms.csv` 
+  and are automatically applied in subsequent simulations.
+}
+\section{Calibration Process}{
+
+
+The calibration operates over a specific time period defined by two key parameters:
+\itemize{
+  \item **Start year**: The initial year for in the designated sim_design yaml file
+  \item **End year**: The latest year as defined by the sim_horizon in sim_design yaml file
+}
+
+The calibration process follows these steps for each age from `ageL` to `ageH`:
+
+\subsection{1. Incidence Calibration}{
+  For both CHD and stroke:
+  \itemize{
+    \item Runs simulation and extracts uncalibrated incidence rates
+    \item Fits log-log linear models to both benchmark and simulated data over the calibration period
+    \item Calculates calibration factors to align simulated trends with benchmark trends
+    \item Updates prevalence estimates based on incidence corrections
+  }
+}
+
+\subsection{2. Case Fatality Calibration}{
+  For CHD, stroke, and non-modeled causes:
+  \itemize{
+    \item Incorporates incidence-corrected prevalence estimates
+    \item Calculates calibration factors for case fatality rates
+    \item Ensures mortality rates align with benchmark data
+    \item Applies competing risk adjustments for previous ages
+  }
+}
+}
+
+\section{Implementation Details}{
+
+
+\itemize{
+  \item **Sequential Processing**: Ages are processed sequentially to ensure proper 
+    prevalence carryover between age groups
+  \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends 
+    in the calibration period
+  \item **Robust Estimation**: Employs median-based estimators to handle 
+    rare events and reduce Monte Carlo variability
+}
+}
+
 \examples{
 
 ## ------------------------------------------------
@@ -177,7 +226,12 @@ The invisible self for chaining.
 \if{html}{\out{<a id="method-Simulation-calibrate_incd_ftlt"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-calibrate_incd_ftlt}{}}}
 \subsection{Method \code{calibrate_incd_ftlt()}}{
-generates new calibration parameters and ovwrites old ones.
+Generates new calibration parameters for incidence and case fatality rates.
+
+This method implements a sequential age-based calibration process that aligns
+modeled disease incidence and case fatality rates with user input data from
+external sources (e.g., GBD, national statistics). The calibration ensures
+that simulation outputs match observed epidemiological patterns.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$calibrate_incd_ftlt(mc, replace = FALSE)}\if{html}{\out{</div>}}
 }
@@ -188,7 +242,8 @@ generates new calibration parameters and ovwrites old ones.
 \item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
 iterations of synthetic population to simulate, or a scalar.}
 
-\item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and starts from scratch. Else it continues from the last age.}
+\item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and 
+starts from scratch. If FALSE, continues from the last uncalibrated age.}
 }
 \if{html}{\out{</div>}}
 }

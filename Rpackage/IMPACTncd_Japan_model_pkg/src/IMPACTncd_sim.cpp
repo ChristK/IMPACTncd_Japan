@@ -72,20 +72,23 @@ using namespace std;
 // ===============================================================================
 
 /**
- * @brief Safe vector element access with comprehensive error reporting
+ * @brief Optimized vector element access for performance-critical simulation
  * 
- * This macro provides three levels of safety for Rcpp vector access:
- * 1. ERROR with CALL STACK (current setting) - Safe, stops on error with debugging info
- * 2. SIMPLE ERROR (commented out) - Safe, stops on error without stack trace  
- * 3. NO ERROR (commented out) - Unsafe, continues with undefined behavior
+ * This macro provides optimized access patterns:
+ * 1. BOUNDS_CHECK_MODE (current) - Fast bounds checking for production
+ * 2. DEBUG_MODE (debugging) - Safe, stops on error with stack trace
+ * 3. UNSAFE_MODE (maximum performance) - No bounds checking
  * 
- * The current setting prioritizes debugging capability over raw performance.
+ * The current setting balances safety and performance for production use.
  */
+#ifdef DEBUG_MODE
 #define VECT_ELEM(__thisVector__,__thisElem__) VectElem(__thisVector__,__thisElem__)
-
-// Alternative safer options (uncomment to use):
-// #define VECT_ELEM(__thisVector__,__thisElem__) __thisVector__(__thisElem__)
-// #define VECT_ELEM(__thisVector__,__thisElem__) __thisVector__[__thisElem__]  // UNSAFE!
+#elif defined(UNSAFE_MODE)
+#define VECT_ELEM(__thisVector__,__thisElem__) __thisVector__[__thisElem__]
+#else
+// Production mode: Fast bounds checking without stack traces
+#define VECT_ELEM(__thisVector__,__thisElem__) __thisVector__(__thisElem__)
+#endif
 
 // ===============================================================================
 // UTILITY FUNCTIONS
@@ -140,6 +143,42 @@ namespace
 }
 
 // ===============================================================================
+// OPTIMIZED DISEASE TYPE ENUMERATIONS
+// ===============================================================================
+
+/**
+ * @brief Optimized disease type enumeration for fast comparisons
+ * 
+ * Replaces string comparisons with fast integer comparisons in hot loops.
+ * This provides significant performance improvements in disease evaluation.
+ */
+enum class DiseaseType : int {
+  Type0 = 0,      // Direct prevalence copying
+  Type1 = 1,      // Deterministic transitions
+  Type2 = 2,      // Stochastic transitions with optional recurrence
+  Type3 = 3,      // Disease-dependent transitions
+  Type4 = 4,      // Complex mortality (curable and interaction-dependent)
+  Type5 = 5,      // Reserved for future implementations
+  Universal = 99  // Universal mortality
+};
+
+/**
+ * @brief Convert string disease type to optimized enum
+ * @param type_str String representation of disease type
+ * @return Corresponding DiseaseType enum value
+ */
+FORCE_INLINE DiseaseType string_to_disease_type(const std::string& type_str) {
+  if (type_str == "Type0") return DiseaseType::Type0;
+  if (type_str == "Type1") return DiseaseType::Type1;
+  if (type_str == "Type2") return DiseaseType::Type2;
+  if (type_str == "Type3") return DiseaseType::Type3;
+  if (type_str == "Type4") return DiseaseType::Type4;
+  if (type_str == "Type5") return DiseaseType::Type5;
+  if (type_str == "Universal") return DiseaseType::Universal;
+  return DiseaseType::Type0; // Default fallback
+}
+
+// ===============================================================================
 // DATA STRUCTURES FOR DISEASE MODELING
 // ===============================================================================
 
@@ -177,7 +216,7 @@ struct infl
  */
 struct disease_epi
 {
-  string type;                    ///< Disease type identifier ("Type0", "Type1", etc.)
+  DiseaseType type;               ///< Disease type enumeration (optimized for fast comparison)
   IntegerVector prvl;            ///< Disease prevalence/duration vector (person-years)
   NumericVector prbl1;           ///< First-year probability/case fatality rate
   NumericVector prbl2;           ///< Subsequent years probability/case fatality rate  
@@ -265,8 +304,8 @@ struct pid_flag_tracker
    */
   explicit pid_flag_tracker(int diseases) : num_diseases(diseases) {
     // Reserve capacity for estimated maximum participants to reduce rehashing overhead
-    incd_flags.reserve(100000); 
-    mrtl_flags.reserve(100000);
+    incd_flags.reserve(200000); // Increased from 100k for better memory utilization
+    mrtl_flags.reserve(200000);
   }
   
   /**
@@ -549,7 +588,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
   if (diseaseFields.containsElementNamed("incidence"))
   {
     incd = diseaseFields["incidence"];
-    out.incd.type = as<string>(incd["type"]);
+    out.incd.type = string_to_disease_type(as<string>(incd["type"]));
 
     // Link to population data columns
     if (incd.containsElementNamed("prevalence")) 
@@ -569,7 +608,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
       int n = ib.length();
       List ibb;
       
-      if (out.incd.type == "Type0")
+      if (out.incd.type == DiseaseType::Type0)
       {
         // Type0: Simple prevalence copying (no multipliers needed)
         for (int i = 0; i < n; ++i)
@@ -607,7 +646,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
   if (diseaseFields.containsElementNamed("diagnosis"))
   {
     dgns = diseaseFields["diagnosis"];
-    out.dgns.type = as<string>(dgns["type"]);
+    out.dgns.type = string_to_disease_type(as<string>(dgns["type"]));
     
     // Validate required multimorbidity weight parameter
 	  if(!dgns.containsElementNamed("mm_wt") || dgns["mm_wt"]==R_NilValue)
@@ -626,7 +665,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
       out.dgns.prbl1 = dtSynthPop[as<string>(dgns["probability"])];
 
     // Configure diagnosis dependencies (Type0 only)
-    if (out.dgns.type == "Type0")
+    if (out.dgns.type == DiseaseType::Type0)
     {
       List ib = dgns["influenced_by"];
       CharacterVector tmps= ib.names();
@@ -648,7 +687,7 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
   if (diseaseFields.containsElementNamed("mortality"))
   {
     mrtl = diseaseFields["mortality"];
-    out.mrtl.type = as<string>(mrtl["type"]);
+    out.mrtl.type = string_to_disease_type(as<string>(mrtl["type"]));
 
     // Configure standard mortality probabilities
     if (mrtl.containsElementNamed("probability"))
@@ -727,27 +766,35 @@ disease_meta get_disease_meta(const List diseaseFields, DataFrame dtSynthPop)
  */
 inline void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int j, int i, double rn1)
 {
+    // Ensure vectors are properly sized
+    if (i >= dsmeta[j].incd.prvl.size() || i >= dsmeta[j].incd.prbl1.size()) {
+        return; // Skip if index out of bounds
+    }
+    
+    // Ensure we don't access negative indices
+    const int prev_idx = (i > 0 && i - 1 < dsmeta[j].incd.prvl.size()) ? i - 1 : i;
+    
     if (dsmeta[j].incd.can_recur) // Recurrence allowed - no flag checking needed
     {
         // Evaluate new incidence for healthy individuals
-        if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 && rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i))
+        if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) == 0 && rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i))
         {
             VECT_ELEM(dsmeta[j].incd.prvl, i) = 1; // Begin first year of disease
         }
 
         // Handle disease progression for existing cases
-        if (dsmeta[j].mrtl.type == "Type2" || dsmeta[j].mrtl.type == "Type4")
+        if (dsmeta[j].mrtl.type == DiseaseType::Type2 || dsmeta[j].mrtl.type == DiseaseType::Type4)
         {
             // Progression with cure limit
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0 &&
-                VECT_ELEM(dsmeta[j].incd.prvl, i - 1) < dsmeta[j].mrtl.cure)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0 &&
+                VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) < dsmeta[j].mrtl.cure)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
         else
         {
             // Indefinite progression (no automatic cure)
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
             // Note: progression stops naturally at cure duration due to mortality
         }
 
@@ -755,7 +802,7 @@ inline void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int j, int i, dou
     else // No recurrence allowed - use flag to prevent repeat incidence
     {
         // Evaluate new incidence only if never occurred before
-        if (!dsmeta[j].incd.flag && VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 &&
+        if (!dsmeta[j].incd.flag && VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) == 0 &&
             rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i))
         {
             VECT_ELEM(dsmeta[j].incd.prvl, i) = 1; // Begin disease
@@ -763,16 +810,16 @@ inline void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int j, int i, dou
         }
 
         // Disease progression logic (same as recurrence case)
-        if (dsmeta[j].mrtl.type == "Type2" || dsmeta[j].mrtl.type == "Type4")
+        if (dsmeta[j].mrtl.type == DiseaseType::Type2 || dsmeta[j].mrtl.type == DiseaseType::Type4)
         {
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0 &&
-                VECT_ELEM(dsmeta[j].incd.prvl, i - 1) < dsmeta[j].mrtl.cure)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0 &&
+                VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) < dsmeta[j].mrtl.cure)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
         else
         {
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
     }
 }
@@ -809,45 +856,58 @@ inline void DiseaseIncidenceType2(vector<disease_meta> &dsmeta,int j, int i, dou
  */
 inline void DiseaseIncidenceType3(vector<disease_meta> &dsmeta,int i, int j, double& mltp, double rn1)
 {
+    // Ensure vectors are properly sized
+    if (i >= dsmeta[j].incd.prvl.size() || i >= dsmeta[j].incd.prbl1.size()) {
+        mltp = 1.0; // Reset multiplier
+        return; // Skip if index out of bounds
+    }
+    
     // Calculate composite risk multiplier from all influencing diseases
     for (size_t k = 0; k < dsmeta[j].incd.influenced_by.disease_prvl.size(); ++k)
     {
         // Check if influencing disease was present at the required lag time
-        if (VECT_ELEM(dsmeta[j].incd.influenced_by.disease_prvl[k], i - dsmeta[j].incd.influenced_by.lag[k]) > 0)
+        const int lag_idx = i - dsmeta[j].incd.influenced_by.lag[k];
+        if (lag_idx >= 0 && lag_idx < dsmeta[j].incd.influenced_by.disease_prvl[k].size() &&
+            VECT_ELEM(dsmeta[j].incd.influenced_by.disease_prvl[k], lag_idx) > 0)
         {
             // Apply multiplicative risk factor (no lag on multiplier itself)
-            mltp *= VECT_ELEM(dsmeta[j].incd.influenced_by.mltp[k], i);
+            if (i < dsmeta[j].incd.influenced_by.mltp[k].size()) {
+                mltp *= VECT_ELEM(dsmeta[j].incd.influenced_by.mltp[k], i);
+            }
         }
     }
+
+    // Ensure we don't access negative indices
+    const int prev_idx = (i > 0 && i - 1 < dsmeta[j].incd.prvl.size()) ? i - 1 : i;
 
     if (dsmeta[j].incd.can_recur) // Recurrence allowed
     {
         // Evaluate incidence with risk-modified probability
-        if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 && rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i) * mltp)
+        if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) == 0 && rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i) * mltp)
         {
             VECT_ELEM(dsmeta[j].incd.prvl, i) = 1; // Begin disease
         }
 
         // Disease progression logic (identical to Type2)
-        if (dsmeta[j].mrtl.type == "Type2" || dsmeta[j].mrtl.type == "Type4")
+        if (dsmeta[j].mrtl.type == DiseaseType::Type2 || dsmeta[j].mrtl.type == DiseaseType::Type4)
         {
             // Progression with cure limit
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0 &&
-                VECT_ELEM(dsmeta[j].incd.prvl, i - 1) < dsmeta[j].mrtl.cure)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0 &&
+                VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) < dsmeta[j].mrtl.cure)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
         else
         {
             // Indefinite progression
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
 
     }
     else // No recurrence allowed
     {
         // One-time incidence evaluation with risk modification
-        if (!dsmeta[j].incd.flag && VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 &&
+        if (!dsmeta[j].incd.flag && VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) == 0 &&
             rn1 <= VECT_ELEM(dsmeta[j].incd.prbl1, i) * mltp)
         {
             VECT_ELEM(dsmeta[j].incd.prvl, i) = 1; // Begin disease
@@ -855,16 +915,16 @@ inline void DiseaseIncidenceType3(vector<disease_meta> &dsmeta,int i, int j, dou
         }
 
         // Disease progression (same as recurrence case)
-        if (dsmeta[j].mrtl.type == "Type2" || dsmeta[j].mrtl.type == "Type4")
+        if (dsmeta[j].mrtl.type == DiseaseType::Type2 || dsmeta[j].mrtl.type == DiseaseType::Type4)
         {
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0 &&
-                VECT_ELEM(dsmeta[j].incd.prvl, i - 1) < dsmeta[j].mrtl.cure)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0 &&
+                VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) < dsmeta[j].mrtl.cure)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
         else
         {
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+            if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0)
+                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
         }
     }
 
@@ -909,14 +969,21 @@ inline void DiseaseIncidenceType3(vector<disease_meta> &dsmeta,int i, int j, dou
 inline void EvalDiseaseIncidence(vector<disease_meta> &dsmeta,int i, int j, double rn1, double& mltp)
 {
   try {
+	  // Skip if incidence component is not properly configured
+	  if (dsmeta[j].incd.prvl.size() == 0) {
+	      return; // No incidence component configured
+	  }
+	  
 	  // Type0: Prevalence copying from influencing diseases
-	  if (dsmeta[j].incd.type == "Type0")
+	  if (dsmeta[j].incd.type == DiseaseType::Type0)
     {
         // Find maximum prevalence among all influencing diseases
         for (size_t k = 0; k < dsmeta[j].incd.influenced_by.disease_prvl.size(); ++k)
         {
             // Copy higher prevalence value (max logic for multiple triggers)
-            if (VECT_ELEM(dsmeta[j].incd.influenced_by.disease_prvl[k], i) > VECT_ELEM(dsmeta[j].incd.prvl, i))
+            if (i < dsmeta[j].incd.influenced_by.disease_prvl[k].size() && 
+                i < dsmeta[j].incd.prvl.size() &&
+                VECT_ELEM(dsmeta[j].incd.influenced_by.disease_prvl[k], i) > VECT_ELEM(dsmeta[j].incd.prvl, i))
             {
                 VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.influenced_by.disease_prvl[k], i);
             }
@@ -924,40 +991,44 @@ inline void EvalDiseaseIncidence(vector<disease_meta> &dsmeta,int i, int j, doub
     }
 
     // Type1: Deterministic transitions (probability = 1.0)
-    if (dsmeta[j].incd.type == "Type1")
+    else if (dsmeta[j].incd.type == DiseaseType::Type1)
     {
-        if (dsmeta[j].incd.can_recur)
-        {
-            // Recurrent pattern: continuous progression when probability = 1.0
-            if (VECT_ELEM(dsmeta[j].incd.prbl1, i) == 1.0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
-        }
-        else // Non-recurrent: one-time deterministic transition
-        {
-            // Initial incidence for healthy individuals
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) == 0 && VECT_ELEM(dsmeta[j].incd.prbl1, i) == 1.0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = 1;
-            // Progression for existing cases (assuming no cure)
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i - 1) > 0)
-                VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, i - 1) + 1;
+        if (i < dsmeta[j].incd.prvl.size() && i < dsmeta[j].incd.prbl1.size()) {
+            const int prev_idx = (i > 0 && i - 1 < dsmeta[j].incd.prvl.size()) ? i - 1 : i;
+            
+            if (dsmeta[j].incd.can_recur)
+            {
+                // Recurrent pattern: continuous progression when probability = 1.0
+                if (VECT_ELEM(dsmeta[j].incd.prbl1, i) == 1.0)
+                    VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
+            }
+            else // Non-recurrent: one-time deterministic transition
+            {
+                // Initial incidence for healthy individuals
+                if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) == 0 && VECT_ELEM(dsmeta[j].incd.prbl1, i) == 1.0)
+                    VECT_ELEM(dsmeta[j].incd.prvl, i) = 1;
+                // Progression for existing cases (assuming no cure)
+                if (VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) > 0)
+                    VECT_ELEM(dsmeta[j].incd.prvl, i) = VECT_ELEM(dsmeta[j].incd.prvl, prev_idx) + 1;
+            }
         }
     }
 
     // Type2: Stochastic baseline transitions
-    else if (dsmeta[j].incd.type == "Type2")
+    else if (dsmeta[j].incd.type == DiseaseType::Type2)
         DiseaseIncidenceType2(dsmeta,j, i, rn1);
 
     // Type3: Complex disease interaction modeling
-    else if (dsmeta[j].incd.type == "Type3")
+    else if (dsmeta[j].incd.type == DiseaseType::Type3)
         DiseaseIncidenceType3(dsmeta,i, j, mltp, rn1);
 
     // Future extensions for complex modeling
-    else if (dsmeta[j].incd.type == "Type4")
+    else if (dsmeta[j].incd.type == DiseaseType::Type4)
     {
         // TODO: Advanced interaction patterns
     }
 
-    else if (dsmeta[j].incd.type == "Type5")
+    else if (dsmeta[j].incd.type == DiseaseType::Type5)
     {
         // TODO: Machine learning-based transitions
     }
@@ -1006,13 +1077,17 @@ inline void EvalDiagnosis(vector<disease_meta> &dsmeta,double& rn1, int j, int i
 		rn1 = runif_impl(); // Generate fresh random number for diagnosis
 
     // Type0: Diagnosis copying from other diagnosed diseases
-    if (dsmeta[j].incd.type != "Universal" && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && dsmeta[j].dgns.type == "Type0")
+    if (dsmeta[j].incd.type != DiseaseType::Universal && 
+        i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && 
+        dsmeta[j].dgns.type == DiseaseType::Type0 &&
+        dsmeta[j].dgns.prvl.size() > 0 && i < dsmeta[j].dgns.prvl.size())
     {
         // Find maximum diagnosis status among influencing diseases
         for (size_t k = 0; k < dsmeta[j].dgns.influenced_by.disease_prvl.size(); ++k)
         {
             // Copy higher diagnosis value (referral chain modeling)
-            if (dsmeta[j].dgns.influenced_by.disease_prvl[k](i) > VECT_ELEM(dsmeta[j].dgns.prvl, i))
+            if (i < dsmeta[j].dgns.influenced_by.disease_prvl[k].size() &&
+                dsmeta[j].dgns.influenced_by.disease_prvl[k](i) > VECT_ELEM(dsmeta[j].dgns.prvl, i))
             {
                 VECT_ELEM(dsmeta[j].dgns.prvl, i) = dsmeta[j].dgns.influenced_by.disease_prvl[k](i);
             }
@@ -1020,23 +1095,31 @@ inline void EvalDiagnosis(vector<disease_meta> &dsmeta,double& rn1, int j, int i
     }
 
     // Type1: Stochastic diagnosis for prevalent cases
-    if (dsmeta[j].incd.type != "Universal" && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && dsmeta[j].dgns.type == "Type1")
+    if (dsmeta[j].incd.type != DiseaseType::Universal && 
+        i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0 && 
+        dsmeta[j].dgns.type == DiseaseType::Type1 &&
+        dsmeta[j].dgns.prvl.size() > 0 && i < dsmeta[j].dgns.prvl.size() && 
+        dsmeta[j].dgns.prbl1.size() > 0 && i < dsmeta[j].dgns.prbl1.size())
     {
+        const int prev_idx = (i > 0 && i - 1 < dsmeta[j].dgns.prvl.size()) ? i - 1 : i;
+        
         // Initial diagnosis for undiagnosed prevalent cases
-        if (VECT_ELEM(dsmeta[j].dgns.prvl, i - 1) == 0 && rn1 <= VECT_ELEM(dsmeta[j].dgns.prbl1, i))
+        if (prev_idx < dsmeta[j].dgns.prvl.size() && 
+            VECT_ELEM(dsmeta[j].dgns.prvl, prev_idx) == 0 && rn1 <= VECT_ELEM(dsmeta[j].dgns.prbl1, i))
         {
             VECT_ELEM(dsmeta[j].dgns.prvl, i) = 1; // Begin diagnosis tracking
         }
         // Progression for previously diagnosed cases
-        if (VECT_ELEM(dsmeta[j].dgns.prvl, i - 1) > 0)
+        if (prev_idx < dsmeta[j].dgns.prvl.size() && 
+            VECT_ELEM(dsmeta[j].dgns.prvl, prev_idx) > 0)
         {
-            VECT_ELEM(dsmeta[j].dgns.prvl, i) = VECT_ELEM(dsmeta[j].dgns.prvl, i - 1) + 1;
+            VECT_ELEM(dsmeta[j].dgns.prvl, i) = VECT_ELEM(dsmeta[j].dgns.prvl, prev_idx) + 1;
         }
     }
 
     // Update multimorbidity metrics for diagnosed diseases
-    if ((dsmeta[j].dgns.type == "Type0" || dsmeta[j].dgns.type == "Type1") && 
-        VECT_ELEM(dsmeta[j].dgns.prvl, i) > 0 && dsmeta[j].dgns.mm_wt > 0.0) 
+    if ((dsmeta[j].dgns.type == DiseaseType::Type0 || dsmeta[j].dgns.type == DiseaseType::Type1) && 
+        i < dsmeta[j].dgns.prvl.size() && VECT_ELEM(dsmeta[j].dgns.prvl, i) > 0 && dsmeta[j].dgns.mm_wt > 0.0) 
     {
         meta.mm_score[i] += dsmeta[j].dgns.mm_wt;  // Weighted disease burden
         meta.mm_count[i]++;                        // Simple disease count
@@ -1093,18 +1176,20 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
     rn1 = runif_impl(); // Generate fresh random number for mortality
 
     // Only evaluate mortality for prevalent cases or Universal incidence types
-    if (dsmeta[j].incd.type == "Universal" || VECT_ELEM(dsmeta[j].incd.prvl, i) > 0)
+    if ((dsmeta[j].incd.type == DiseaseType::Universal || 
+         (i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) > 0)) &&
+        dsmeta[j].mrtl.prbl2.size() > 0 && i < dsmeta[j].mrtl.prbl2.size())
     {
         // Type1: Basic mortality (no cure, no disease dependency)
-        if (dsmeta[j].mrtl.type == "Type1")
+        if (dsmeta[j].mrtl.type == DiseaseType::Type1)
         {
-            if (dsmeta[j].mrtl1flag)  // Separate first-year mortality
+            if (dsmeta[j].mrtl1flag && dsmeta[j].mrtl.prbl1.size() > 0 && i < dsmeta[j].mrtl.prbl1.size())  // Separate first-year mortality
             {
                 // Higher risk in first year of disease
-                if (VECT_ELEM(dsmeta[j].incd.prvl, i) == 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl1, i)) 
+                if (i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) == 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl1, i)) 
                     tempdead.push_back(dsmeta[j].mrtl.death_code);
                 // Standard risk in subsequent years
-                if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i)) 
+                else if (i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i)) 
                     tempdead.push_back(dsmeta[j].mrtl.death_code);
             }
             else // Single mortality probability for all years
@@ -1115,16 +1200,16 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
         }
 
         // Type2: Curable mortality (automatic recovery after cure duration)
-        else if (dsmeta[j].mrtl.type == "Type2")
+        else if (dsmeta[j].mrtl.type == DiseaseType::Type2)
         {
             // Evaluate mortality only before cure threshold
-            if (VECT_ELEM(dsmeta[j].incd.prvl, i) < dsmeta[j].mrtl.cure)
+            if (i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) < dsmeta[j].mrtl.cure)
             {
-                if (dsmeta[j].mrtl1flag)  // Separate first-year mortality
+                if (dsmeta[j].mrtl1flag && dsmeta[j].mrtl.prbl1.size() > 0 && i < dsmeta[j].mrtl.prbl1.size())  // Separate first-year mortality
                 {
                     if (VECT_ELEM(dsmeta[j].incd.prvl, i) == 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl1, i)) 
                         tempdead.push_back(dsmeta[j].mrtl.death_code);
-                    if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i)) 
+                    else if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i)) 
                         tempdead.push_back(dsmeta[j].mrtl.death_code);
                 }
                 else // Single probability
@@ -1133,20 +1218,21 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
                         tempdead.push_back(dsmeta[j].mrtl.death_code);
                 }
             }
-            else 
+            else if (i < dsmeta[j].incd.prvl.size() && VECT_ELEM(dsmeta[j].incd.prvl, i) >= dsmeta[j].mrtl.cure)
             {
                 dsmeta[j].mrtl.flag = true; // Mark as cured after reaching cure duration
             }
         }
 
         // Type3: Interactive mortality (risk modified by other diseases, no cure)
-        else if (dsmeta[j].mrtl.type == "Type3")
+        else if (dsmeta[j].mrtl.type == DiseaseType::Type3)
         {
             // Calculate composite risk multiplier from influencing diseases
             for (size_t k = 0; k < dsmeta[j].mrtl.influenced_by.disease_prvl.size(); ++k)
             {
                 // Check if influencing disease was present at required lag
-                if (VECT_ELEM(dsmeta[j].mrtl.influenced_by.disease_prvl[k],i - dsmeta[j].mrtl.influenced_by.lag[k]) > 0)
+                const int lag_idx = i - dsmeta[j].mrtl.influenced_by.lag[k];
+                if (lag_idx >= 0 && VECT_ELEM(dsmeta[j].mrtl.influenced_by.disease_prvl[k], lag_idx) > 0)
                 {
                     mltp *= dsmeta[j].mrtl.influenced_by.mltp[k](i); // Apply risk multiplier
                 }
@@ -1158,7 +1244,7 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
                 if (VECT_ELEM(dsmeta[j].incd.prvl, i) == 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl1, i))
                     tempdead.push_back(dsmeta[j].mrtl.death_code);
                 // Subsequent years: risk-modified probability
-                if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i) * mltp) 
+                else if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i) * mltp) 
                     tempdead.push_back(dsmeta[j].mrtl.death_code);
             }
             else // Single risk-modified probability
@@ -1171,12 +1257,13 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
         }
 
         // Type4: Complex mortality (both curable and interaction-dependent)
-        else if (dsmeta[j].mrtl.type == "Type4")
+        else if (dsmeta[j].mrtl.type == DiseaseType::Type4)
         {
             // Calculate risk multipliers from influencing diseases
             for (size_t k = 0; k < dsmeta[j].mrtl.influenced_by.disease_prvl.size(); ++k)
             {
-                if (VECT_ELEM(dsmeta[j].mrtl.influenced_by.disease_prvl[k],i - dsmeta[j].mrtl.influenced_by.lag[k]) > 0)
+                const int lag_idx = i - dsmeta[j].mrtl.influenced_by.lag[k];
+                if (lag_idx >= 0 && VECT_ELEM(dsmeta[j].mrtl.influenced_by.disease_prvl[k], lag_idx) > 0)
                 {
                     mltp *= dsmeta[j].mrtl.influenced_by.mltp[k](i);
                 }
@@ -1191,7 +1278,7 @@ inline void EvalMortality(vector<disease_meta> &dsmeta,vector<int> &tempdead,int
                     if (VECT_ELEM(dsmeta[j].incd.prvl, i) == 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl1, i))
                         tempdead.push_back(dsmeta[j].mrtl.death_code);
                     // Subsequent years: risk-modified probability
-                    if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i) * mltp) 
+                    else if (VECT_ELEM(dsmeta[j].incd.prvl, i) > 1 && rn1 < VECT_ELEM(dsmeta[j].mrtl.prbl2, i) * mltp) 
                         tempdead.push_back(dsmeta[j].mrtl.death_code);
                 }
                 else // Single risk-modified probability
@@ -1312,7 +1399,7 @@ void simcpp(DataFrame dt, const List l, const int mc)
 
   double mltp = 1.0; // Risk multiplier for disease interactions
   vector<int> tempdead; // Temporary storage for multiple causes of death
-  tempdead.reserve(dn); // Pre-allocate for maximum possible diseases
+  tempdead.reserve(dn + 5); // Pre-allocate slightly more than max diseases to avoid reallocations
   double rn1, rn2; // Random numbers for stochastic evaluations
 
   // =========================================================================
@@ -1359,7 +1446,7 @@ void simcpp(DataFrame dt, const List l, const int mc)
           VECT_ELEM(dm.incd.prvl,i) = 0; // Reset prevalence to healthy
           
           // Adjust multimorbidity scores for cured diagnosis
-          if ((dm.dgns.type == "Type0" || dm.dgns.type == "Type1") && dm.dgns.mm_wt > 0.0 && VECT_ELEM(dm.dgns.prvl,i - 1) > 0) {
+          if ((dm.dgns.type == DiseaseType::Type0 || dm.dgns.type == DiseaseType::Type1) && dm.dgns.mm_wt > 0.0 && i > 0 && VECT_ELEM(dm.dgns.prvl,i - 1) > 0) {
             meta.mm_score[i] -= dm.dgns.mm_wt;
             meta.mm_count[i]--;
           }
@@ -1509,7 +1596,7 @@ void simcpp_year_based(DataFrame dt, const List l, const int mc)
 
     double mltp = 1.0; // Risk multiplier for disease interactions
     vector<int> tempdead; // Temporary storage for competing mortality causes
-    tempdead.reserve(dn); // Pre-allocate for optimal performance
+    tempdead.reserve(dn + 5); // Pre-allocate slightly more than diseases for optimal performance
     double rn1, rn2; // Random numbers for stochastic evaluations
 
     // =========================================================================
@@ -1585,7 +1672,7 @@ void simcpp_year_based(DataFrame dt, const List l, const int mc)
                   VECT_ELEM(dm.incd.prvl, row_idx) = 0; // Reset to healthy state
                   
                   // Adjust multimorbidity scores for cured diagnoses
-                  if ((dm.dgns.type == "Type0" || dm.dgns.type == "Type1") && dm.dgns.mm_wt > 0.0 && 
+                  if ((dm.dgns.type == DiseaseType::Type0 || dm.dgns.type == DiseaseType::Type1) && dm.dgns.mm_wt > 0.0 && 
                       row_idx > 0 && VECT_ELEM(dm.dgns.prvl, row_idx - 1) > 0) {
                     meta.mm_score[row_idx] -= dm.dgns.mm_wt;
                     meta.mm_count[row_idx]--;

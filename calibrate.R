@@ -5,14 +5,14 @@ IMPACTncd$
   del_logs()$
   del_outputs()$
   del_parfs()$
-  calibrate_incd_ftlt(1:10, replace = FALSE)$
+  calibrate_incd_ftlt(1:100, replace = TRUE)$
   del_logs()$
   del_outputs()
   
 # Run validation if TRUE.
 if (TRUE) {
   IMPACTncd$
-    run(1:10, multicore = TRUE, "sc0")$
+    run(1:100, multicore = TRUE, "sc0")$
     export_summaries(
     multicore = TRUE,
     type = c(

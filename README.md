@@ -1,14 +1,14 @@
-# IMPACT NCD Japan microsimulation
+# IMPACT<sub>NCD-Japan</sub> microsimulation
 
 --------------------------------------------------------------------------------
 
-IMPACT NCD Japan is an implementation of the IMPACTncd framework, developed by Chris
+IMPACT<sub>NCD-Japan</sub> is an implementation of the IMPACTncd framework, developed by Chris
 Kypridemos with contributions from Peter Crowther (Melandra Ltd), Maria
-Guzman-Castillo, Amandine Robert, and Piotr Bandosz. 
+Guzman-Castillo, Amandine Robert, Max Birkett, and Piotr Bandosz. 
 
-Copyright (C) 2018-2022 University of Liverpool, Chris Kypridemos
+Copyright (C) 2018-2025 University of Liverpool, Chris Kypridemos
 
-IMPACTncd_Japan is free software; you can redistribute it and/or modify it under the
+IMPACT<sub>NCD-Japan</sub> is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
 Foundation; either version 3 of the License, or (at your option) any later
 version. This program is distributed in the hope that it will be useful, but
@@ -19,39 +19,134 @@ with this program; if not, see <http://www.gnu.org/licenses/> or write to the
 Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301 USA.
 
-## IMPACTncd_Japan deployment instructions
-
 
 ## What this model is
 
-IMPACT NCD Japan is a population microsimulation model built on the IMPACTncd framework. It simulates Japanese adults’ lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It’s designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
+IMPACT<sub>NCD-Japan</sub> is a population microsimulation model built on the IMPACT<sub>NCD</sub> framework. It simulates Japanese adults’ lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It’s designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
 
 Typical uses:
 - Run a baseline to quantify trends in incidence, prevalence, and mortality.
-- Simulate policy scenarios by changing exposure trends or risk relations and compare outcomes.
+- Simulate policy scenarios by changing exposure trends or disease case fatality (i.e. survival) and compare outcomes.
 
 Outputs are written under your configured outputs directory (by default folders such as outputs/, summaries/, tables/, plots/).
 
-## Run with Docker (Windows, macOS, Linux)
+## How to use IMPACT<sub>NCD-Japan</sub> 
 
 You don’t need to install R or system dependencies locally. We provide ready-to-run images and helper scripts.
 
+### Run with Docker (Windows, macOS, Linux)
+
+
+
 ### 1) Install Docker
 
-- Windows (Docker Desktop): https://docs.docker.com/desktop/install/windows-install/
-- macOS (Docker Desktop): https://docs.docker.com/desktop/install/mac-install/
-- Linux (Docker Engine): https://docs.docker.com/engine/install/
-	- Linux post-install (manage Docker as a non-root user): https://docs.docker.com/engine/install/linux-postinstall/
+- Windows (Docker Desktop): https://docs.docker.com/desktop/install/windows-install/.
+- macOS (Docker Desktop): https://docs.docker.com/desktop/install/mac-install/.
+- Linux (Docker Engine): https://docs.docker.com/engine/install/. Note that for systems you do not have sudo privileges the following pages might be helpful https://docs.docker.com/engine/install/linux-postinstall/ and https://docs.docker.com/engine/security/rootless/.
 
 After installing, ensure Docker is running (Docker Desktop app on Windows/macOS; system service on Linux).
 
-### 2) Get the code
+### 2) Pull and run the docker image
+
+The images already contain the project directory /IMPACTncd_Japan inside the container. You only need to mount your scenarios folder if you want to use custom scenarios from the host.
+
+#### If you are using PowerShell (i.e. you use a Windows PC, but not necessarily)
+
+First download [setup_user_docker_env.ps1](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.ps1) in a folder you choose. For this example I will assume you downloaded it to `C:\IMPACTncdJapan`. Then create a new folder called `scenarios` within `C:\IMPACTncdJapan` and download [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `C:\IMPACTncdJapan\scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as Notepad or Visual Studio Code. 
+
+Open `C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml` in your favourite text editor and have a look of its structure.Find `clusternumber`, `clusternumber_export`, `output_dir` and `synthpop_dir` parameters as you will have to update them to reflect your current setup. `clusternumber` and `clusternumber_export` refer to the number of cores that you want to use for the simulation. Each core requires about 12Gb of RAM at the default settings, so even if you have i.e. 8 cores but only 32Gb of RAM, set `clusternumber` and `clusternumber_export` to 2. `output_dir` and `synthpop_dir` define where the simulation will store its outputs and some intermediate synthetic population files, respectively, and need to point to a valid folders on your host machine. For example, you can set:
+
+```yaml
+# some parameters at the top left unchanged
+clusternumber: 2 
+clusternumber_export: 2 
+# some other parameters left unchanged
+output_dir: C:\IMPACTncdJapan\outputs
+synthpop_dir: C:\IMPACTncdJapan\synthpop
+```
+
+Remember to create the `outputs` and `synthpop` folders in `C:\IMPACTncdJapan` before running the simulation.
+
+
+Now open PowerShell in `C:\IMPACTncdJapan` folder:
+- Press **Win + R**, type `powershell`, and press Enter.
+- In PowerShell, navigate to the folder with:
+  ```powershell
+  cd C:\IMPACTncdJapan
+  ```
+Alternatively, in File Explorer navigate to `C:\IMPACTncdJapan`, then right-click in the folder and select **Open in Terminal** (or **Open PowerShell window here** on older Windows versions).
+
+Then ensure setup_user_docker_env.ps1 is executable. In PowerShell, “executable” means the script is allowed to run under your current execution policy.
+To check, run:
+
+```powershell
+Get-ExecutionPolicy -List
+```
+
+If the policy is `Restricted`, scripts cannot run. For local scripts like setup_user_docker_env.ps1, you can temporarily allow execution just for the current session:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\setup_user_docker_env.ps1
+```
+
+Or you can set it permanently for your user:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-Japan</sub> microsimulation. It accepts four arguments:
+
+- `-Tag`: If Tag is "main" (default), the script pulls and uses "chriskypri/impactncdjpn:main". You can pull other branches available on GitHub instead of "main", for testing.
+- `-ScenariosDir`: Path to a directory containing custom scenarios to mount inside the container. This is where you can store your own scenario scripts for the model to run. For this tutorial I will assume you stored your scenarios in `C:\IMPACTncdJapan\scenarios`.
+- `-SimDesignYaml`: Path to a custom sim_design file. For this tutorial you can use the one you updated earlier located at `C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml`.
+- `-UseVolumes`: If specified, the script will use Docker-managed volumes for enhanced I/O performance (recommended for macOS and Windows). In this mode:
+      - Separate Docker volumes for the output_dir and synthpop_dir (as defined
+        in the YAML file) are created and pre-populated from the local folders.
+      - After the container exits, the contents of the output and synthpop volumes
+        are synchronized back to the corresponding local folders using rsync.
+      - All volumes are then removed.
+If not specified, the script will use direct bind mounts instead of volumes (less efficient, but useful for interactive access)
+
+
+```powershell
+.\setup_user_docker_env.ps1
+```
+
+
+
+#### If you are n Linux or macOS
+
+First download [setup_user_docker_env.sh](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.sh) in a folder you choose. For this example I will assume you downloaded it to `~/IMPACTncdJapan`. Note that `~` denotes your user home folder. For instance, if your username is `chris`:
+  - On Linux, `~` expands to `/home/chris`
+  - On macOS, `~` expands to `/Users/chris`
+
+Then create a new folder called `scenarios` within `~/IMPACTncdJapan` and download [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `~/IMPACTncdJapan/scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as gedit or Visual Studio Code.
+
+Open `~/IMPACTncdJapan/scenarios/sim_design_scn.yaml` in your favourite text editor and have a look of its structure.Find `clusternumber`, `clusternumber_export`, `output_dir` and `synthpop_dir` parameters as you will have to update them to reflect your current setup. `clusternumber` and `clusternumber_export` refer to the number of cores that you want to use for the simulation. Each core requires about 12Gb of RAM at the default settings, so even if you have i.e. 8 cores but only 32Gb of RAM, set `clusternumber` and `clusternumber_export` to 2. `output_dir` and `synthpop_dir` define where the simulation will store its outputs and some intermediate synthetic population files, respectively, and need to point to a valid folders on your host machine. For example, you can set:
+
+```yaml
+# some parameters at the top left unchanged
+clusternumber: 2 
+clusternumber_export: 2 
+# some other parameters left unchanged
+output_dir: ~/IMPACTncdJapan/outputs
+synthpop_dir: ~/IMPACTncdJapan/synthpop
+```
+
+Now open a terminal and navigate to the `~/IMPACTncdJapan` directory:
+
+```bash
+cd ~/IMPACTncdJapan
+```
+
+
 
 Clone or download this repository to your machine.
 
 ### 3) Use the helper script for your OS
 
-The images already contain the project directory /IMPACTncd_Japan inside the container. You only need to mount your scenarios folder if you want to use custom scenarios from the host.
+
 
 - Windows (PowerShell):
 	- Script: docker_setup/setup_user_docker_env.ps1
@@ -165,3 +260,4 @@ Troubleshooting
 - Proxy/corporate environments: configure Docker Desktop/Engine to use your proxy if pulls fail.
 - Disk space: synthpop and outputs can be large; ensure adequate space in the configured directories.
 
+## How to test IMPACT<sub>NCD-Japan</sub> </file>

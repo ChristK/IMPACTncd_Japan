@@ -2,32 +2,33 @@
 # setup_dev_docker_env.ps1
 #
 # PowerShell script for building and running a Docker container for the
-# IMPACTncd Japan project. This version supports two operation modes:
+# IMPACTncd Japan project. This script supports two operation modes:
 #
-# 1. Using Docker-managed volumes for enhanced I/O performance (recommended
-#    for macOS and Windows). In this mode:
-#      - The entire project directory (one level above docker_setup) is copied
-#        into a Docker volume (project volume) that becomes the main drive during
-#        simulation.
-#      - Separate Docker volumes for the output_dir and synthpop_dir (as defined
-#        in the YAML file) are created and pre-populated from the local folders.
-#      - After the container exits, the contents of the output and synthpop volumes
-#        are synchronized back to the corresponding local folders using rsync.
-#      - All volumes are then removed.
+# Container Selection:
+#   - Builds a local development image: prerequisite.impactncdjpn:local (from Dockerfile.prerequisite.IMPACTncdJPN).
+#   - Automatically detects changes in build inputs (Dockerfile, apt-packages.txt, etc.) and rebuilds the image if needed.
 #
-# 2. Using direct bind mounts (less efficient, but useful for interactive access).
+# Operation Modes:
+# 1. Using Docker-managed volumes (recommended for macOS and Windows):
+#      - Copies the project directory into a Docker volume for faster I/O.
+#      - Creates separate volumes for output_dir and synthpop_dir (defined in YAML).
+#      - Synchronizes volumes back to local folders after container exits.
+#      - Removes volumes after synchronization.
 #
-# Security: All containers run as non-root users to prevent permission issues
-# and improve security. On Windows, Docker Desktop runs containers in a Linux VM,
-# so we use standard UID/GID (1000:1000) which works well for most cases.
-# The entrypoint.sh script creates the appropriate user with the Windows username.
+# 2. Using direct bind mounts (less efficient, but useful for interactive access):
+#      - Mounts local directories directly into the container.
 #
-# Usage:
-#   .\setup_dev_docker_env.ps1 [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
+# Security:
+#   - Containers run as the calling user (non-root) to prevent permission issues.
+#   - Automatically detects the current user's UID and GID and passes them to Docker.
 #
-# If you get an execution policy error, run:
-#   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-#
+# Notes:
+# - Compatible with Windows PowerShell and Linux/macOS (requires Docker).
+# - For macOS and Windows, using Docker volumes is recommended for better performance.
+# - For Linux, ensure your user has Docker permissions (e.g., part of the "docker" group).
+# - If you encounter permission issues, ensure the output_dir and synthpop_dir exist and are writable.
+# - If you get an execution policy error, run:
+#     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 # -----------------------------------------------------------------------------
 
 param (

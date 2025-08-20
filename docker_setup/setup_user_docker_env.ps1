@@ -2,42 +2,48 @@
 # setup_user_docker_env.ps1
 #
 # PowerShell script for pulling and running a Docker container for the
-# IMPACTncd Japan project. This version supports two operation modes:
+# IMPACTncd Japan project. This script supports two operation modes:
 #
 # Container Selection:
 #   - If Tag is "main" (default): pulls and uses "chriskypri/impactncdjpn:main"
-#   - If Tag is not specified or is "local": pulls and uses "impactncdjpn:local"
+#   - If Tag is "local": uses "impactncdjpn:local" (built locally)
 #   - If Tag is any other value: pulls and uses "chriskypri/impactncdjpn:<tag>"
-#
-# Note: The Docker images already contain the /IMPACTncd_Japan project folder,
-# so no project directory mounting or copying is required.
 #
 # Scenarios Directory:
 #   - If ScenariosDir is provided, that directory will be mounted as
 #     /IMPACTncd_Japan/scenarios inside the container, making the scenarios
-#     files available at runtime regardless of volume usage mode.
+#     files available at runtime.
 #
-# 1. Using Docker-managed volumes for enhanced I/O performance (recommended
-#    for macOS and Windows). In this mode:
-#      - Separate Docker volumes for the output_dir and synthpop_dir (as defined
-#        in the YAML file) are created and pre-populated from the local folders.
-#      - After the container exits, the contents of the output and synthpop volumes
-#        are synchronized back to the corresponding local folders using rsync.
-#      - All volumes are then removed.
+# Operation Modes:
+# 1. Using Docker-managed volumes (recommended for macOS and Windows):
+#      - Creates Docker volumes for output_dir and synthpop_dir (defined in YAML).
+#      - Pre-populates volumes from local folders.
+#      - Synchronizes volumes back to local folders after container exits.
+#      - Removes volumes after synchronization.
 #
-# 2. Using direct bind mounts (less efficient, but useful for interactive access).
+# 2. Using direct bind mounts (less efficient, but useful for interactive access):
+#      - Mounts local directories directly into the container.
 #
-# Security: All containers run as non-root users to prevent permission issues
-# and improve security. On Windows, Docker Desktop runs containers in a Linux VM,
-# so we use standard UID/GID (1000:1000) which works well for most cases.
-# The entrypoint.sh script creates the appropriate user with the Windows username.
+# Security:
+#   - Containers run as non-root users to prevent permission issues.
+#   - On Windows, Docker Desktop runs containers in a Linux VM, so UID/GID 1000:1000
+#     is used for compatibility.
 #
 # Usage:
 #   .\setup_user_docker_env.ps1 [-Tag <tag>] [-ScenariosDir <path\to\scenarios>] [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
-# If you get an execution policy error, run:
-#   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+# Key Features:
+# - Validates YAML and scenarios directory paths.
+# - Extracts output_dir and synthpop_dir from YAML and ensures they exist.
+# - Supports path normalization for Docker compatibility.
+# - Provides detailed error messages for Docker connectivity and permission issues.
+# - Automatically builds and uses an rsync-alpine image for volume synchronization.
 #
+# Notes:
+# - If you encounter an execution policy error, run:
+#     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+# - For macOS and Windows, using Docker volumes is recommended for better performance.
+# - For Linux, ensure your user has Docker permissions (e.g., part of the "docker" group).
 # -----------------------------------------------------------------------------
 
 param (

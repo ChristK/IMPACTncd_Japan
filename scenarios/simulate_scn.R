@@ -45,6 +45,7 @@ IMPACTncd$export_summaries(
 
 source("./auxil/process_out.R")
 
+print("Simulation has finished!")
 
 # sp$pop colnames 
 #  [1] "pid"                     "year"                    "age"                     "sex"                     "type"                   

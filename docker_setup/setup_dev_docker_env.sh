@@ -8,29 +8,30 @@
 # Description:
 #   This script builds and runs a Docker container for the IMPACTncd Japan project.
 #   It rebuilds the Docker image only if build inputs have changed.
-#   
-#   Security: All containers run as the calling user (non-root) to prevent permission
-#   issues and improve security. The script automatically detects the current user's
-#   UID and GID and passes them to Docker.
 #
-#   When the --UseVolumes flag is provided:
-#     1. The entire project directory (one level above docker_setup) is copied 
-#        into a Docker volume (VOLUME_PROJECT). This volume is used as the main drive 
-#        during simulation.
-#     2. Separate Docker volumes for 'output_dir' (VOLUME_OUTPUT_NAME) and 
-#        'synthpop_dir' (VOLUME_SYNTHPOP_NAME) are created and pre-populated from
-#        the local host folders.
-#     3. The container runs using these volumes (project, outputs, and synthpop) for 
-#        enhanced performance.
-#     4. Upon container exit, the contents of the output and synthpop volumes are 
-#        synchronized (copied) back to the local folders using rsync.
-#     5. Finally, all the created volumes are removed.
+# Container Selection:
+#   - Builds a local development image: prerequisite.impactncdjpn:local (from Dockerfile.prerequisite.IMPACTncdJPN).
+#   - Automatically detects changes in build inputs (Dockerfile, apt-packages.txt, etc.) and rebuilds the image if needed.
 #
-#   When not using volumes, the script uses direct bind mounts. This is less
-#   efficient, particularly on macOS, but allows for interactive access of the
-#   model, outputs, and synthpop directories.
+# Operation Modes:
+# 1. Using Docker-managed volumes (recommended for macOS and Windows):
+#      - Copies the project directory into a Docker volume for faster I/O.
+#      - Creates separate volumes for output_dir and synthpop_dir (defined in YAML).
+#      - Synchronizes volumes back to local folders after container exits.
+#      - Removes volumes after synchronization.
 #
-# Compatible with Linux and macOS (requires coreutils on macOS).
+# 2. Using direct bind mounts (less efficient, but useful for interactive access):
+#      - Mounts local directories directly into the container.
+#
+# Security:
+#   - Containers run as the calling user (non-root) to prevent permission issues.
+#   - Automatically detects the current user's UID and GID and passes them to Docker.
+#
+# Notes:
+# - Compatible with Linux and macOS (requires coreutils on macOS).
+# - For macOS and Windows, using Docker volumes is recommended for better performance.
+# - For Linux, ensure your user has Docker permissions (e.g., part of the "docker" group).
+# - If you encounter permission issues, ensure the output_dir and synthpop_dir exist and are writable.
 # -----------------------------------------------------------------------------
 
 # Get the directory where the script is located

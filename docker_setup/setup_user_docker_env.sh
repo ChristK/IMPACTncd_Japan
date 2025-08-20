@@ -3,41 +3,54 @@
 # setup_user_docker_env.sh
 #
 # Usage:
-#   ./setup_user_docker_env.sh [<tag>] [path_to_scenarios] [path_to_yaml] [--UseVolumes]
+#   ./setup_user_docker_env.sh [-Tag <tag>] [-ScenariosDir <path_to_scenarios>] [-SimDesignYaml <path_to_yaml>] [--UseVolumes]
 #
 # Description:
 #   This script pulls and runs a Docker container for the IMPACTncd Japan project.
-#   
-#   Container Selection:
-#     - If <tag> is "main" (default): pulls and uses "chriskypri/impactncdjpn:main"
-#     - If <tag> is not specified or is "local": pulls and uses "impactncdjpn:local"
-#     - If <tag> is any other value: pulls and uses "chriskypri/impactncdjpn:<tag>"
-#     
-#   Note: The Docker images already contain the /IMPACTncd_Japan project folder,
-#   so no project directory mounting or copying is required.
-#   
-#   Scenarios Directory:
-#     - If [path_to_scenarios] is provided, that directory will be mounted as
-#       /IMPACTncd_Japan/scenarios inside the container, making the scenarios
-#       files available at runtime regardless of volume usage mode.
-#   
-#   Security: All containers run as the calling user (non-root) to prevent permission
-#   issues and improve security. The script automatically detects the current user's
-#   UID and GID and passes them to Docker.
 #
-#   When the --UseVolumes flag is provided:
-#     1. Docker volumes for 'output_dir' (VOLUME_OUTPUT_NAME) and 'synthpop_dir' 
-#        (VOLUME_SYNTHPOP_NAME) are created and pre-populated from the local host folders.
-#     2. The container runs using these volumes (outputs and synthpop) for enhanced performance.
-#     3. Upon container exit, the contents of the output and synthpop volumes are 
-#        synchronized (copied) back to the local folders using rsync.
-#     4. Finally, all the created volumes are removed.
+# Container Selection:
+#   - If <tag> is "main" (default): pulls and uses "chriskypri/impactncdjpn:main".
+#   - If <tag> is "local": uses "impactncdjpn:local" (built locally).
+#   - If <tag> is any other value: pulls and uses "chriskypri/impactncdjpn:<tag>".
 #
-#   When not using volumes, the script uses direct bind mounts for output and synthpop
-#   directories. This is less efficient, particularly on macOS, but allows for 
-#   interactive access.
+# Scenarios Directory:
+#   - If [path_to_scenarios] is provided, it will be mounted as /IMPACTncd_Japan/scenarios inside the container.
 #
-# Compatible with Linux and macOS (requires coreutils on macOS).
+# Operation Modes:
+# 1. Using Docker-managed volumes (recommended for macOS and Windows):
+#      - Creates Docker volumes for output_dir and synthpop_dir (defined in YAML).
+#      - Synchronizes volumes back to local folders after container exits.
+#      - Removes volumes after synchronization.
+#
+# 2. Using direct bind mounts (less efficient, but useful for interactive access):
+#      - Mounts local directories directly into the container.
+#
+# Security:
+#   - Containers run as the calling user (non-root) to prevent permission issues.
+#   - Automatically detects the current user's UID and GID and passes them to Docker.
+#
+# Notes:
+# - Compatible with Linux and macOS (requires coreutils on macOS).
+# - For macOS and Windows, using Docker volumes is recommended for better performance.
+# - For Linux, ensure your user has Docker permissions (e.g., part of the "docker" group).
+# - If you encounter permission issues, ensure the output_dir and synthpop_dir exist and are writable.
+#
+# Examples:
+#
+# 1. Run with the default tag ("main") and default YAML file:
+#    ./setup_user_docker_env.sh
+#
+# 2. Run with a specific tag (e.g., "v1.2.3") and default YAML file:
+#    ./setup_user_docker_env.sh -Tag v1.2.3
+#
+# 3. Run with a custom scenarios directory and default YAML file:
+#    ./setup_user_docker_env.sh -Tag main -ScenariosDir /path/to/scenarios
+#
+# 4. Run with a custom YAML file:
+#    ./setup_user_docker_env.sh -Tag main -ScenariosDir /path/to/scenarios -SimDesignYaml /path/to/custom_sim_design.yaml
+#
+# 5. Use Docker volumes for better performance:
+#    ./setup_user_docker_env.sh -Tag main -ScenariosDir /path/to/scenarios -SimDesignYaml /path/to/custom_sim_design.yaml --UseVolumes
 # -----------------------------------------------------------------------------
 
 # Get the directory where the script is located
@@ -81,36 +94,46 @@ fi
 echo "Removing stopped containers..."
 docker container prune -f
 
-# Process command-line arguments for scenarios folder, YAML file, volume usage flag, and Docker tag
+# Update argument parsing to match PowerShell version
 USE_VOLUMES=false # Default to not using volumes
-# First argument is the tag if it doesn't match other patterns
-if [[ $# -gt 0 && "$1" != *.yaml && "$1" != *.yml && "$1" != "--UseVolumes" && ! -d "$1" ]]; then
-  DOCKER_TAG="$1"
-  shift
-fi
 
-# Second argument could be scenarios directory if it's a directory
-if [[ $# -gt 0 && -d "$1" ]]; then
-  SCENARIOS_DIR="$(realpath "$1")"
-  shift
-fi
-
-# Process remaining arguments
-for arg in "$@"; do
-  if [[ "$arg" == --UseVolumes ]]; then
-    USE_VOLUMES=true
-  elif [[ "$arg" == *.yaml || "$arg" == *.yml ]]; then
-    # If YAML path is relative, resolve it relative to the current execution dir
-    if [[ "$arg" != /* && "$arg" != ~* ]]; then
-        YAML_FILE="$(realpath "$arg")"
-    else
-        YAML_FILE="$arg"
-    fi
-  elif [[ -d "$arg" && -z "$SCENARIOS_DIR" ]]; then
-    # If it's a directory and we haven't set scenarios dir yet
-    SCENARIOS_DIR="$(realpath "$arg")"
-  fi
+# Process command-line arguments for scenarios folder, YAML file, volume usage flag, and Docker tag
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -Tag)
+      DOCKER_TAG="$2"
+      shift 2
+      ;;
+    -ScenariosDir)
+      if [ ! -d "$2" ]; then
+        echo "Error: Scenarios directory not found at '$2'"
+        exit 1
+      fi
+      SCENARIOS_DIR="$(realpath "$2")"
+      shift 2
+      ;;
+    -SimDesignYaml)
+      if [ ! -f "$2" ]; then
+        echo "Error: YAML file not found at '$2'"
+        exit 1
+      fi
+      YAML_FILE="$(realpath "$2")"
+      shift 2
+      ;;
+    --UseVolumes)
+      USE_VOLUMES=true
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
 done
+
+# Ensure default values if arguments are not provided
+DOCKER_TAG=${DOCKER_TAG:-"main"}
+YAML_FILE=${YAML_FILE:-"$PROJECT_ROOT/inputs/sim_design.yaml"}
 
 # Determine the Docker image name based on the tag
 if [[ "$DOCKER_TAG" == "local" ]]; then

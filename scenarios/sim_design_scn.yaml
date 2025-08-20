@@ -1,11 +1,11 @@
 iteration_n: 15
-clusternumber: 10 # explicit parallelisation
-clusternumber_export: 10 # NEW: number of clusters for export_summaries
+clusternumber: 4 # explicit parallelisation
+clusternumber_export: 4 # NEW: number of clusters for export_summaries
 logs: yes
 export_xps: yes
 export_PARF: no
 'n': 100000 # The number of simulants in each chunk. A Monte Carlo iteration consists of 1 to 10 chunks.
-num_chunks: 4 # number of chunks (num_chunks is clearer than chunk_number)
+num_chunks: 2 # number of chunks (num_chunks is clearer than chunk_number)
 init_year_long: 2001  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007. Need to be <= 2016 for costs to work.
 sim_horizon_max: 2040 # population projections do not support longer horizon corresponding to CJ function
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass
@@ -17,8 +17,8 @@ init_year_incd_calibration: no # Indicates whether parf*p0 is calibrated to incd
 incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
 prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
 ftlt_uncertainty_distr: beta #  The distribution of case fatality uncertainty. Either beta or uniform.
-output_dir: /mnt/storage_fast4/jpn/outputs_clb # ./outputs
-synthpop_dir: /mnt/storage_fast4/jpn/synthpop_clb # ./inputs/synthpop
+output_dir: /mnt/storage_fast4/jpn/outputs # ./outputs
+synthpop_dir: /mnt/storage_fast4/jpn/synthpop # ./inputs/synthpop
 
 diseases:
 - name: obesity
@@ -97,7 +97,7 @@ diseases:
   friendly_name: CVD
   meta:
     incidence:
-      type: 0 # this means that other diseases influence this disease to avoid double counting from CHD and stroke.
+      type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
       influenced_by_disease_name:
         - chd
         - stroke

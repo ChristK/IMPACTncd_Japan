@@ -22,9 +22,22 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// simcpp_year_based
+void simcpp_year_based(DataFrame dt, const List l, const int mc);
+RcppExport SEXP _IMPACTncdJapan_simcpp_year_based(SEXP dtSEXP, SEXP lSEXP, SEXP mcSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< DataFrame >::type dt(dtSEXP);
+    Rcpp::traits::input_parameter< const List >::type l(lSEXP);
+    Rcpp::traits::input_parameter< const int >::type mc(mcSEXP);
+    simcpp_year_based(dt, l, mc);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_IMPACTncdJapan_simcpp", (DL_FUNC) &_IMPACTncdJapan_simcpp, 3},
+    {"_IMPACTncdJapan_simcpp_year_based", (DL_FUNC) &_IMPACTncdJapan_simcpp_year_based, 3},
     {NULL, NULL, 0}
 };
 

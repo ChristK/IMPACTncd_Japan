@@ -52,9 +52,9 @@ The images already contain the project directory /IMPACTncd_Japan inside the con
 
 #### If you are using PowerShell (i.e. you use a Windows PC, but not necessarily)
 
-First download [setup_user_docker_env.ps1](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.ps1) in a folder you choose. For this example I will assume you downloaded it to `C:\IMPACTncdJapan`. Then create a new folder called `scenarios` within `C:\IMPACTncdJapan` and download [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `C:\IMPACTncdJapan\scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as Notepad or Visual Studio Code. 
+First download [setup_user_docker_env.ps1](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.ps1) in a folder you choose. For this example I will assume you downloaded it to `C:\IMPACTncdJapan`. Then create a new folder called `scenarios` within `C:\IMPACTncdJapan` and download [simulate_scn.R](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/simulate_scn.R) and [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `C:\IMPACTncdJapan\scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as Notepad or Visual Studio Code. 
 
-Open `C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml` in your favourite text editor and have a look of its structure.Find `clusternumber`, `clusternumber_export`, `output_dir` and `synthpop_dir` parameters as you will have to update them to reflect your current setup. `clusternumber` and `clusternumber_export` refer to the number of cores that you want to use for the simulation. Each core requires about 12Gb of RAM at the default settings, so even if you have i.e. 8 cores but only 32Gb of RAM, set `clusternumber` and `clusternumber_export` to 2. `output_dir` and `synthpop_dir` define where the simulation will store its outputs and some intermediate synthetic population files, respectively, and need to point to a valid folders on your host machine. For example, you can set:
+Open `C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml` in your favourite text editor and have a look of its structure.Find `clusternumber`, `clusternumber_export`, `output_dir` and `synthpop_dir` parameters as you will have to update them to reflect your current setup. `clusternumber` and `clusternumber_export` refer to the number of cores that you want to use for the simulation. Each core requires about 12Gb of RAM at the default settings, so even if you have i.e. 8 cores but only 32Gb of RAM, set `clusternumber` and `clusternumber_export` to 2. `output_dir` and `synthpop_dir` define where the simulation will store its outputs and some intermediate synthetic population files, respectively, and need to point to a valid folders on your host machine. For example, you can set, by overwritting the existing values:
 
 ```yaml
 # some parameters at the top left unchanged
@@ -95,6 +95,7 @@ Or you can set it permanently for your user:
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
+
 Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-Japan</sub> microsimulation. It accepts four arguments:
 
 - `-Tag`: If Tag is "main" (default), the script pulls and uses "chriskypri/impactncdjpn:main". You can pull other branches available on GitHub instead of "main", for testing.
@@ -108,20 +109,30 @@ Now you are ready to execute the script, but before you do, let's briefly review
       - All volumes are then removed.
 If not specified, the script will use direct bind mounts instead of volumes (less efficient, but useful for interactive access)
 
+Now we are ready to execute the script. 
 
 ```powershell
-.\setup_user_docker_env.ps1
+.\setup_user_docker_env.ps1 -Tag "main" -ScenariosDir "C:\IMPACTncdJapan\scenarios" -SimDesignYaml "C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml" -UseVolumes
 ```
 
+The first time you will run this script, it may take a while to pull the Docker image and set up the environment. Subsequent runs should be faster.
+
+When the script completes, you will see the prompt again but this time you will be inside the simulation environment. The operating system of the simulation environment is always Linux Ubuntu irrespective of the operating system of your machine. You can now run a test simulation to unsure it works as expected, with:
+
+```powershell
+Rscript ./scenarios/simulate_scn.R
+```
+
+When the simulation finishes, hopefully without errors, you will see the message "Simulation has finished!". You can then type `exit` to exit the simulation environment. You can inspect the outputs of the model, saved in `C:\IMPACTncdJapan\outputs`, and the synthetic population files in `C:\IMPACTncdJapan\synthpop`.
 
 
-#### If you are n Linux or macOS
+#### If you are on Linux or macOS
 
 First download [setup_user_docker_env.sh](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.sh) in a folder you choose. For this example I will assume you downloaded it to `~/IMPACTncdJapan`. Note that `~` denotes your user home folder. For instance, if your username is `chris`:
   - On Linux, `~` expands to `/home/chris`
   - On macOS, `~` expands to `/Users/chris`
 
-Then create a new folder called `scenarios` within `~/IMPACTncdJapan` and download [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `~/IMPACTncdJapan/scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as gedit or Visual Studio Code.
+Then create a new folder called `scenarios` within `~/IMPACTncdJapan` and download [simulate_scn.R](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/simulate_scn.R) and [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `~/IMPACTncdJapan/scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as gedit or Visual Studio Code.
 
 Open `~/IMPACTncdJapan/scenarios/sim_design_scn.yaml` in your favourite text editor and have a look of its structure.Find `clusternumber`, `clusternumber_export`, `output_dir` and `synthpop_dir` parameters as you will have to update them to reflect your current setup. `clusternumber` and `clusternumber_export` refer to the number of cores that you want to use for the simulation. Each core requires about 12Gb of RAM at the default settings, so even if you have i.e. 8 cores but only 32Gb of RAM, set `clusternumber` and `clusternumber_export` to 2. `output_dir` and `synthpop_dir` define where the simulation will store its outputs and some intermediate synthetic population files, respectively, and need to point to a valid folders on your host machine. For example, you can set:
 
@@ -134,73 +145,67 @@ output_dir: ~/IMPACTncdJapan/outputs
 synthpop_dir: ~/IMPACTncdJapan/synthpop
 ```
 
-Now open a terminal and navigate to the `~/IMPACTncdJapan` directory:
+Now open a Terminal and navigate to the `~/IMPACTncdJapan` directory:
 
 ```bash
 cd ~/IMPACTncdJapan
 ```
+Ensure `setup_user_docker_env.sh` is executable with:
 
+```bash
+chmod +x setup_user_docker_env.sh
+```
 
+If you are on macOS, `coreutils` is required for some of the script's functionality. You can install it using Homebrew:
 
-Clone or download this repository to your machine.
+```bash
+brew install coreutils
+```
 
-### 3) Use the helper script for your OS
+If you don’t already have Homebrew installed, you can install it by pasting the following in a macOS Terminal:
 
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
+Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-Japan</sub> microsimulation. It accepts four arguments:
 
-- Windows (PowerShell):
-	- Script: docker_setup/setup_user_docker_env.ps1
-- Linux/macOS (bash):
-	- Script: docker_setup/setup_user_docker_env.sh
+- `Tag`: If Tag is "main" (default), the script pulls and uses "chriskypri/impactncdjpn:main". You can pull other branches available on GitHub instead of "main", for testing.
+- `-ScenariosDir`: Path to a directory containing custom scenarios to mount inside the container. This is where you can store your own scenario scripts for the model to run. For this tutorial I will assume you stored your scenarios in `C:\IMPACTncdJapan\scenarios`.
+- `-SimDesignYaml`: Path to a custom sim_design file. For this tutorial you can use the one you updated earlier located at `C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml`.
+- `-UseVolumes`: If specified, the script will use Docker-managed volumes for enhanced I/O performance (recommended for macOS and Windows). In this mode:
+      - Separate Docker volumes for the output_dir and synthpop_dir (as defined
+        in the YAML file) are created and pre-populated from the local folders.
+      - After the container exits, the contents of the output and synthpop volumes
+        are synchronized back to the corresponding local folders using rsync.
+      - All volumes are then removed.
+If not specified, the script will use direct bind mounts instead of volumes (less efficient, but useful for interactive access)
 
-Both scripts will pull a prebuilt image and run the container with appropriate mounts.
+Now we are ready to execute the script. 
 
-#### Quick starts
+```bash
+./setup_user_docker_env.sh -Tag main -ScenariosDir ~/IMPACTncdJapan/scenarios -SimDesignYaml ~/IMPACTncdJapan/scenarios/sim_design_scn.yaml --UseVolumes
+```
 
-- Windows (PowerShell):
-	- Default (main image):
-		- Open PowerShell in the repo root and run:
-			- docker_setup/setup_user_docker_env.ps1
-	- With a custom scenarios directory mounted (replaces the container’s /IMPACTncd_Japan/scenarios):
-		- docker_setup/setup_user_docker_env.ps1 -ScenariosDir "C:\\path\\to\\your-scenarios"
-	- Use a specific image tag (for example, a release tag):
-		- docker_setup/setup_user_docker_env.ps1 -Tag "v1.2.3"
+The first time you will run this script, it may take a while to pull the Docker image and set up the environment. Subsequent runs should be faster.
 
-- Linux/macOS (bash):
-	- Default (main image):
-		- bash docker_setup/setup_user_docker_env.sh
-	- With a custom scenarios directory mounted:
-		- bash docker_setup/setup_user_docker_env.sh --scenarios-dir /path/to/your-scenarios
-	- Use a specific image tag:
-		- bash docker_setup/setup_user_docker_env.sh --tag v1.2.3
+When the script completes, you will see the prompt again but this time you will be inside the simulation environment. The operating system of the simulation environment is always Linux Ubuntu irrespective of the operating system of your machine. You can now run a test simulation to unsure it works as expected, with:
 
-Notes
-- Tag handling (summary):
-	- main (default): pulls chriskypri/impactncdjpn:main
-	- local: uses impactncdjpn:local (if you built locally)
-	- any other string: pulls chriskypri/impactncdjpn:<tag>
-- ScenariosDir/--scenarios-dir: mounts your scenarios as /IMPACTncd_Japan/scenarios inside the container.
+```powershell
+Rscript ./scenarios/simulate_scn.R
+```
 
-### 4) Run the model inside the container
+When the simulation finishes, hopefully without errors, you will see the message "Simulation has finished!". You can then type `exit` to exit the simulation environment. You can inspect the outputs of the model, saved in `~/IMPACTncdJapan/outputs`, and the synthetic population files in `~/IMPACTncdJapan/synthpop`.
 
-The helper scripts start a container ready to run the model. Typical entry points:
-- simulate.R or simulate_mrtl_paper.R to execute simulations.
-- inputs/sim_design.yaml to configure run parameters.
+### 3) Re-running the model
 
-From the container’s shell:
-- Rscript simulate.R
-	- Adjust inputs/sim_design.yaml or scenarios as needed.
+You can re-run the `setup_user_docker_env` script to start a new session. You can update scenario or design files between runs.
 
-### 5) Outputs
+## Developer setup
 
-Outputs are written to the location configured in inputs/sim_design.yaml (e.g., /mnt/storage_fast4/jpn/outputs). If you mount a host directory for outputs, you’ll see results appear on your host filesystem.
+If you are a developer or poweruser, you may want to set up a more flexible development environment. You can first clone or download this repository to your machine.
 
-### 6) Stopping and re-running
-
-- Stop the container from the Docker UI or with docker stop <container>.
-- Re-run the helper script to start a new session. You can update scenario or design files between runs.
-
-## Developer setup (Windows PowerShell): setup_dev_docker_env.ps1
+### (Windows PowerShell): setup_dev_docker_env.ps1
 
 This script is for developers who want a fast local dev loop with a reproducible Docker environment.
 
@@ -215,26 +220,25 @@ What it does
 Usage (PowerShell)
 - Open PowerShell in the repo root and run:
 
-```
+```powershell
 docker_setup/setup_dev_docker_env.ps1
 ```
 
 - Use Docker volumes (recommended on Windows/macOS):
 
-```
+```powershell
 docker_setup/setup_dev_docker_env.ps1 -UseVolumes
 ```
 
 - Use a specific sim_design.yaml:
-
-```
-docker_setup/setup_dev_docker_env.ps1 -SimDesignYaml .\inputs\sim_design.yaml -UseVolumes
+```powershell
+docker_setup/setup_dev_docker_env.ps1 -SimDesignYaml .\inputs\sim_design_clbr.yaml -UseVolumes
 ```
 
 Inside the container
 - You’ll land in /IMPACTncd_Japan. Typical commands:
 	- Rscript simulate.R
-	- Rscript simulate_mrtl_paper.R
+	- Rscript /scenarios/simulate_scn.R
 - Edit inputs/sim_design.yaml or scenarios on the host, then re-run the script.
 
 How rebuilds are detected
@@ -246,7 +250,7 @@ Notes
 - -UseVolumes mode copies the project into a volume (excluding dot files), runs the container, then rsyncs outputs, synthpop, and the simulation folder back to your host.
 - Bind mount mode performs path conversions for Docker Desktop/WSL automatically.
 
-Linux/macOS developers
+### Linux/macOS developers
 - A bash equivalent exists: docker_setup/setup_dev_docker_env.sh with similar behavior and flags.
 
 Troubleshooting
@@ -259,5 +263,3 @@ Troubleshooting
 - Docker permissions (Linux): ensure your user can run docker without sudo (see Linux post-install link above).
 - Proxy/corporate environments: configure Docker Desktop/Engine to use your proxy if pulls fail.
 - Disk space: synthpop and outputs can be large; ensure adequate space in the configured directories.
-
-## How to test IMPACT<sub>NCD-Japan</sub> </file>

@@ -222,7 +222,18 @@ if [ "$USE_VOLUMES" = true ]; then
   # Build rsync-alpine image (only if it doesn't already exist)
   if ! docker image inspect rsync-alpine > /dev/null 2>&1; then
     echo "Building rsync-alpine image..."
-    docker build -f Dockerfile.rsync -t rsync-alpine .
+    
+    # Check if Dockerfile.rsync exists
+    if [ -f "Dockerfile.rsync" ]; then
+      echo "Using Dockerfile.rsync..."
+      docker build -f Dockerfile.rsync -t rsync-alpine .
+    else
+      echo "Dockerfile.rsync not found, creating rsync image inline..."
+      cat << 'EOF' | docker build -t rsync-alpine -
+FROM alpine:latest
+RUN apk add --no-cache rsync
+EOF
+    fi
   else
     echo "Using existing rsync-alpine image."
   fi

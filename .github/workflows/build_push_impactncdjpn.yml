@@ -8,32 +8,15 @@
 # R packages installed. This image is used to run the IMPACTncd Japan model
 # simulations in containerized environments.
 #
-# DUAL TRIGGER STRATEGY:
-# This workflow uses a sophisticated dual-trigger approach to coordinate with
-# the prerequisite workflow while ensuring builds happen after every push:
+# TRIGGER STRATEGY:
+# This workflow uses a single push trigger to avoid duplicate runs:
 #
 # 1. PUSH TRIGGER: Runs on every push to any branch
-# 2. WORKFLOW_RUN TRIGGER: Runs when prerequisite workflow completes
 #
-# COORDINATION SCENARIOS:
-# The workflow handles three distinct scenarios automatically:
-#
-# Scenario 1: Push includes prerequisite file changes
-# - Both prerequisite and main workflows start simultaneously
-# - Main workflow waits for prerequisite to complete successfully
-# - Then builds using the newly updated prerequisite image
-# - Ensures latest dependencies are included in the final image
-#
-# Scenario 2: Push doesn't affect prerequisite files
-# - Only the main workflow runs (prerequisite workflow skips execution)
-# - Main workflow waits briefly for any prerequisite check (none exists)
-# - Then proceeds to build with the existing prerequisite image
-# - Efficient execution without unnecessary prerequisite rebuilds
-#
-# Scenario 3: Prerequisite workflow completes independently
-# - Main workflow triggers via workflow_run when prerequisite finishes
-# - This ensures the main image is rebuilt after prerequisite updates
-# - Maintains consistency between prerequisite and main images
+# COORDINATION WITH PREREQUISITE:
+# The workflow coordinates with the prerequisite workflow by waiting for
+# it to complete before proceeding. This ensures builds happen in the
+# correct order without running the same workflow twice.
 #
 # WORKFLOW SYNCHRONIZATION:
 # - Uses conditional logic to handle different trigger types
@@ -50,20 +33,11 @@ name: Build Push IMPACTncdJPN
 # and proper coordination with the prerequisite workflow.
 
 on:
-  # TRIGGER 1: Push Events
+  # TRIGGER: Push Events Only
   # Runs on every push to any branch to ensure the main image is always
-  # built after code changes, regardless of whether prerequisites change.
-  # This guarantees that application updates are containerized promptly.
+  # built after code changes. Coordination with prerequisite workflow
+  # is handled internally through the wait step.
   push:
-  
-  # TRIGGER 2: Prerequisite Workflow Completion
-  # Runs automatically when the prerequisite workflow finishes successfully.
-  # This ensures the main image is rebuilt whenever the base environment
-  # is updated, maintaining consistency between layers.
-  workflow_run:
-    workflows: ["Build Push prerequisite.IMPACTncdJPN"]
-    types:
-      - completed
 
 jobs:
   # JOB: build
@@ -73,29 +47,15 @@ jobs:
     runs-on: ubuntu-latest
     
     # CONDITIONAL EXECUTION LOGIC:
-    # This condition ensures proper workflow coordination:
-    # 
-    # For PUSH events: Always proceed
-    # - Ensures builds happen after every code change
-    # - Coordination with prerequisites handled in subsequent steps
-    #
-    # For WORKFLOW_RUN events: Only proceed if prerequisite succeeded
-    # - Prevents building on failed prerequisite updates
-    # - Ensures main image uses successfully built prerequisite
-    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    # Since we only use push events now, this condition is simplified
+    # to always proceed for push events.
+    if: ${{ github.event_name == 'push' }}
     steps:
       # STEP 1: Prerequisite Workflow Coordination
-      # For push events, wait for any running prerequisite workflow to complete.
+      # Wait for any running prerequisite workflow to complete.
       # This prevents race conditions where both workflows might run simultaneously
       # and ensures we use the latest prerequisite image if it's being updated.
-      #
-      # The step:
-      # - Only runs for push-triggered events (not workflow_run events)
-      # - Waits for the "run_if_needed" job from prerequisite workflow
-      # - Continues regardless of prerequisite outcome (success/failure/skip)
-      # - Uses 30-second intervals to check completion status
       - name: Wait for prerequisite workflow
-        if: github.event_name == 'push'
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.sha }}
@@ -105,20 +65,12 @@ jobs:
           allowed-conclusions: success,failure,cancelled,skipped
 
       # STEP 2: Source Code Checkout
-      # Checkout the repository source code with the appropriate commit reference
-      # based on how the workflow was triggered:
-      #
-      # For PUSH events: Use github.sha (current commit being pushed)
-      # For WORKFLOW_RUN events: Use github.event.workflow_run.head_sha 
-      #   (commit that triggered the prerequisite workflow)
-      #
-      # This ensures we're always building the correct version of the code
-      # and maintaining consistency between prerequisite and main builds.
+      # Checkout the repository source code using the current commit being pushed
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # Dynamic commit reference selection based on trigger type
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          # Use the current commit for push events
+          ref: ${{ github.sha }}
 
       # STEP 3: Dynamic Dockerfile Configuration
       # Updates the Dockerfile to use the correct prerequisite image tag and
@@ -143,11 +95,7 @@ jobs:
       # do not modify the repository's Dockerfile.
       - name: Update base image tag and git clone branch
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
-          else
-            BRANCH_NAME="${{ github.ref_name }}"
-          fi
+          BRANCH_NAME="${{ github.ref_name }}"
           sed -i "s|^FROM prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
           sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
           sed -i "s|git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|git clone -b ${BRANCH_NAME} https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|" docker_setup/Dockerfile.IMPACTncdJPN
@@ -193,7 +141,7 @@ jobs:
           context: docker_setup # Build context directory containing Dockerfile and configurations
           push: true # Push the built image to Docker Hub registry
           no-cache: true # Force complete rebuild without using cached layers
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.ref_name }}
           file: docker_setup/Dockerfile.IMPACTncdJPN # Main application Dockerfile
           build-args: |
             SOURCE_METHOD=git

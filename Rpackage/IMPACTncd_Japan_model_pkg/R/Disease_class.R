@@ -322,7 +322,9 @@ Disease <-
                 dryrun = FALSE,
                 quiet = FALSE,
                 rscript_startup = quote(local({
-                  library(CKutils)
+                  if (requireNamespace("CKutils", quietly = TRUE)) {
+                    library(CKutils)
+                  }
                   library(IMPACTncdJapan)
                   library(digest)
                   library(fst)

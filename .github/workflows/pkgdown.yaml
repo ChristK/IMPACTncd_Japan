@@ -57,22 +57,28 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          cache-version: 2
-          extra-packages: |
-            any::pkgdown
-            any::devtools
-            any::remotes
-          needs: website
+      - name: Install base R packages
+        run: |
+          Rscript -e "install.packages(c('remotes', 'devtools', 'pkgdown', 'knitr', 'rmarkdown'))"
 
       - name: Install CKutils from GitHub
         run: |
           Rscript -e "remotes::install_github('ChristK/CKutils@fb56c75b8cc3abc887d7d236ea92f0662c471962')"
 
+      - name: Install package dependencies
+        run: |
+          Rscript -e "
+          # Install dependencies for the package
+          deps <- c('arrow', 'broom', 'data.table', 'digest', 'disbayes', 'doParallel', 
+                    'dplyr', 'dqrng', 'duckdb', 'fs', 'fst', 'gamlss', 'gamlss.dist', 
+                    'ggplot2', 'ggthemes', 'qs2', 'R6', 'Rcpp', 'rstan', 'scales', 
+                    'tidyverse', 'utils', 'wrswoR', 'yaml')
+          install.packages(deps, dependencies = TRUE)
+          "
+
       - name: Install IMPACTncdJapan package
         run: |
-          Rscript -e "devtools::install('./Rpackage/IMPACTncd_Japan_model_pkg', dependencies = TRUE, upgrade = 'never')"
+          Rscript -e "devtools::install('./Rpackage/IMPACTncd_Japan_model_pkg', dependencies = FALSE, upgrade = 'never')"
 
       - name: Build site
         run: |

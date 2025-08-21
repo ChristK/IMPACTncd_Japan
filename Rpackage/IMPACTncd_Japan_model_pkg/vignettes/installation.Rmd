@@ -1,0 +1,215 @@
+---
+title: "Installation Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Installation Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Installation Options
+
+IMPACTncd-Japan can be used in several ways depending on your needs and technical setup.
+
+## Option 1: Docker (Recommended)
+
+Docker provides the most reliable and consistent experience across different operating systems.
+
+### For Users
+
+Use pre-built Docker images for running simulations:
+
+```bash
+# Download the user setup script
+curl -O https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.sh
+
+# Make it executable
+chmod +x setup_user_docker_env.sh
+
+# Run with your scenarios
+./setup_user_docker_env.sh -Tag main -ScenariosDir ./scenarios -SimDesignYaml ./scenarios/sim_design.yaml --UseVolumes
+```
+
+### For Developers
+
+For development work with faster iteration:
+
+```bash
+# Clone the repository
+git clone https://github.com/ChristK/IMPACTncd_Japan.git
+cd IMPACTncd_Japan
+
+# Use the development Docker setup
+./docker_setup/setup_dev_docker_env.sh -UseVolumes
+```
+
+## Option 2: Local R Installation
+
+### System Requirements
+
+- **R**: Version 4.1.0 or higher
+- **Operating System**: Linux (Ubuntu 20.04+), macOS (10.15+), or Windows 10+
+- **Memory**: Minimum 16GB RAM (32GB+ recommended for larger simulations)
+- **Storage**: 50GB+ free space for outputs
+- **Compiler**: C++17 compatible compiler
+
+### R Package Dependencies
+
+#### Core packages
+```r
+install.packages(c(
+  "Rcpp",
+  "data.table", 
+  "fst",
+  "dqrng",
+  "gamlss",
+  "cowplot",
+  "mc2d",
+  "digest",
+  "R6",
+  "yaml",
+  "foreach",
+  "BH",
+  "igraph",
+  "parallelly",
+  "parallel"
+))
+```
+
+#### Development packages
+```r
+install.packages(c(
+  "devtools",
+  "roxygen2",
+  "pkgdown",
+  "testthat",
+  "knitr",
+  "rmarkdown"
+))
+```
+
+#### CKutils package
+```r
+# Install from GitHub
+devtools::install_github("ChristK/CKutils")
+```
+
+### Building the Package
+
+```r
+# Clone and build
+git clone https://github.com/ChristK/IMPACTncd_Japan.git
+cd IMPACTncd_Japan/Rpackage/IMPACTncd_Japan_model_pkg
+
+# Build and install
+R CMD build .
+R CMD INSTALL IMPACTncdJapan_*.tar.gz
+```
+
+## Option 3: HPC/Cluster Environment
+
+For high-performance computing environments:
+
+### Singularity/Apptainer
+
+```bash
+# Convert Docker image to Singularity
+singularity pull impactncdjapan.sif docker://chriskypri/impactncdjpn:main
+
+# Run simulation
+singularity exec impactncdjapan.sif Rscript simulate.R
+```
+
+### Module-based Systems
+
+```bash
+# Load required modules (example for typical HPC)
+module load R/4.3.0
+module load gcc/11.2.0
+module load openmpi/4.1.0
+
+# Install to user library
+export R_LIBS_USER=~/R/library
+mkdir -p $R_LIBS_USER
+```
+
+## Verification
+
+### Test Docker Installation
+
+```bash
+# Run a minimal test
+echo "library(IMPACTncdJapan); packageVersion('IMPACTncdJapan')" | docker run -i chriskypri/impactncdjpn:main R --vanilla
+```
+
+### Test Local Installation
+
+```r
+# Check package loads correctly
+library(IMPACTncdJapan)
+
+# Check version
+packageVersion("IMPACTncdJapan")
+
+# Run basic functionality test
+# This should create a simple design object
+design <- Design$new()
+design$sim_prm$clusternumber <- 1
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Memory errors
+- Reduce `clusternumber` in configuration
+- Increase swap space or available RAM
+- Use smaller population sizes for testing
+
+#### Compilation errors
+- Ensure C++17 compiler is available
+- Update Rcpp and related packages
+- Check system dependencies
+
+#### Docker issues
+- Ensure Docker daemon is running
+- Check available disk space
+- Verify network connectivity for image pulls
+
+### Getting Help
+
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/ChristK/IMPACTncd_Japan/issues)
+- **Documentation**: Check the [wiki](https://github.com/ChristK/IMPACTncd_Japan/wiki)
+- **Discussions**: Use [GitHub Discussions](https://github.com/ChristK/IMPACTncd_Japan/discussions)
+
+## Performance Optimization
+
+### Resource Planning
+
+- **CPU cores**: Each core handles ~100,000 individuals
+- **Memory**: ~12GB RAM per core at default settings
+- **Storage**: Plan for 10-50GB output per simulation depending on scope
+
+### Scaling Recommendations
+
+| Population Size | Cores | RAM | Time Estimate |
+|----------------|-------|-----|---------------|
+| 100K           | 1     | 12GB| 2-4 hours     |
+| 1M             | 4-8   | 48-96GB | 4-8 hours |
+| 10M            | 16-32 | 192-384GB | 8-24 hours |
+
+### Cluster Optimization
+
+```yaml
+# Example configuration for cluster runs
+clusternumber: 32
+clusternumber_export: 8  # Fewer cores for export to avoid I/O bottlenecks
+```

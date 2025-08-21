@@ -1,4 +1,14 @@
-# IMPACT<sub>NCD-Japan</sub> microsimulation
+# IMPACT<sub>NCD-Japan## What this model is
+
+IMPACT<sub>NCD-Japan</sub> is a population microsimulation model built on the IMPACT<sub>NCD</sub> framework. It simulates Japanese adults' lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It's designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
+
+**📚 [Complete Documentation & User Guide](https://christk.github.io/IMPACTncd_Japan/)**
+
+Typical uses:
+- Run a baseline to quantify trends in incidence, prevalence, and mortality.
+- Simulate policy scenarios by changing exposure trends or disease case fatality (i.e. survival) and compare outcomes.
+
+Outputs are written under your configured outputs directory (by default folders such as outputs/, summaries/, tables/, plots/).crosimulation
 
 --------------------------------------------------------------------------------
 

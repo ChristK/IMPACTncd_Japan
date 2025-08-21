@@ -29,7 +29,11 @@ Imports: Rcpp (>= 1.0.2),
          igraph,
          parallelly,
          parallel
-Suggests: roxygen2
+Suggests: roxygen2,
+          knitr,
+          rmarkdown,
+          pkgdown,
+          testthat (>= 3.0.0)
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,
@@ -39,3 +43,5 @@ LinkingTo: Rcpp,
 RoxygenNote: 7.3.2
 SystemRequirements: C++17
 VignetteBuilder: knitr
+URL: https://christk.github.io/IMPACTncd_Japan/, https://github.com/ChristK/IMPACTncd_Japan
+BugReports: https://github.com/ChristK/IMPACTncd_Japan/issues

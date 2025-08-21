@@ -2,9 +2,9 @@ name: pkgdown
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, webpage]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, webpage]
   release:
     types: [published]
   workflow_dispatch:

@@ -2,9 +2,9 @@ url: https://christk.github.io/IMPACTncd_Japan
 
 template:
   bootstrap: 5
-  theme: flatly
   bslib:
     primary: "#0054AD"
+    secondary: "#6f8fa8"
     border-radius: 0.5rem
     btn-border-radius: 0.25rem
 

@@ -43,14 +43,23 @@ Push-Location $ScriptDir
 # Resolve project root directory (one level above the current script directory)
 $ProjectRoot = (Resolve-Path "$ScriptDir/..").Path -replace '\\', '/'
 
+# Resolve the YAML file path relative to the project root if it's a relative path
+if (-not [System.IO.Path]::IsPathRooted($SimDesignYaml)) {
+    $SimDesignYamlResolved = Join-Path $ProjectRoot $SimDesignYaml
+} else {
+    $SimDesignYamlResolved = $SimDesignYaml
+}
+
 # Validate that the YAML file exists
-if (-not (Test-Path $SimDesignYaml)) {
-    Write-Host "Error: YAML file not found at '$SimDesignYaml'"
+if (-not (Test-Path $SimDesignYamlResolved)) {
+    Write-Host "Error: YAML file not found at '$SimDesignYamlResolved'"
+    Write-Host "Original path provided: '$SimDesignYaml'"
+    Write-Host "Project root: '$ProjectRoot'"
     Pop-Location
     Exit 1
 }
 
-Write-Host "Using configuration file: $SimDesignYaml"
+Write-Host "Using configuration file: $SimDesignYamlResolved"
 
 # Variable definitions
 $ImageName   = "prerequisite.impactncdjpn:local"
@@ -196,8 +205,8 @@ function Get-YamlPathValue {
 }
 
 # Call the function passing $ProjectRoot
-$outputDir    = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "output_dir" -BaseDir $ProjectRoot
-$synthpopDir  = Get-YamlPathValue -YamlPath $SimDesignYaml -Key "synthpop_dir" -BaseDir $ProjectRoot
+$outputDir    = Get-YamlPathValue -YamlPath $SimDesignYamlResolved -Key "output_dir" -BaseDir $ProjectRoot
+$synthpopDir  = Get-YamlPathValue -YamlPath $SimDesignYamlResolved -Key "synthpop_dir" -BaseDir $ProjectRoot
 
 # --- Path Validation and Creation ---
 # Helper function to check and create directory

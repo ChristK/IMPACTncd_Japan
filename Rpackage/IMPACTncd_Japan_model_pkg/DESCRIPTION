@@ -17,7 +17,6 @@ Imports: Rcpp (>= 1.0.2),
          data.table (>= 1.14.0),
          fst (>= 0.9.0),
          dqrng,
-         CKutils, 
          gamlss,
          cowplot,
          mc2d,
@@ -33,13 +32,13 @@ Suggests: roxygen2,
           knitr,
           rmarkdown,
           pkgdown,
-          testthat (>= 3.0.0)
+          testthat (>= 3.0.0),
+          CKutils
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,
            BH,
-           data.table,
-           CKutils
+           data.table
 RoxygenNote: 7.3.2
 SystemRequirements: C++17
 VignetteBuilder: knitr

@@ -30,6 +30,11 @@ jobs:
         with:
           use-public-rspm: true
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: Rpackage/IMPACTncd_Japan_model_pkg
@@ -37,10 +42,9 @@ jobs:
           needs: website
 
       - name: Build site
-        run: |
-          cd Rpackage/IMPACTncd_Japan_model_pkg
-          pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
+        working-directory: Rpackage/IMPACTncd_Japan_model_pkg
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

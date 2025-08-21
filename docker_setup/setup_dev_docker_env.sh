@@ -83,11 +83,12 @@ for arg in "$@"; do
   if [[ "$arg" == --UseVolumes ]]; then
     USE_VOLUMES=true
   elif [[ "$arg" == *.yaml || "$arg" == *.yml ]]; then
-    # If YAML path is relative, resolve it relative to the current execution dir
-    if [[ "$arg" != /* && "$arg" != ~* ]]; then
-        YAML_FILE="$(realpath "$arg")"
-    else
+    # If YAML path is absolute, use it as-is
+    if [[ "$arg" == /* || "$arg" == ~* ]]; then
         YAML_FILE="$arg"
+    else
+        # If YAML path is relative, resolve it relative to the project root
+        YAML_FILE="$(realpath "$PROJECT_ROOT/$arg")"
     fi
   fi
 done
@@ -104,6 +105,7 @@ done
 
 if [ ! -f "$YAML_FILE" ]; then
   echo "Error: YAML file not found at $YAML_FILE"
+  echo "Project root: $PROJECT_ROOT"
   exit 1
 fi
 

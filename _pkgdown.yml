@@ -1,0 +1,152 @@
+url: https://christk.github.io/IMPACTncd_Japan
+
+template:
+  bootstrap: 5
+  theme: flatly
+  bslib:
+    primary: "#0054AD"
+    border-radius: 0.5rem
+    btn-border-radius: 0.25rem
+
+home:
+  title: "IMPACTncd-Japan: Microsimulation Model"
+  description: >
+    A population microsimulation model for Japanese adults built on the 
+    IMPACTncd framework. Simulates lifecourse exposure trajectories, 
+    disease onset, and mortality to evaluate policy scenarios.
+
+reference:
+  - title: "Core Classes"
+    desc: "Main simulation framework classes"
+    contents:
+      - Design
+      - Simulation
+      - SynthPop
+      
+  - title: "Model Components"
+    desc: "Disease and exposure modeling classes"
+    contents:
+      - Disease
+      - Exposure
+      
+  - title: "Package Information"
+    desc: "Package overview and utilities"
+    contents:
+      - IMPACTncdJapan
+
+articles:
+  - title: "Getting Started"
+    desc: "Introduction and basic usage"
+    contents:
+      - quickstart
+      - installation
+      
+  - title: "User Guides"
+    desc: "Detailed usage documentation"
+    contents:
+      - running-simulations
+      - scenario-analysis
+      - docker-setup
+      
+  - title: "Technical Documentation"
+    desc: "Model methodology and implementation details"
+    contents:
+      - model-architecture
+      - technical-appendix
+      - extending-model
+      - troubleshooting
+      
+  - title: "Publications"
+    desc: "Scientific publications and references"
+    contents:
+      - publications
+
+navbar:
+  structure:
+    left:  [home, reference, articles, tutorials, news]
+    right: [search, github]
+  components:
+    home:
+      icon: fas fa-home fa-lg
+      href: index.html
+    reference:
+      text: Reference
+      href: reference/index.html
+    articles:
+      text: Articles
+      menu:
+      - text: Getting Started
+      - text: Quick Start Guide
+        href: articles/quickstart.html
+      - text: Installation Guide
+        href: articles/installation.html
+      - text: -------
+      - text: User Guides
+      - text: Running Simulations
+        href: articles/running-simulations.html
+      - text: Scenario Analysis
+        href: articles/scenario-analysis.html
+      - text: Docker Setup
+        href: articles/docker-setup.html
+      - text: -------
+      - text: Technical Documentation
+      - text: Model Architecture
+        href: articles/model-architecture.html
+      - text: Technical Appendix
+        href: articles/technical-appendix.html
+      - text: Extending the Model
+        href: articles/extending-model.html
+      - text: Troubleshooting
+        href: articles/troubleshooting.html
+      - text: -------
+      - text: Publications
+      - text: Scientific Publications
+        href: articles/publications.html
+    tutorials:
+      text: Tutorials
+      href: articles/index.html
+    news:
+      text: Changelog
+      href: news/index.html
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/ChristK/IMPACTncd_Japan
+      aria-label: GitHub
+
+footer:
+  structure:
+    left: [developed_by, built_with]
+    right: [github, license]
+  components:
+    developed_by: "Developed by Chris Kypridemos and contributors at University of Liverpool"
+    license: "Licensed under GPL-3"
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/ChristK/IMPACTncd_Japan
+      aria-label: GitHub
+
+authors:
+  Chris Kypridemos:
+    href: "https://orcid.org/0000-0002-0746-9229"
+  Peter Crowther:
+    href: "https://github.com/melandra"
+  Maria Guzman-Castillo:
+    href: "https://github.com/mariaguzmancastillo"
+
+development:
+  mode: auto
+  destination: docs
+  version_label: default
+  version_tooltip: "Version"
+
+figures:
+  dev: ragg::agg_png
+  dpi: 96
+  dev.args: []
+  fig.ext: png
+  fig.width: 7.29
+  fig.height: ~
+  fig.retina: 2
+  fig.asp: 1.618
+  bg: NA
+  other.parameters: []

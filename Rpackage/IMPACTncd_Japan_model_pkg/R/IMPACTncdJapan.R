@@ -28,7 +28,7 @@
 #
 #' @docType package
 #' @author Chris Kypridemos
-#' @import Rcpp R6 data.table CKutils
+#' @import Rcpp R6 data.table
 #' @importFrom fst read_fst
 #' @importFrom dqrng dqrunif dqsample
 #' @importFrom mc2d qpert

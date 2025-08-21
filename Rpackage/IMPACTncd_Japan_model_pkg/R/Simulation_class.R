@@ -349,7 +349,9 @@ Simulation <-
                 dryrun = FALSE,
                 quiet = FALSE,
                 rscript_startup = quote(local({
-                  library(CKutils)
+                  if (requireNamespace("CKutils", quietly = TRUE)) {
+                    library(CKutils)
+                  }
                   library(IMPACTncdJapan)
                   library(digest)
                   library(fst)
@@ -1123,7 +1125,9 @@ Simulation <-
                 dryrun = FALSE,
                 quiet = !self$design$sim_prm$logs,
                 rscript_startup = quote(local({
-                  library(CKutils)
+                  if (requireNamespace("CKutils", quietly = TRUE)) {
+                    library(CKutils)
+                  }
                   library(IMPACTncdJapan)
                   library(R6)
                   library(arrow)

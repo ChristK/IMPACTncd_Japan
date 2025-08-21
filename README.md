@@ -4,7 +4,7 @@
 
 IMPACT<sub>NCD-Japan</sub> is an implementation of the IMPACTncd framework, developed by Chris
 Kypridemos with contributions from Peter Crowther (Melandra Ltd), Maria
-Guzman-Castillo, Amandine Robert, Max Birkett, and Piotr Bandosz. 
+Guzman-Castillo, Amandine Robert, Max Birkett, Piotr Bandosz, and Soshiro Ogata. 
 
 Copyright (C) 2018-2025 University of Liverpool, Chris Kypridemos
 
@@ -52,7 +52,7 @@ The images already contain the project directory /IMPACTncd_Japan inside the con
 
 #### If you are using PowerShell (i.e. you use a Windows PC, but not necessarily)
 
-First download [setup_user_docker_env.ps1](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.ps1) in a folder you choose. For this example I will assume you downloaded it to `C:\IMPACTncdJapan`. Then create a new folder called `scenarios` within `C:\IMPACTncdJapan` and download [simulate_scn.R](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/simulate_scn.R) and [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `C:\IMPACTncdJapan\scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as Notepad or Visual Studio Code. 
+First download [setup_user_docker_env.ps1](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.ps1) in a folder you choose. You may have to right-click on the file and then select `save link as` to dowload the file rather than open it. For this example I will assume you downloaded it to `C:\IMPACTncdJapan`. Then create a new folder called `scenarios` within `C:\IMPACTncdJapan` and download [simulate_scn.R](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/simulate_scn.R) and [sim_design_scn.yaml](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/scenarios/sim_design_scn.yaml) to `C:\IMPACTncdJapan\scenarios`. `sim_design_scn.yaml` contains some fundamental parameters that define how the simulation runs. The file is human readable and editable in any text editor, such as Notepad or Visual Studio Code. 
 
 Open `C:\IMPACTncdJapan\scenarios\sim_design_scn.yaml` in your favourite text editor and have a look of its structure.Find `clusternumber`, `clusternumber_export`, `output_dir` and `synthpop_dir` parameters as you will have to update them to reflect your current setup. `clusternumber` and `clusternumber_export` refer to the number of cores that you want to use for the simulation. Each core requires about 12Gb of RAM at the default settings, so even if you have i.e. 8 cores but only 32Gb of RAM, set `clusternumber` and `clusternumber_export` to 2. `output_dir` and `synthpop_dir` define where the simulation will store its outputs and some intermediate synthetic population files, respectively, and need to point to a valid folders on your host machine. For example, you can set, by overwritting the existing values:
 
@@ -128,7 +128,7 @@ When the simulation finishes, hopefully without errors, you will see the message
 
 #### If you are on Linux or macOS
 
-First download [setup_user_docker_env.sh](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.sh) in a folder you choose. For this example I will assume you downloaded it to `~/IMPACTncdJapan`. Note that `~` denotes your user home folder. For instance, if your username is `chris`:
+First download [setup_user_docker_env.sh](https://raw.githubusercontent.com/ChristK/IMPACTncd_Japan/refs/heads/main/docker_setup/setup_user_docker_env.sh) in a folder you choose. You may have to right-click on the file and then select `save link as` to dowload the file rather than open it.For this example I will assume you downloaded it to `~/IMPACTncdJapan`. Note that `~` denotes your user home folder. For instance, if your username is `chris`:
   - On Linux, `~` expands to `/home/chris`
   - On macOS, `~` expands to `/Users/chris`
 

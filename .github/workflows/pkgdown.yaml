@@ -41,6 +41,8 @@ jobs:
           # Install only hard dependencies, skip CKutils
           deps <- remotes::dev_package_deps(".", dependencies = c("Imports", "LinkingTo"))
           remotes::install_deps(".", dependencies = c("Imports", "LinkingTo"))
+          # Install the package itself
+          remotes::install_local(".", dependencies = FALSE, force = TRUE)
         shell: Rscript {0}
         working-directory: Rpackage/IMPACTncd_Japan_model_pkg
 

@@ -37,17 +37,16 @@ jobs:
 
       - name: Install dependencies manually
         run: |
-          install.packages(c("pkgdown", "remotes"))
+          install.packages(c("pkgdown", "remotes", "devtools"))
           # Install only hard dependencies, skip CKutils
-          deps <- remotes::dev_package_deps(".", dependencies = c("Imports", "LinkingTo"))
           remotes::install_deps(".", dependencies = c("Imports", "LinkingTo"))
-          # Install the package itself
-          remotes::install_local(".", dependencies = FALSE, force = TRUE)
+          # Install the package itself with devtools
+          devtools::install(".", dependencies = FALSE, upgrade = "never")
         shell: Rscript {0}
         working-directory: Rpackage/IMPACTncd_Japan_model_pkg
 
       - name: Build site
-        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+        run: pkgdown::build_site_github_pages(new_process = FALSE, install = TRUE)
         shell: Rscript {0}
         working-directory: Rpackage/IMPACTncd_Japan_model_pkg
 

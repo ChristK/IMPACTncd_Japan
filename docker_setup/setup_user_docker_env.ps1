@@ -283,7 +283,20 @@ if ($UseVolumes) {
     docker image inspect $rsyncImage > $null 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Building rsync-alpine image..."
-        docker build -f "Dockerfile.rsync" -t $rsyncImage .
+        
+        # Check if Dockerfile.rsync exists
+        $DockerfileRsync = Join-Path $ScriptDir "Dockerfile.rsync"
+        if (Test-Path $DockerfileRsync) {
+            Write-Host "Using Dockerfile.rsync..."
+            docker build -f "$DockerfileRsync" -t $rsyncImage $ScriptDir
+        } else {
+            Write-Host "Dockerfile.rsync not found, creating rsync image inline..."
+            $InlineDockerfile = @"
+FROM alpine:latest
+RUN apk add --no-cache rsync
+"@
+            $InlineDockerfile | docker build -t $rsyncImage -
+        }
     } else {
         Write-Host "Using existing rsync-alpine image."
     }

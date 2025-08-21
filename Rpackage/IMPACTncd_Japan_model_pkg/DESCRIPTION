@@ -27,13 +27,13 @@ Imports: Rcpp (>= 1.0.2),
          BH,
          igraph,
          parallelly,
-         parallel
+         parallel,
+         CKutils
 Suggests: roxygen2,
           knitr,
           rmarkdown,
           pkgdown,
-          testthat (>= 3.0.0),
-          CKutils
+          testthat (>= 3.0.0)
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,

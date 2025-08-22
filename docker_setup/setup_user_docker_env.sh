@@ -90,10 +90,6 @@ if ! docker info > /dev/null 2>&1; then
 fi
 # --- End Docker Permission Check ---
 
-# Remove stopped containers to avoid conflicts before volume operations
-echo "Removing stopped containers..."
-docker container prune -f
-
 # Update argument parsing to match PowerShell version
 USE_VOLUMES=false # Default to not using volumes
 
@@ -242,10 +238,6 @@ EOF
   mkdir -p "$OUTPUT_DIR"
   mkdir -p "$SYNTHPOP_DIR"
 
-  # Prune stopped containers to free volume locks
-  echo "Pruning stopped containers..."
-  docker container prune -f
-
   # Remove any existing volumes (ignore errors if not removable)
   echo "Removing any existing volumes (if possible)..."
   docker volume rm "$VOLUME_OUTPUT_NAME" 2>/dev/null
@@ -330,7 +322,6 @@ EOF
 
   # Clean up all the Docker volumes used for the simulation.
   echo "Cleaning up Docker volumes..."
-  docker container prune -f
   docker volume rm "$VOLUME_OUTPUT_NAME"
   docker volume rm "$VOLUME_SYNTHPOP_NAME"
 else

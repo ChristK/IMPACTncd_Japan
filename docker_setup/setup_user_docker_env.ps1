@@ -60,9 +60,28 @@ Push-Location $ScriptDir
 # Resolve project root directory (one level above the current script directory)
 $ProjectRoot = (Resolve-Path "$ScriptDir/..").Path -replace '\\', '/'
 
+# If SimDesignYaml is a relative path, resolve it relative to the project root
+if (-not [System.IO.Path]::IsPathRooted($SimDesignYaml)) {
+    # Normalize path separators to forward slashes for cross-platform compatibility
+    $SimDesignYamlNormalized = $SimDesignYaml -replace '\\', '/'
+    $TempPath = "$ProjectRoot/$SimDesignYamlNormalized" -replace '/+', '/'
+    # Resolve the path to handle .. components properly
+    $SimDesignYaml = (Resolve-Path $TempPath -ErrorAction SilentlyContinue).Path
+    if (-not $SimDesignYaml) {
+        # If Resolve-Path fails, try manual construction (for the actual inputs directory)
+        if ($SimDesignYamlNormalized -eq "../inputs/sim_design.yaml") {
+            $SimDesignYaml = "$ProjectRoot/inputs/sim_design.yaml"
+        } else {
+            $SimDesignYaml = $TempPath
+        }
+    }
+}
+
 # Validate that the YAML file exists
 if (-not (Test-Path $SimDesignYaml)) {
     Write-Host "Error: YAML file not found at '$SimDesignYaml'"
+    Write-Host "Original path provided: '..\inputs\sim_design.yaml'"
+    Write-Host "Project root: '$ProjectRoot'"
     Pop-Location
     Exit 1
 }

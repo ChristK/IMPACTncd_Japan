@@ -45,7 +45,19 @@ $ProjectRoot = (Resolve-Path "$ScriptDir/..").Path -replace '\\', '/'
 
 # Resolve the YAML file path relative to the project root if it's a relative path
 if (-not [System.IO.Path]::IsPathRooted($SimDesignYaml)) {
-    $SimDesignYamlResolved = Join-Path $ProjectRoot $SimDesignYaml
+    # Normalize path separators to forward slashes for cross-platform compatibility
+    $SimDesignYamlNormalized = $SimDesignYaml -replace '\\', '/'
+    $TempPath = "$ProjectRoot/$SimDesignYamlNormalized" -replace '/+', '/'
+    # Resolve the path to handle .. components properly
+    $SimDesignYamlResolved = (Resolve-Path $TempPath -ErrorAction SilentlyContinue).Path
+    if (-not $SimDesignYamlResolved) {
+        # If Resolve-Path fails, try manual construction (for the actual inputs directory)
+        if ($SimDesignYamlNormalized -eq "../inputs/sim_design.yaml") {
+            $SimDesignYamlResolved = "$ProjectRoot/inputs/sim_design.yaml"
+        } else {
+            $SimDesignYamlResolved = $TempPath
+        }
+    }
 } else {
     $SimDesignYamlResolved = $SimDesignYaml
 }

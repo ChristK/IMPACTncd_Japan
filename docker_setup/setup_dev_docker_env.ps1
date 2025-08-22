@@ -128,25 +128,23 @@ if ($LASTEXITCODE -ne 0) {
 # -----------------------------
 # Build hash and rebuild logic
 # -----------------------------
-# Helper function to normalize file contents
-function Get-NormalizedContent {
-    param([string]$Path)
-    $content = Get-Content -Raw -Encoding UTF8 $Path
-    return ($content -replace "`r`n", "`n").TrimEnd()
+# Compute build hash from Dockerfile, package lists, and entrypoint script
+# Use the same method as the bash script for consistency
+$TempFile = [System.IO.Path]::GetTempFileName()
+try {
+    # Concatenate files in the same way as the bash script
+    $FilesToConcat = @($Dockerfile, "apt-packages.txt", "r-packages.txt", "entrypoint.sh")
+    $CombinedContent = ""
+    foreach ($File in $FilesToConcat) {
+        $CombinedContent += Get-Content -Raw -Path $File -Encoding UTF8
+    }
+    
+    # Write to temp file and compute hash using external command for consistency
+    $CombinedContent | Set-Content -Path $TempFile -Encoding UTF8 -NoNewline
+    $BuildHash = (Get-FileHash -Path $TempFile -Algorithm SHA256).Hash.ToLower()
+} finally {
+    if (Test-Path $TempFile) { Remove-Item $TempFile }
 }
-
-# Compute robust build hash from Dockerfile, package lists, and entrypoint script
-$FilesToHash = @(
-    Get-NormalizedContent -Path $Dockerfile
-    Get-NormalizedContent -Path "apt-packages.txt"
-    Get-NormalizedContent -Path "r-packages.txt"
-    Get-NormalizedContent -Path "entrypoint.sh"
-)
-$JoinedContent = ($FilesToHash -join "`n")
-$Bytes = [System.Text.Encoding]::UTF8.GetBytes($JoinedContent)
-$HashAlgorithm = [System.Security.Cryptography.SHA256]::Create()
-$HashBytes = $HashAlgorithm.ComputeHash($Bytes)
-$BuildHash = ([BitConverter]::ToString($HashBytes) -replace "-", "")
 
 $NeedsBuild = $false
 Write-Host "Checking for Docker image: '$ImageName'"

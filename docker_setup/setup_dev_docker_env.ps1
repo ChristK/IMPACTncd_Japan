@@ -4,19 +4,50 @@
 # PowerShell script for building and running a Docker container for the
 # IMPACTncd Japan project. This script supports two operation modes:
 #
+# USAGE:
+#   .\setup_dev_docker_env.ps1 [[-SimDesignYaml] <string>] [-UseVolumes]
+#
+# EXAMPLES:
+#   # Basic usage with default settings (uses bind mounts)
+#   .\setup_dev_docker_env.ps1
+#   
+#   # Use a custom YAML configuration file
+#   .\setup_dev_docker_env.ps1 -SimDesignYaml "C:\path\to\custom_config.yaml"
+#   .\setup_dev_docker_env.ps1 "..\inputs\sim_design_test.yaml"
+#   
+#   # Use Docker volumes for better performance (recommended for macOS/Windows)
+#   .\setup_dev_docker_env.ps1 -UseVolumes
+#   
+#   # Combine custom YAML with volumes
+#   .\setup_dev_docker_env.ps1 -SimDesignYaml "..\inputs\sim_design_clbr.yaml" -UseVolumes
+#   
+#   # Using positional parameter (YAML path as first argument)
+#   .\setup_dev_docker_env.ps1 "..\inputs\sim_design_test.yaml" -UseVolumes
+#
+# PARAMETERS:
+#   -SimDesignYaml <string>
+#       Path to the simulation design YAML file. Can be relative or absolute.
+#       Default: "..\inputs\sim_design.yaml"
+#       
+#   -UseVolumes [<SwitchParameter>]
+#       Use Docker-managed volumes instead of direct bind mounts.
+#       Recommended for macOS and Windows for better I/O performance.
+#       Default: False (uses bind mounts)
+#
 # Container Selection:
 #   - Builds a local development image: prerequisite.impactncdjpn:local (from Dockerfile.prerequisite.IMPACTncdJPN).
 #   - Automatically detects changes in build inputs (Dockerfile, apt-packages.txt, etc.) and rebuilds the image if needed.
 #
 # Operation Modes:
-# 1. Using Docker-managed volumes (recommended for macOS and Windows):
+# 1. Using Docker-managed volumes (with -UseVolumes):
 #      - Copies the project directory into a Docker volume for faster I/O.
 #      - Creates separate volumes for output_dir and synthpop_dir (defined in YAML).
 #      - Synchronizes volumes back to local folders after container exits.
 #      - Removes volumes after synchronization.
 #
-# 2. Using direct bind mounts (less efficient, but useful for interactive access):
+# 2. Using direct bind mounts (default):
 #      - Mounts local directories directly into the container.
+#      - Changes are immediately visible on the host filesystem.
 #
 # Security:
 #   - Containers run as the calling user (non-root) to prevent permission issues.
@@ -24,7 +55,7 @@
 #
 # Notes:
 # - Compatible with Windows PowerShell and Linux/macOS (requires Docker).
-# - For macOS and Windows, using Docker volumes is recommended for better performance.
+# - For macOS and Windows, using Docker volumes (-UseVolumes) is recommended for better performance.
 # - For Linux, ensure your user has Docker permissions (e.g., part of the "docker" group).
 # - If you encounter permission issues, ensure the output_dir and synthpop_dir exist and are writable.
 # - If you get an execution policy error, run:

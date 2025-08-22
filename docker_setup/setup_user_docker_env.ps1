@@ -305,10 +305,6 @@ RUN apk add --no-cache rsync
     if (-not (Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir | Out-Null }
     if (-not (Test-Path $synthpopDir)) { New-Item -ItemType Directory -Path $synthpopDir | Out-Null }
 
-    # Clean up stopped containers to free volume locks
-    Write-Host "Pruning stopped containers..."
-    docker container prune -f | Out-Null
-
     # Remove any existing volumes (ignore errors if not removable)
     Write-Host "Removing any existing volumes (if possible)..."
     docker volume rm $VolumeOutput -f 2>$null
@@ -375,7 +371,6 @@ RUN apk add --no-cache rsync
 
     # Clean up all the Docker volumes used for the simulation.
     Write-Host "Cleaning up Docker volumes..."
-    docker container prune -f | Out-Null
     docker volume rm $VolumeOutput | Out-Null
     docker volume rm $VolumeSynthpop | Out-Null
 

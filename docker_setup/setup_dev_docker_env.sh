@@ -72,11 +72,6 @@ if ! docker info > /dev/null 2>&1; then
   exit 1
 fi
 # --- End Docker Permission Check ---
-
-# Remove stopped containers to avoid conflicts before volume operations
-echo "Removing stopped containers..."
-docker container prune -f
-
 # Process command-line arguments for YAML file and volume usage flag
 USE_VOLUMES=false # Default to not using volumes
 for arg in "$@"; do
@@ -217,10 +212,6 @@ if [ "$USE_VOLUMES" = true ]; then
   mkdir -p "$OUTPUT_DIR"
   mkdir -p "$SYNTHPOP_DIR"
 
-  # Prune stopped containers to free volume locks
-  echo "Pruning stopped containers..."
-  docker container prune -f
-
   # Remove any existing volumes (ignore errors if not removable)
   echo "Removing any existing volumes (if possible)..."
   docker volume rm "$VOLUME_PROJECT" 2>/dev/null
@@ -315,7 +306,6 @@ if [ "$USE_VOLUMES" = true ]; then
 
   # Clean up all the Docker volumes used for the simulation.
   echo "Cleaning up Docker volumes..."
-  docker container prune -f
   docker volume rm "$VOLUME_PROJECT"
   docker volume rm "$VOLUME_OUTPUT_NAME"
   docker volume rm "$VOLUME_SYNTHPOP_NAME"

@@ -4,6 +4,55 @@
 # PowerShell script for pulling and running a Docker container for the
 # IMPACTncd Japan project. This script supports two operation modes:
 #
+# USAGE:
+#   .\setup_user_docker_env.ps1 [[-Tag] <string>] [[-ScenariosDir] <string>] [[-SimDesignYaml] <string>] [-UseVolumes]
+#
+# EXAMPLES:
+#   # Basic usage with default settings (uses main tag, bind mounts)
+#   .\setup_user_docker_env.ps1
+#   
+#   # Use a specific Docker image tag
+#   .\setup_user_docker_env.ps1 -Tag "v1.2.3"
+#   .\setup_user_docker_env.ps1 -Tag "local"
+#   
+#   # Mount custom scenarios directory
+#   .\setup_user_docker_env.ps1 -ScenariosDir "C:\path\to\my\scenarios"
+#   .\setup_user_docker_env.ps1 -ScenariosDir "..\custom_scenarios"
+#   
+#   # Use a custom YAML configuration file
+#   .\setup_user_docker_env.ps1 -SimDesignYaml "..\inputs\sim_design_test.yaml"
+#   
+#   # Use Docker volumes for better performance (recommended for macOS/Windows)
+#   .\setup_user_docker_env.ps1 -UseVolumes
+#   
+#   # Combine multiple options
+#   .\setup_user_docker_env.ps1 -Tag "v1.2.3" -ScenariosDir "..\my_scenarios" -UseVolumes
+#   .\setup_user_docker_env.ps1 -Tag "local" -SimDesignYaml "..\inputs\sim_design_clbr.yaml" -UseVolumes
+#   
+#   # Using positional parameters
+#   .\setup_user_docker_env.ps1 "local" "..\scenarios" "..\inputs\sim_design.yaml" -UseVolumes
+#
+# PARAMETERS:
+#   -Tag <string>
+#       Docker image tag to use. Options:
+#       • "main" (default): pulls chriskypri/impactncdjpn:main
+#       • "local": uses locally built impactncdjpn:local  
+#       • Any other value: pulls chriskypri/impactncdjpn:<tag>
+#       
+#   -ScenariosDir <string>
+#       Path to scenarios directory to mount in container.
+#       Will be available as /IMPACTncd_Japan/scenarios inside container.
+#       Default: None (no scenarios mounted)
+#       
+#   -SimDesignYaml <string>
+#       Path to the simulation design YAML file. Can be relative or absolute.
+#       Default: "..\inputs\sim_design.yaml"
+#       
+#   -UseVolumes [<SwitchParameter>]
+#       Use Docker-managed volumes instead of direct bind mounts.
+#       Recommended for macOS and Windows for better I/O performance.
+#       Default: False (uses bind mounts)
+#
 # Container Selection:
 #   - If Tag is "main" (default): pulls and uses "chriskypri/impactncdjpn:main"
 #   - If Tag is "local": uses "impactncdjpn:local" (built locally)
@@ -15,22 +64,20 @@
 #     files available at runtime.
 #
 # Operation Modes:
-# 1. Using Docker-managed volumes (recommended for macOS and Windows):
+# 1. Using Docker-managed volumes (with -UseVolumes):
 #      - Creates Docker volumes for output_dir and synthpop_dir (defined in YAML).
 #      - Pre-populates volumes from local folders.
 #      - Synchronizes volumes back to local folders after container exits.
 #      - Removes volumes after synchronization.
 #
-# 2. Using direct bind mounts (less efficient, but useful for interactive access):
+# 2. Using direct bind mounts (default):
 #      - Mounts local directories directly into the container.
+#      - Changes are immediately visible on the host filesystem.
 #
 # Security:
 #   - Containers run as non-root users to prevent permission issues.
 #   - On Windows, Docker Desktop runs containers in a Linux VM, so UID/GID 1000:1000
 #     is used for compatibility.
-#
-# Usage:
-#   .\setup_user_docker_env.ps1 [-Tag <tag>] [-ScenariosDir <path\to\scenarios>] [-SimDesignYaml <path\to\sim_design.yaml>] [-UseVolumes]
 #
 # Key Features:
 # - Validates YAML and scenarios directory paths.
@@ -42,7 +89,7 @@
 # Notes:
 # - If you encounter an execution policy error, run:
 #     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-# - For macOS and Windows, using Docker volumes is recommended for better performance.
+# - For macOS and Windows, using Docker volumes (-UseVolumes) is recommended for better performance.
 # - For Linux, ensure your user has Docker permissions (e.g., part of the "docker" group).
 # -----------------------------------------------------------------------------
 

@@ -9,11 +9,43 @@ template:
     btn-border-radius: 0.25rem
 
 home:
-  title: "IMPACTncd-Japan: Microsimulation Model"
+  title: "IMPACT<sub>NCD-JPN</sub>: Microsimulation Model"
   description: >
     A population microsimulation model for Japanese adults built on the 
-    IMPACTncd framework. Simulates lifecourse exposure trajectories, 
+    IMPACT<sub>NCD</sub> framework. Simulates adult lifecourse exposure trajectories, 
     disease onset, and mortality to evaluate policy scenarios.
+
+model structure:
+  - title: "Model Stucture"
+    desc: "Main simulation framework classes"
+    contents:
+      - Design
+      - Simulation
+      - SynthPop
+      
+  - title: "Model Components"
+    desc: "Disease and exposure modeling classes"
+    contents:
+      - Disease
+      - Exposure
+      
+  - title: "Package Information"
+    desc: "Package overview and utilities"
+    contents:
+      - IMPACTncdJapan
+
+validation:
+  - title: "Model Validation"
+    desc: "Validation and calibration documentation"
+    contents:
+      - validation
+      - calibration
+
+publications:
+  - title: "Scientific Publications"
+    desc: "Key publications and references"
+    contents:
+      - publications
 
 reference:
   - title: "Core Classes"
@@ -63,12 +95,22 @@ articles:
 
 navbar:
   structure:
-    left:  [home, reference, articles, tutorials, news]
+    left:  [home, model structure, validation, publications, reference, articles, tutorials, news]
     right: [search, github]
   components:
     home:
       icon: fas fa-home fa-lg
       href: index.html
+      aria-label: Home
+    model structure:
+      text: Model Structure
+      href: model-structure/index.html
+    validation:
+      text: Validation
+      href: validation/index.html
+    publications:
+      text: Publications
+      href: publications/index.html
     reference:
       text: Reference
       href: reference/index.html
@@ -150,3 +192,6 @@ figures:
   fig.asp: 1.618
   bg: NA
   other.parameters: []
+
+# cd /home/ckyprid/My_Models/IMPACTncd_Japan && Rscript -e "pkgdown::build_site(pkg = './Rpackage/IMPACTncd_Japan_model_pkg')"
+# cd /home/ckyprid/My_Models/IMPACTncd_Japan/Rpackage/IMPACTncd_Japan_model_pkg/docs && python3 -m http.server 8080

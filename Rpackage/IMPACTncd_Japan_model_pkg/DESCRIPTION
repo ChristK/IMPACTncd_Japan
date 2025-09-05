@@ -1,13 +1,20 @@
 Package: IMPACTncdJapan
 Type: Package
-Title: Utility Functions for IMPACTncdJapan Model
-Version: 0.0.1
-Date: 2025-07-21
+Title: IMPACTncdJapan Microsimulation Model
+Version: 1.0.1
+Date: 2025-08-23
 Authors@R: 
-    person("Chris", "Kypridemos", , "christodoulosk@gmail.com", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0002-0746-9229"))
+    c(person("Chris", "Kypridemos", ,"christodoulosk@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-0746-9229")),
+      person("Soshiro", "Ogata", ,"s_ogata@ncvc.go.jp", role = c("ctb"),
+           comment = c(ORCID = "0000-0002-0100-376X")),    
+      person("Eri", "Kiyoshige", ,"kiyoshige.eri@ncvc.go.jp", role = c("ctb"),
+           comment = c(ORCID = "0000-0002-0558-9323")),    
+      person("Yusuke", "Yoshikawa", ,"yyoshikawa@ncvc.go.jp", role = c("ctb"),
+           comment = c(ORCID = "0000-0001-8082-2036"))
+           )
 Maintainer: Chris Kypridemos <christodoulosk@gmail.com>
-Description: This package contains the functions that are necessary for IMPACTncdJapan model. 
+Description: This package implements the IMPACTncdJapan model. 
 License: GPL (>=3)
 Encoding: UTF-8
 LazyData: true
@@ -33,7 +40,7 @@ Suggests: roxygen2,
           knitr,
           rmarkdown,
           pkgdown,
-          testthat (>= 3.0.0)
+          tinytest
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,

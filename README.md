@@ -1,6 +1,8 @@
-# IMPACT<sub>NCD-Japan## What this model is
+# IMPACT<sub>NCD-JPN</sub>
 
-IMPACT<sub>NCD-Japan</sub> is a population microsimulation model built on the IMPACT<sub>NCD</sub> framework. It simulates Japanese adults' lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It's designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
+## What this model is
+
+IMPACT<sub>NCD-JPN</sub> is a population microsimulation model built on the IMPACT<sub>NCD</sub> framework. It simulates Japanese adults' lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It's designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
 
 **📚 [Complete Documentation & User Guide](https://christk.github.io/IMPACTncd_Japan/)**
 
@@ -12,13 +14,13 @@ Outputs are written under your configured outputs directory (by default folders 
 
 --------------------------------------------------------------------------------
 
-IMPACT<sub>NCD-Japan</sub> is an implementation of the IMPACTncd framework, developed by Chris
+IMPACT<sub>NCD-JPN</sub> is an implementation of the IMPACTncd framework, developed by Chris
 Kypridemos with contributions from Peter Crowther (Melandra Ltd), Maria
 Guzman-Castillo, Amandine Robert, Max Birkett, Piotr Bandosz, and Soshiro Ogata. 
 
 Copyright (C) 2018-2025 University of Liverpool, Chris Kypridemos
 
-IMPACT<sub>NCD-Japan</sub> is free software; you can redistribute it and/or modify it under the
+IMPACT<sub>NCD-JPN</sub> is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
 Foundation; either version 3 of the License, or (at your option) any later
 version. This program is distributed in the hope that it will be useful, but
@@ -32,7 +34,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 ## What this model is
 
-IMPACT<sub>NCD-Japan</sub> is a population microsimulation model built on the IMPACT<sub>NCD</sub> framework. It simulates Japanese adults’ lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It’s designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
+IMPACT<sub>NCD-JPN</sub> is a population microsimulation model built on the IMPACT<sub>NCD</sub> framework. It simulates Japanese adults’ lifecourse, exposure trajectories (e.g., smoking, BMI, blood pressure), disease onset (CHD, stroke, diabetes, etc.), and mortality. It’s designed to evaluate baseline trends and policy scenarios, producing lifecourse outputs, summary tables, and plots.
 
 Typical uses:
 - Run a baseline to quantify trends in incidence, prevalence, and mortality.
@@ -40,7 +42,7 @@ Typical uses:
 
 Outputs are written under your configured outputs directory (by default folders such as outputs/, summaries/, tables/, plots/).
 
-## How to use IMPACT<sub>NCD-Japan</sub> 
+## How to use IMPACT<sub>NCD-JPN</sub> 
 
 You don’t need to install R or system dependencies locally. We provide ready-to-run images and helper scripts.
 
@@ -106,7 +108,7 @@ Or you can set it permanently for your user:
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
-Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-Japan</sub> microsimulation. It accepts four arguments:
+Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-JPN</sub> microsimulation. It accepts four arguments:
 
 - `-Tag`: If Tag is "main" (default), the script pulls and uses "chriskypri/impactncdjpn:main". You can pull other branches available on GitHub instead of "main", for testing.
 - `-ScenariosDir`: Path to a directory containing custom scenarios to mount inside the container. This is where you can store your own scenario scripts for the model to run. For this tutorial I will assume you stored your scenarios in `C:\IMPACTncdJapan\scenarios`.
@@ -178,7 +180,7 @@ If you don’t already have Homebrew installed, you can install it by pasting th
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-Japan</sub> microsimulation. It accepts four arguments:
+Now you are ready to execute the script, but before you do, let's briefly review what it does and what arguments it accepts. The script pulls and runs a Docker container for the IMPACT<sub>NCD-JPN</sub> microsimulation. It accepts four arguments:
 
 - `Tag`: If Tag is "main" (default), the script pulls and uses "chriskypri/impactncdjpn:main". You can pull other branches available on GitHub instead of "main", for testing.
 - `-ScenariosDir`: Path to a directory containing custom scenarios to mount inside the container. This is where you can store your own scenario scripts for the model to run. For this tutorial I will assume you stored your scenarios in `C:\IMPACTncdJapan\scenarios`.

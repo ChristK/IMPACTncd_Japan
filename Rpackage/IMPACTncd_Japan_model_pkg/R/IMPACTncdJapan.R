@@ -64,10 +64,10 @@ if (getRversion() >= "2.15.1")
 
 NULL
 
-# cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; Rscript -e "roxygen2::roxygenise(); tinytest::build_install_test()"
-# cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; Rscript -e "roxygen2::roxygenise()"
-# cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; R CMD INSTALL --preclean .
-# cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; R CMD check --as-cran .
-# cd .\Rpackage\IMPACTncd_Japan_model_pkg\ ; Rscript -e "tinytest::test_package(\"CKutils\")"
+# cd Rpackage/IMPACTncd_Japan_model_pkg/ ; Rscript -e "roxygen2::roxygenise(); tinytest::build_install_test()"
+# cd Rpackage/IMPACTncd_Japan_model_pkg/ ; Rscript -e "roxygen2::roxygenise()"
+# cd Rpackage/IMPACTncd_Japan_model_pkg/ ; R CMD INSTALL --preclean .
+# cd Rpackage/IMPACTncd_Japan_model_pkg/ ; R CMD check --as-cran .
+# cd Rpackage/IMPACTncd_Japan_model_pkg/ ; Rscript -e "tinytest::test_package(\"CKutils\")"
 
 # Rscript -e 'library("IMPACTncdJapan");detach("package:IMPACTncdJapan", unload = TRUE)'

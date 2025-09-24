@@ -10,6 +10,7 @@ IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
 
 # g <- IMPACTncd$get_causal_structure(print_plot = TRUE)
 # g <- IMPACTncd$get_causal_structure(processed = FALSE, print_plot = TRUE, focus = "chd")
+# g <- IMPACTncd$get_causal_structure(processed = FALSE, print_plot = TRUE, focus = "BMI", mode = "out", order = Inf)
 
 # plot(igraph::make_ego_graph(g, order = 1, c("chd"), "in")[[1]])
 

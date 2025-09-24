@@ -1278,12 +1278,19 @@ Simulation <-
       #' @param focus If missing the whole causal structure is returned.
       #'  Otherwise, if a named node only the subgraph of the 1st order
       #'  neighbours that point to the given vertrice is returned.
+      #' @param mode Character. When focus is specified, determines direction:
+      #'   "in" for neighbors pointing to the node, "out" for neighbors 
+      #'   stemming from the node, "all" for both directions.
+      #' @param order Integer. When focus is specified, determines how many
+      #'   steps away to include neighbors. Use Inf for all possible orders.
       #' @return The processed causality matrix if `processed = TRUE` or the
       #'   graph otherwise.
       get_causal_structure = function(
         processed = TRUE,
         print_plot = FALSE,
-        focus = FALSE
+        focus = FALSE,
+        mode = "in",
+        order = 1
       ) {
         if (missing(focus)) {
           graph <- private$causality_structure
@@ -1296,11 +1303,32 @@ Simulation <-
               "focus need to be a node name. Use get_node_names() to get the list of eligible values."
             )
           }
+          if (!mode %in% c("in", "out", "all")) {
+            stop("mode must be one of 'in', 'out', or 'all'.")
+          }
+          if (!is.numeric(order) || order < 1) {
+            stop("order must be a positive integer or Inf.")
+          }
+          
+          # Handle Inf order by using the graph diameter (maximum possible distance)
+          if (is.infinite(order)) {
+            # Use diameter of the graph as maximum order, or a large number if disconnected
+            graph_diameter <- diameter(private$causality_structure, directed = TRUE)
+            if (is.infinite(graph_diameter)) {
+              # If graph is disconnected, use number of vertices as upper bound
+              actual_order <- vcount(private$causality_structure)
+            } else {
+              actual_order <- graph_diameter
+            }
+          } else {
+            actual_order <- order
+          }
+          
           graph <- make_ego_graph(
             private$causality_structure,
-            order = 1,
+            order = actual_order,
             nodes = focus,
-            mode = "in"
+            mode = mode
           )[[1]]
         }
         if (print_plot) {

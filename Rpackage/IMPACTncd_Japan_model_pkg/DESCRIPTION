@@ -36,6 +36,6 @@ LinkingTo: Rcpp,
            BH,
            data.table,
            CKutils
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 SystemRequirements: C++17
 VignetteBuilder: knitr

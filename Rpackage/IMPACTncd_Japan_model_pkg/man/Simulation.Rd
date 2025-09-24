@@ -340,7 +340,9 @@ Returns the causality matrix and optionally plots the
 \if{html}{\out{<div class="r">}}\preformatted{Simulation$get_causal_structure(
   processed = TRUE,
   print_plot = FALSE,
-  focus = FALSE
+  focus = FALSE,
+  mode = "in",
+  order = 1
 )}\if{html}{\out{</div>}}
 }
 
@@ -355,6 +357,13 @@ graph.}
 \item{\code{focus}}{If missing the whole causal structure is returned.
 Otherwise, if a named node only the subgraph of the 1st order
 neighbours that point to the given vertrice is returned.}
+
+\item{\code{mode}}{Character. When focus is specified, determines direction:
+"in" for neighbors pointing to the node, "out" for neighbors 
+stemming from the node, "all" for both directions.}
+
+\item{\code{order}}{Integer. When focus is specified, determines how many
+steps away to include neighbors. Use Inf for all possible orders.}
 }
 \if{html}{\out{</div>}}
 }

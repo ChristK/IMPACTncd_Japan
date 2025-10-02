@@ -71,7 +71,7 @@ Simulation <-
           nr_of_threads = self$design$sim_prm$clusternumber,
           reset_after_fork = NULL
         )
-        arrow::set_cpu_count(self$design$sim_prm$clusternumber)  # limit Arrow's internal threading
+        arrow::set_cpu_count(self$design$sim_prm$clusternumber) # limit Arrow's internal threading
 
         # Create folders if don't exist
         # TODO write hlp function and use lapply
@@ -309,7 +309,8 @@ Simulation <-
             file.path(
               self$design$sim_prm$output_dir,
               "lifecourse"
-            ), recursive = TRUE
+            ),
+            recursive = TRUE
           ))
         ) {
           # stop("Results from a previous simulation exists in the output
@@ -338,8 +339,8 @@ Simulation <-
             restore_after_fork = NULL
           )
           fst::threads_fst(
-          nr_of_threads = 1L,
-          reset_after_fork = NULL
+            nr_of_threads = 1L,
+            reset_after_fork = NULL
           )
 
           if (.Platform$OS.type == "windows") {
@@ -475,22 +476,22 @@ Simulation <-
 
       # calibrate_incd_ftlt ----
       #' @description Generates new calibration parameters for incidence and case fatality rates.
-      #' 
+      #'
       #' This method implements a sequential age-based calibration process that aligns
       #' modeled disease incidence and case fatality rates with user input data from
       #' external sources (e.g., GBD, national statistics). The calibration ensures
       #' that simulation outputs match observed epidemiological patterns.
-      #' 
+      #'
       #' @section Calibration Process:
-      #' 
+      #'
       #' The calibration operates over a specific time period defined by two key parameters:
       #' \itemize{
       #'   \item **Start year**: The initial year for in the designated sim_design yaml file
       #'   \item **End year**: The latest year as defined by the sim_horizon in sim_design yaml file
       #' }
-      #' 
+      #'
       #' The calibration process follows these steps for each age from `ageL` to `ageH`:
-      #' 
+      #'
       #' \subsection{1. Incidence Calibration}{
       #'   For both CHD and stroke:
       #'   \itemize{
@@ -500,7 +501,7 @@ Simulation <-
       #'     \item Updates prevalence estimates based on incidence corrections
       #'   }
       #' }
-      #' 
+      #'
       #' \subsection{2. Case Fatality Calibration}{
       #'   For CHD, stroke, and non-modeled causes:
       #'   \itemize{
@@ -510,28 +511,28 @@ Simulation <-
       #'     \item Applies competing risk adjustments for previous ages
       #'   }
       #' }
-      #' 
-      #' 
+      #'
+      #'
       #' @section Implementation Details:
-      #' 
+      #'
       #' \itemize{
-      #'   \item **Sequential Processing**: Ages are processed sequentially to ensure proper 
+      #'   \item **Sequential Processing**: Ages are processed sequentially to ensure proper
       #'     prevalence carryover between age groups
-      #'   \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends 
+      #'   \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends
       #'     in the calibration period
-      #'   \item **Robust Estimation**: Employs median-based estimators to handle 
+      #'   \item **Robust Estimation**: Employs median-based estimators to handle
       #'     rare events and reduce Monte Carlo variability
-      #   \item **Competing Risks**: Adjusts calibration factors for previously calibrated 
+      #   \item **Competing Risks**: Adjusts calibration factors for previously calibrated
       #     ages to account for competing mortality risks
       #' }
-      #' 
+      #'
       #' @param mc A positive sequential integer vector with the Monte Carlo
       #'   iterations of synthetic population to simulate, or a scalar.
-      #' @param replace If TRUE the calibration deletes the previous calibration file and 
+      #' @param replace If TRUE the calibration deletes the previous calibration file and
       #'   starts from scratch. If FALSE, continues from the last uncalibrated age.
       #' @return The invisible self for chaining.
-      #' 
-      #' @note The calibration parameters are stored in `./simulation/calibration_prms.csv` 
+      #'
+      #' @note The calibration parameters are stored in `./simulation/calibration_prms.csv`
       #'   and are automatically applied in subsequent simulations.
       calibrate_incd_ftlt = function(mc, replace = FALSE) {
         # recombine the chunks of large files
@@ -564,7 +565,7 @@ Simulation <-
               prob_occurrence <- length(nonzero_vals) / length(x)
               median_nonzero <- median(nonzero_vals)
               out <- prob_occurrence * median_nonzero
-              
+
               # Option 2: Alternative - use trimmed mean to reduce impact of outliers
               # trimmed_mean <- mean(x, trim = 0.1)  # Remove top/bottom 10%
               # out <- max(trimmed_mean, prob_occurrence * median_nonzero)
@@ -612,9 +613,7 @@ Simulation <-
         # Run the simulation from min to max age
         for (age_ in age_start:self$design$sim_prm$ageH) {
           # Run the simulation and export summaries. TODO restrict ages for efficiency.
-          self$del_logs()$
-          del_outputs()$
-          run(
+          self$del_logs()$del_outputs()$run(
             mc,
             multicore = TRUE,
             "sc0"
@@ -646,7 +645,10 @@ Simulation <-
 
           unclbr <- unclbr[,
             .(
-              age, sex, year, mc,
+              age,
+              sex,
+              year,
+              mc,
               chd_incd = chd_incd / popsize,
               stroke_incd = stroke_incd / popsize
             )
@@ -661,7 +663,7 @@ Simulation <-
           # for CHD
           # fit a log-log linear model to the uncalibrated results and store the coefficients
           tt <- unclbr[
-              chd_incd > 0,
+            chd_incd > 0,
             as.list(coef(lm(
               log(chd_incd) ~ log(year)
             ))),
@@ -677,7 +679,7 @@ Simulation <-
             )
           ]
           rm(tt)
-                 
+
           # load benchmark
           benchmark <- read_fst(
             file.path("./inputs/disease_burden", "chd_incd.fst"),
@@ -707,7 +709,7 @@ Simulation <-
 
           # Repeat for stroke
           tt <- unclbr[
-              stroke_incd > 0,
+            stroke_incd > 0,
             as.list(coef(lm(
               log(stroke_incd) ~ log(year)
             ))),
@@ -739,7 +741,7 @@ Simulation <-
             ))),
             by = sex
           ]
-        
+
           unclbr[
             benchmark[year == max(year)],
             stroke_incd_clbr_fctr := exp(
@@ -997,43 +999,98 @@ Simulation <-
         ),
         single_year_of_age = FALSE
       ) {
-          if (multicore) {
-            arrow::set_cpu_count(1L)
-            data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
-            fst::threads_fst(nr_of_threads = 1L, reset_after_fork = NULL)
-          } else { # if not explicit parallelism
-            arrow::set_cpu_count(self$design$sim_prm$clusternumber_export)
-            data.table::setDTthreads(threads = self$design$sim_prm$clusternumber_export, restore_after_fork = NULL)
-            fst::threads_fst(nr_of_threads = self$design$sim_prm$clusternumber_export, reset_after_fork = NULL)
+        if (multicore) {
+          arrow::set_cpu_count(1L)
+          data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
+          fst::threads_fst(nr_of_threads = 1L, reset_after_fork = NULL)
+        } else {
+          # if not explicit parallelism
+          arrow::set_cpu_count(self$design$sim_prm$clusternumber_export)
+          data.table::setDTthreads(
+            threads = self$design$sim_prm$clusternumber_export,
+            restore_after_fork = NULL
+          )
+          fst::threads_fst(
+            nr_of_threads = self$design$sim_prm$clusternumber_export,
+            reset_after_fork = NULL
+          )
+        }
 
-          }
-          
         lc <- open_dataset(private$output_dir("lifecourse"))
 
         # Connect DuckDB and register the Arrow dataset as a DuckDB view with better error handling
         con <- NULL
         mc_set <- NULL
-        
-        tryCatch({
-          con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
-          if (multicore) {
-            private$execute_sql(con, "PRAGMA threads=1")
-          } else { # if not explicit parallelism
-            private$execute_sql(con, paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export))
+
+        tryCatch(
+          {
+            con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+            if (multicore) {
+              private$execute_sql(con, "PRAGMA threads=1")
+            } else {
+              # if not explicit parallelism
+              private$execute_sql(
+                con,
+                paste0(
+                  "PRAGMA threads=",
+                  self$design$sim_prm$clusternumber_export
+                )
+              )
+            }
+
+            duckdb::duckdb_register_arrow(con, "lc_table", lc)
+            mc_set <- private$query_sql(
+              con,
+              "SELECT DISTINCT mc FROM lc_table"
+            )$mc
+            scn_set <- private$query_sql(
+              con,
+              "SELECT DISTINCT scenario FROM lc_table"
+            )$scenario
+          },
+          error = function(e) {
+            stop(sprintf(
+              "Failed to initialize DuckDB connection or query mc_set or query scn_set: %s",
+              e$message
+            ))
+          },
+          finally = {
+            if (!is.null(con)) {
+              try(dbDisconnect(con, shutdown = TRUE), silent = TRUE)
+            }
           }
-          
-          duckdb::duckdb_register_arrow(con, "lc_table", lc)
-          mc_set <- private$query_sql(con, "SELECT DISTINCT mc FROM lc_table")$mc
-        }, error = function(e) {
-          stop(sprintf("Failed to initialize DuckDB connection or query mc_set: %s", e$message))
-        }, finally = {
-          if (!is.null(con)) {
-            try(dbDisconnect(con, shutdown = TRUE), silent = TRUE)
-          }
-        })
+        )
 
         if (is.null(mc_set) || length(mc_set) == 0) {
           stop("No Monte Carlo iterations found in lifecourse data")
+        }
+        if (is.null(scn_set) || length(scn_set) == 0) {
+          stop("No scenarios found in lifecourse data")
+        }
+
+        # test that the rng seeds that were generated for each scenario/sp$mc
+        # combination are unique
+        scn_set <- c(paste0("primary", scn_set), paste0("secondary", scn_set))
+        rng_seeds <- sapply(mc_set, function(i) digest2int(scn_set, i))
+        colnames(rng_seeds) <- paste0("mc=", mc_set)
+        rownames(rng_seeds) <- gsub("primary|secondary", "", scn_set)
+        duplicates <- duplicated(as.vector(rng_seeds))
+        duplicates <- matrix(
+          duplicates,
+          nrow = nrow(rng_seeds),
+          ncol = ncol(rng_seeds)
+        )
+
+        if (any(duplicates)) {
+          # Find which positions have duplicated values - Method 1: Direct approach
+          dup_coords <- which(duplicates, arr.ind = TRUE)
+          dup_row_names <- rownames(rng_seeds)[dup_coords[, 1]]
+          warning(
+            "RNG seeds are not unique for each scenario/mc combination. This may lead to correlated results. ",
+            "Try to rename scenario ",
+            paste(unique(dup_row_names), collapse = ", "),
+            " and rerun the simulation to avoid unintended correlations."
+          )
         }
 
         # logic to avoid inappropriate dual processing of already processed mc iterations
@@ -1071,29 +1128,43 @@ Simulation <-
         if (file.exists(file_pth) && length(list.files(file_pth)) > 0) {
           con2 <- NULL
           mc_toexclude <- NULL
-          
-          tryCatch({
-            con2 <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
-            if (multicore) {
-            private$execute_sql(con2, "PRAGMA threads=1")
-            } else { # if not explicit parallelism
-            private$execute_sql(con2, paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export))
+
+          tryCatch(
+            {
+              con2 <- dbConnect(duckdb::duckdb(), ":memory:", read_only = TRUE)
+              if (multicore) {
+                private$execute_sql(con2, "PRAGMA threads=1")
+              } else {
+                # if not explicit parallelism
+                private$execute_sql(
+                  con2,
+                  paste0(
+                    "PRAGMA threads=",
+                    self$design$sim_prm$clusternumber_export
+                  )
+                )
+              }
+              duckdb::duckdb_register_arrow(
+                con2,
+                "tbl",
+                open_dataset(file_pth, format = "parquet")
+              )
+              mc_toexclude <- private$query_sql(
+                con2,
+                "SELECT DISTINCT mc FROM tbl"
+              )$mc
+            },
+            error = function(e) {
+              warning(sprintf("Failed to check existing files: %s", e$message))
+              mc_toexclude <- NULL
+            },
+            finally = {
+              if (!is.null(con2)) {
+                try(dbDisconnect(con2, shutdown = TRUE), silent = TRUE)
+              }
             }
-            duckdb::duckdb_register_arrow(
-              con2,
-              "tbl",
-              open_dataset(file_pth, format = "parquet")
-            )
-            mc_toexclude <- private$query_sql(con2, "SELECT DISTINCT mc FROM tbl")$mc
-          }, error = function(e) {
-            warning(sprintf("Failed to check existing files: %s", e$message))
-            mc_toexclude <- NULL
-          }, finally = {
-            if (!is.null(con2)) {
-              try(dbDisconnect(con2, shutdown = TRUE), silent = TRUE)
-            }
-          })
-          
+          )
+
           if (!is.null(mc_toexclude)) {
             mc_set <- mc_set[!mc_set %in% mc_toexclude]
           }
@@ -1117,7 +1188,7 @@ Simulation <-
           }
 
           if (.Platform$OS.type == "windows") {
-                        cl <-
+            cl <-
               makeClusterPSOCK(
                 self$design$sim_prm$clusternumber_export,
                 dryrun = FALSE,
@@ -1279,7 +1350,7 @@ Simulation <-
       #'  Otherwise, if a named node only the subgraph of the 1st order
       #'  neighbours that point to the given vertrice is returned.
       #' @param mode Character. When focus is specified, determines direction:
-      #'   "in" for neighbors pointing to the node, "out" for neighbors 
+      #'   "in" for neighbors pointing to the node, "out" for neighbors
       #'   stemming from the node, "all" for both directions.
       #' @param order Integer. When focus is specified, determines how many
       #'   steps away to include neighbors. Use Inf for all possible orders.
@@ -1309,11 +1380,14 @@ Simulation <-
           if (!is.numeric(order) || order < 1) {
             stop("order must be a positive integer or Inf.")
           }
-          
+
           # Handle Inf order by using the graph diameter (maximum possible distance)
           if (is.infinite(order)) {
             # Use diameter of the graph as maximum order, or a large number if disconnected
-            graph_diameter <- diameter(private$causality_structure, directed = TRUE)
+            graph_diameter <- diameter(
+              private$causality_structure,
+              directed = TRUE
+            )
             if (is.infinite(graph_diameter)) {
               # If graph is disconnected, use number of vertices as upper bound
               actual_order <- vcount(private$causality_structure)
@@ -1323,7 +1397,7 @@ Simulation <-
           } else {
             actual_order <- order
           }
-          
+
           graph <- make_ego_graph(
             private$causality_structure,
             order = actual_order,
@@ -2656,29 +2730,37 @@ Simulation <-
 
         # Normalize path for cross-platform compatibility
         output_path <- normalizePath(output_path, mustWork = FALSE)
-        
+
         # Ensure parent directory exists and is accessible
         parent_dir <- dirname(output_path)
         if (!dir.exists(parent_dir)) {
           dir.create(parent_dir, recursive = TRUE, showWarnings = FALSE)
         }
-        
+
         # Add a small delay to ensure directory is fully created (Windows issue)
         Sys.sleep(0.05)
 
         # Check if we're running in Docker on Windows (SMB/Plan9 mount issue)
         # Docker Desktop on Windows uses SMB/Plan9 mounts which don't support atomic operations
         is_docker_env <- file.exists("/.dockerenv")
-        is_docker_windows <- (is_docker_env && 
-                             (.Platform$OS.type == "unix" || 
-                              Sys.getenv("DOCKER_DESKTOP") != "" ||
-                              # Check for typical Windows Docker mount patterns
-                              any(grepl("/host_mnt/", getwd(), fixed = TRUE))))
+        is_docker_windows <- (is_docker_env &&
+          (.Platform$OS.type == "unix" ||
+            Sys.getenv("DOCKER_DESKTOP") != "" ||
+            # Check for typical Windows Docker mount patterns
+            any(grepl("/host_mnt/", getwd(), fixed = TRUE))))
 
         # Use safer method for Docker environments (especially Windows Docker Desktop)
         # or any Windows environment where atomic operations might not be reliable
-        if (is_docker_windows || is_docker_env || .Platform$OS.type == "windows") {
-          env_type <- if(is_docker_windows) "Docker on Windows" else if(is_docker_env) "Docker" else "Windows"
+        if (
+          is_docker_windows || is_docker_env || .Platform$OS.type == "windows"
+        ) {
+          env_type <- if (is_docker_windows) {
+            "Docker on Windows"
+          } else if (is_docker_env) {
+            "Docker"
+          } else {
+            "Windows"
+          }
           if (self$design$sim_prm$logs) {
             cat(sprintf(
               "Using safe write method for %s (%s environment detected)\n",
@@ -2686,7 +2768,7 @@ Simulation <-
               env_type
             ))
           }
-          
+
           # Use dbGetQuery + arrow::write_parquet instead of DuckDB COPY
           # This avoids the atomic rename issue with SMB/Plan9 mounts
           while (!success && retry_count < max_retries) {
@@ -2698,91 +2780,115 @@ Simulation <-
                 basename(output_path)
               ))
             }
-            
-            tryCatch({
-              # Get the data directly into R
-              result_data <- private$query_sql(duckdb_con, query)
-              if (self$design$sim_prm$logs) {
-                cat(sprintf(
-                  "Query returned %d rows for %s\n",
-                  nrow(result_data),
-                  basename(output_path)
-                ))
-              }
-              
-              if (nrow(result_data) > 0) {
-                # Write directly with arrow, avoiding DuckDB's temporary file mechanism
-                arrow::write_parquet(result_data, output_path)
-                
-                # Verify the write with multiple checks
-                Sys.sleep(0.3) # Allow SMB sync time
-                
-                if (file.exists(output_path)) {
-                  file_size <- file.size(output_path)
-                  if (file_size > 0) {
-                    # Additional verification: try to read back a sample
-                    tryCatch({
-                      test_read <- arrow::read_parquet(output_path, as_data_frame = FALSE)
-                      if (test_read$num_rows > 0) {
-                        success <- TRUE
-                        if (self$design$sim_prm$logs) {
-                          cat(sprintf(
-                            "Successfully wrote %s (%d bytes, %d rows)\n",
-                            basename(output_path),
-                            file_size,
-                            nrow(result_data)
-                          ))
-                        }
-                      }
-                    }, error = function(e) {
-                      warning(sprintf("File %s exists but failed verification read: %s", 
-                                    basename(output_path), e$message))
-                    })
-                  } else {
-                    warning(sprintf("File %s exists but has 0 bytes", basename(output_path)))
-                  }
-                }
-              } else {
-                # Handle empty results properly
+
+            tryCatch(
+              {
+                # Get the data directly into R
+                result_data <- private$query_sql(duckdb_con, query)
                 if (self$design$sim_prm$logs) {
                   cat(sprintf(
-                    "Query returned 0 rows for %s - creating empty file\n",
+                    "Query returned %d rows for %s\n",
+                    nrow(result_data),
                     basename(output_path)
                   ))
                 }
-                
-                # Get column structure by limiting to 0 rows
-                empty_structure <- private$query_sql(duckdb_con, sprintf("SELECT * FROM (%s) subq LIMIT 0", query))
-                arrow::write_parquet(empty_structure, output_path)
-                
-                if (file.exists(output_path)) {
-                  success <- TRUE
+
+                if (nrow(result_data) > 0) {
+                  # Write directly with arrow, avoiding DuckDB's temporary file mechanism
+                  arrow::write_parquet(result_data, output_path)
+
+                  # Verify the write with multiple checks
+                  Sys.sleep(0.3) # Allow SMB sync time
+
+                  if (file.exists(output_path)) {
+                    file_size <- file.size(output_path)
+                    if (file_size > 0) {
+                      # Additional verification: try to read back a sample
+                      tryCatch(
+                        {
+                          test_read <- arrow::read_parquet(
+                            output_path,
+                            as_data_frame = FALSE
+                          )
+                          if (test_read$num_rows > 0) {
+                            success <- TRUE
+                            if (self$design$sim_prm$logs) {
+                              cat(sprintf(
+                                "Successfully wrote %s (%d bytes, %d rows)\n",
+                                basename(output_path),
+                                file_size,
+                                nrow(result_data)
+                              ))
+                            }
+                          }
+                        },
+                        error = function(e) {
+                          warning(sprintf(
+                            "File %s exists but failed verification read: %s",
+                            basename(output_path),
+                            e$message
+                          ))
+                        }
+                      )
+                    } else {
+                      warning(sprintf(
+                        "File %s exists but has 0 bytes",
+                        basename(output_path)
+                      ))
+                    }
+                  }
+                } else {
+                  # Handle empty results properly
                   if (self$design$sim_prm$logs) {
                     cat(sprintf(
-                      "Created empty parquet file %s\n",
+                      "Query returned 0 rows for %s - creating empty file\n",
                       basename(output_path)
                     ))
                   }
+
+                  # Get column structure by limiting to 0 rows
+                  empty_structure <- private$query_sql(
+                    duckdb_con,
+                    sprintf("SELECT * FROM (%s) subq LIMIT 0", query)
+                  )
+                  arrow::write_parquet(empty_structure, output_path)
+
+                  if (file.exists(output_path)) {
+                    success <- TRUE
+                    if (self$design$sim_prm$logs) {
+                      cat(sprintf(
+                        "Created empty parquet file %s\n",
+                        basename(output_path)
+                      ))
+                    }
+                  }
                 }
+              },
+              error = function(e) {
+                warning(sprintf(
+                  "Safe write attempt %d failed for %s: %s",
+                  retry_count,
+                  basename(output_path),
+                  e$message
+                ))
+
+                # Clean up failed file
+                if (file.exists(output_path)) {
+                  try(file.remove(output_path), silent = TRUE)
+                }
+
+                # Progressive backoff
+                Sys.sleep(0.5 * retry_count)
               }
-              
-            }, error = function(e) {
-              warning(sprintf("Safe write attempt %d failed for %s: %s", retry_count, basename(output_path), e$message))
-              
-              # Clean up failed file
-              if (file.exists(output_path)) {
-                try(file.remove(output_path), silent = TRUE)
-              }
-              
-              # Progressive backoff
-              Sys.sleep(0.5 * retry_count)
-            })
+            )
           }
-          
         } else {
           # Use original DuckDB COPY method for native Linux environments
-          cat(sprintf("Using DuckDB COPY method for %s (native Linux environment)\n", basename(output_path)))
-          
+          cat(sprintf(
+            "Using DuckDB COPY method for %s (native Linux environment)\n",
+            basename(output_path)
+          ))
+
           while (!success && retry_count < max_retries) {
             retry_count <- retry_count + 1
             if (self$design$sim_prm$logs) {
@@ -2793,42 +2899,57 @@ Simulation <-
               ))
             }
 
-            tryCatch({
-              # Use forward slashes for DuckDB COPY command
-              db_path <- gsub("\\\\", "/", output_path)
-              
-              copy_command <- sprintf("COPY (%s) TO '%s' (FORMAT PARQUET);", query, db_path)
-              result <- private$execute_sql(duckdb_con, copy_command)
-              
-              Sys.sleep(0.2) # Allow file system sync
-              
-              if (file.exists(output_path) && file.size(output_path) > 0) {
-                success <- TRUE
-                if (self$design$sim_prm$logs) {
-                  cat(sprintf(
-                    "DuckDB COPY succeeded for %s\n",
-                    basename(output_path)
-                  ))
+            tryCatch(
+              {
+                # Use forward slashes for DuckDB COPY command
+                db_path <- gsub("\\\\", "/", output_path)
+
+                copy_command <- sprintf(
+                  "COPY (%s) TO '%s' (FORMAT PARQUET);",
+                  query,
+                  db_path
+                )
+                result <- private$execute_sql(duckdb_con, copy_command)
+
+                Sys.sleep(0.2) # Allow file system sync
+
+                if (file.exists(output_path) && file.size(output_path) > 0) {
+                  success <- TRUE
+                  if (self$design$sim_prm$logs) {
+                    cat(sprintf(
+                      "DuckDB COPY succeeded for %s\n",
+                      basename(output_path)
+                    ))
+                  }
                 }
+              },
+              error = function(e) {
+                warning(sprintf(
+                  "DuckDB COPY attempt %d failed for %s: %s",
+                  retry_count,
+                  basename(output_path),
+                  e$message
+                ))
+
+                if (file.exists(output_path) && file.size(output_path) == 0) {
+                  try(file.remove(output_path), silent = TRUE)
+                }
+
+                Sys.sleep(0.2 * retry_count)
               }
-              
-            }, error = function(e) {
-              warning(sprintf("DuckDB COPY attempt %d failed for %s: %s", retry_count, basename(output_path), e$message))
-              
-              if (file.exists(output_path) && file.size(output_path) == 0) {
-                try(file.remove(output_path), silent = TRUE)
-              }
-              
-              Sys.sleep(0.2 * retry_count)
-            })
+            )
           }
         }
 
         # Final validation
         if (!success) {
           final_check_exists <- file.exists(output_path)
-          final_check_size <- if (final_check_exists) file.size(output_path) else 0
-          
+          final_check_size <- if (final_check_exists) {
+            file.size(output_path)
+          } else {
+            0
+          }
+
           error_msg <- sprintf(
             "Failed to write output to %s after %d attempts. Final state: exists=%s, size=%d",
             output_path,
@@ -2836,7 +2957,7 @@ Simulation <-
             final_check_exists,
             final_check_size
           )
-          
+
           if (self$design$sim_prm$logs) {
             cat(paste("ERROR:", error_msg, "\n"))
           }
@@ -2845,7 +2966,6 @@ Simulation <-
 
         return(invisible(TRUE))
       },
-
 
       # Helper function to execute SQL, with error reporting
       # execute_sql ----
@@ -2886,9 +3006,9 @@ Simulation <-
           }
         )
       },
-      
+
       # profile_sql_view ----
-      profile_sql_view = function(con, view_name) {        
+      profile_sql_view = function(con, view_name) {
         private$query_sql(
           con = con,
           sql = paste0("EXPLAIN ANALYZE SELECT * FROM ", view_name),
@@ -2940,11 +3060,25 @@ Simulation <-
 
         # make pop weight available to scenarios
         # message("Updating weights")
-        if (scenario_nam != "sc0") sp$update_pop_weights(scenario_nam)
+        if (scenario_nam != "sc0") {
+          sp$update_pop_weights(scenario_nam)
+        }
         # message("Updating weights finished")
 
+        # Isolate tha rng state for the user defines scenarios
+        rs <- .Random.seed
+        dqrs <- dqrng::dqrng_get_state()
+        sdn <- digest2int(paste0("primary", scenario_nam), sp$mc) # Not mc_aggr
+        set.seed(sdn) # set seed based on scenario name
+        dqset.seed(sdn)
+        # Note that above does nor guarantee that different scenario_name/sp$mc combination
+        # always generate different seed. But the probability of collision is
+        # very low. export_summaries() checks if collision happened and warns user.
+        
         private$primary_prevention_scn(sp) # apply primary pevention scenario
         # message("scenario finished")
+        set.seed(rs)
+        dqset.seed(dqrs)
 
         lapply(self$diseases, function(x) {
           x$set_rr(sp, self$design)$set_incd_prb(sp, self$design)$set_dgns_prb(
@@ -2954,9 +3088,20 @@ Simulation <-
         })
         # message("incd finished")
 
+        # Isolate tha rng state for the user defines scenarios
+        rs <- .Random.seed
+        dqrs <- dqrng::dqrng_get_state()
+        sdn <- digest2int(paste0("secondary", scenario_nam), sp$mc) # Not mc_aggr
+        set.seed(sdn) # set seed based on scenario name
+        dqset.seed(sdn) # Note that above does nor guarantee that different scenario_name/sp$mc combination
+        # always generate different seed. But the probability of collision is
+        # very low. export_summaries() checks if collision happened and warns user.
         private$secondary_prevention_scn(sp) # apply secondary pevention scenario
         # message("2nd scenario finished")
-        
+        # message("scenario finished")
+        set.seed(rs)
+        dqset.seed(dqrs)
+
         # ds <- copy(self$diseases) # Necessary for parallelisation
         # lapply(self$diseases, function(x) {
         #   if (self$design$sim_prm$logs) print(x$name)
@@ -2976,7 +3121,9 @@ Simulation <-
         # only used for the RNG stream and the pid are different in each mc_aggr
         # pop
 
-        if (scenario_nam == "sc0") sp$update_pop_weights(scenario_nam)
+        if (scenario_nam == "sc0") {
+          sp$update_pop_weights(scenario_nam)
+        }
         # message("wt update finished")
         # Prune pop (NOTE that assignment in the function env makes this
         # data.table local)
@@ -3209,7 +3356,7 @@ Simulation <-
           set(out_xps5, which(is.na(out_xps5[[j]])), j, "All")
         }
         setkey(out_xps5, year)
-        
+
         fnam <- private$output_dir(file.path(
           "xps",
           "xps5",
@@ -3277,9 +3424,11 @@ Simulation <-
         single_year_of_age = FALSE,
         implicit_parallelism
       ) {
-
         if (self$design$sim_prm$logs) {
-          private$time_mark(paste0("Start mc iteration (summary export) ", mcaggr))
+          private$time_mark(paste0(
+            "Start mc iteration (summary export) ",
+            mcaggr
+          ))
           sink(
             file = private$output_dir(paste0("logs/log", mcaggr, ".txt")),
             append = TRUE,
@@ -3293,29 +3442,49 @@ Simulation <-
         }
 
         if (implicit_parallelism) {
-            arrow::set_cpu_count(self$design$sim_prm$clusternumber_export)
-            data.table::setDTthreads(threads = self$design$sim_prm$clusternumber_export, restore_after_fork = NULL)
-            fst::threads_fst(nr_of_threads = self$design$sim_prm$clusternumber_export, reset_after_fork = NULL)
-        } else { # if not explicit parallelism
-            arrow::set_cpu_count(1L)
-            data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
-            fst::threads_fst(nr_of_threads = 1L, reset_after_fork = NULL)
-         }
+          arrow::set_cpu_count(self$design$sim_prm$clusternumber_export)
+          data.table::setDTthreads(
+            threads = self$design$sim_prm$clusternumber_export,
+            restore_after_fork = NULL
+          )
+          fst::threads_fst(
+            nr_of_threads = self$design$sim_prm$clusternumber_export,
+            reset_after_fork = NULL
+          )
+        } else {
+          # if not explicit parallelism
+          arrow::set_cpu_count(1L)
+          data.table::setDTthreads(threads = 1L, restore_after_fork = NULL)
+          fst::threads_fst(nr_of_threads = 1L, reset_after_fork = NULL)
+        }
 
-        lc <- open_dataset(private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))))
+        lc <- open_dataset(private$output_dir(file.path(
+          "lifecourse",
+          paste0("mc=", mcaggr)
+        )))
 
         # Connect DuckDB and register the Arrow dataset as a DuckDB view
         duckdb_con <- dbConnect(duckdb::duckdb(), ":memory:", read_only = FALSE) # not read only to allow creation of VIEWS etc
         on.exit(dbDisconnect(duckdb_con, shutdown = FALSE), add = TRUE)
         if (implicit_parallelism) {
-            private$execute_sql(duckdb_con, paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export))
-        } else { # if not explicit parallelism
-            private$execute_sql(duckdb_con, "PRAGMA threads=1")
-         }
+          private$execute_sql(
+            duckdb_con,
+            paste0("PRAGMA threads=", self$design$sim_prm$clusternumber_export)
+          )
+        } else {
+          # if not explicit parallelism
+          private$execute_sql(duckdb_con, "PRAGMA threads=1")
+        }
         duckdb::duckdb_register_arrow(duckdb_con, "lc_table_raw", lc)
-      
+
         # Create enhanced view with mc column
-        private$execute_sql(duckdb_con, sprintf("CREATE VIEW lc_table AS SELECT *, %d::INTEGER AS mc FROM lc_table_raw", mcaggr))
+        private$execute_sql(
+          duckdb_con,
+          sprintf(
+            "CREATE VIEW lc_table AS SELECT *, %d::INTEGER AS mc FROM lc_table_raw",
+            mcaggr
+          )
+        )
 
         strata <- c("mc", self$design$sim_prm$strata_for_output)
         strata_noagegrp <- c(
@@ -3512,11 +3681,15 @@ Simulation <-
         output_view_name
       ) {
         # get scenario names
-        scnams <- gsub("^scenario=", "", list.dirs(
-          private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))),
-          full.names = FALSE,
-          recursive = FALSE
-        ))
+        scnams <- gsub(
+          "^scenario=",
+          "",
+          list.dirs(
+            private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))),
+            full.names = FALSE,
+            recursive = FALSE
+          )
+        )
         # Safer but slow
         # scnam <- private$query_sql(
         #   duckdb_con,
@@ -3537,7 +3710,7 @@ Simulation <-
           SELECT agegrp, sex, ROUND(SUM(CASE WHEN %s THEN wt ELSE 0 END)) AS V1
           FROM %s WHERE year = %d AND scenario = 'sc0' AND mc = %d GROUP BY agegrp, sex
           "
-        
+
         # Create all baseline aggregation views
         aggregation_configs <- list(
           list("chd_prvl_2016_agg_view", "chd_dgns > 0", 2016),
@@ -3551,7 +3724,14 @@ Simulation <-
         for (config in aggregation_configs) {
           private$execute_sql(
             duckdb_con,
-            sprintf(base_agg_sql, config[[1]], config[[2]], input_table_name, config[[3]], mcaggr),
+            sprintf(
+              base_agg_sql,
+              config[[1]],
+              config[[2]],
+              input_table_name,
+              config[[3]],
+              mcaggr
+            ),
             config[[1]]
           )
         }
@@ -3566,77 +3746,130 @@ Simulation <-
           columns = c("year", "age", "sex", "pops"),
           as.data.table = TRUE
         )[year == 2016L]
-        
+
         # Process CHD mortality efficiently
         chd_ftlt_2016 <- read_fst(
           "inputs/disease_burden/chd_ftlt.fst",
           columns = c("year", "age", "sex", "mu2"),
           as.data.table = TRUE
         )[year == 2016]
-        
-        chd_joined <- chd_ftlt_2016[obs_pop_2016, on = c("age", "sex"), nomatch = 0L
-                                  ][, `:=`(deaths_calc = mu2 * pops, 
-                                          agegrp = fcase(
-                                            age %between% c(30, 34), "30-34",
-                                            age %between% c(35, 39), "35-39", 
-                                            age %between% c(40, 44), "40-44",
-                                            age %between% c(45, 49), "45-49",
-                                            age %between% c(50, 54), "50-54",
-                                            age %between% c(55, 59), "55-59",
-                                            age %between% c(60, 64), "60-64",
-                                            age %between% c(65, 69), "65-69",
-                                            age %between% c(70, 74), "70-74",
-                                            age %between% c(75, 79), "75-79",
-                                            age %between% c(80, 84), "80-84",
-                                            age %between% c(85, 89), "85-89",
-                                            age %between% c(90, 94), "90-94",
-                                            age >= 95, "95-99",
-                                            default = NA_character_
-                                          ))
-                                  ][!is.na(agegrp), .(calculated_deaths = round(sum(deaths_calc))), 
-                                    keyby = .(agegrp, sex)]
-        
+
+        chd_joined <- chd_ftlt_2016[
+          obs_pop_2016,
+          on = c("age", "sex"),
+          nomatch = 0L
+        ][, `:=`(
+          deaths_calc = mu2 * pops,
+          agegrp = fcase(
+            age %between% c(30, 34),
+            "30-34",
+            age %between% c(35, 39),
+            "35-39",
+            age %between% c(40, 44),
+            "40-44",
+            age %between% c(45, 49),
+            "45-49",
+            age %between% c(50, 54),
+            "50-54",
+            age %between% c(55, 59),
+            "55-59",
+            age %between% c(60, 64),
+            "60-64",
+            age %between% c(65, 69),
+            "65-69",
+            age %between% c(70, 74),
+            "70-74",
+            age %between% c(75, 79),
+            "75-79",
+            age %between% c(80, 84),
+            "80-84",
+            age %between% c(85, 89),
+            "85-89",
+            age %between% c(90, 94),
+            "90-94",
+            age >= 95,
+            "95-99",
+            default = NA_character_
+          )
+        )][
+          !is.na(agegrp),
+          .(calculated_deaths = round(sum(deaths_calc))),
+          keyby = .(agegrp, sex)
+        ]
+
         # Register minimal table
-        dbWriteTable(duckdb_con, "chd_ftlt_ext_2016_table", chd_joined, overwrite = TRUE)
+        dbWriteTable(
+          duckdb_con,
+          "chd_ftlt_ext_2016_table",
+          chd_joined,
+          overwrite = TRUE
+        )
         rm(chd_joined) # Immediate cleanup
 
-        
-        # Process stroke mortality efficiently  
-        stroke_ftlt_2016 <- read_fst("inputs/disease_burden/stroke_ftlt.fst", 
-                   columns = c("year", "age", "sex", "mu2"), as.data.table = TRUE)[year == 2016]
-        
-        stroke_joined <- stroke_ftlt_2016[obs_pop_2016, on = c("age", "sex"), nomatch = 0L
-                                        ][, `:=`(deaths_calc = mu2 * pops,
-                                                agegrp = fcase(
-                                                  age %between% c(30, 34), "30-34",
-                                                  age %between% c(35, 39), "35-39",
-                                                  age %between% c(40, 44), "40-44", 
-                                                  age %between% c(45, 49), "45-49",
-                                                  age %between% c(50, 54), "50-54",
-                                                  age %between% c(55, 59), "55-59",
-                                                  age %between% c(60, 64), "60-64",
-                                                  age %between% c(65, 69), "65-69",
-                                                  age %between% c(70, 74), "70-74",
-                                                  age %between% c(75, 79), "75-79",
-                                                  age %between% c(80, 84), "80-84",
-                                                  age %between% c(85, 89), "85-89",
-                                                  age %between% c(90, 94), "90-94",
-                                                  age >= 95, "95-99",
-                                                  default = NA_character_
-                                                ))
-                                        ][!is.na(agegrp), .(calculated_deaths = round(sum(deaths_calc))),
-                                          keyby = .(agegrp, sex)]
-        
-        dbWriteTable(duckdb_con, "stroke_ftlt_ext_2016_table", as.data.frame(stroke_joined), overwrite = TRUE)
+        # Process stroke mortality efficiently
+        stroke_ftlt_2016 <- read_fst(
+          "inputs/disease_burden/stroke_ftlt.fst",
+          columns = c("year", "age", "sex", "mu2"),
+          as.data.table = TRUE
+        )[year == 2016]
+
+        stroke_joined <- stroke_ftlt_2016[
+          obs_pop_2016,
+          on = c("age", "sex"),
+          nomatch = 0L
+        ][, `:=`(
+          deaths_calc = mu2 * pops,
+          agegrp = fcase(
+            age %between% c(30, 34),
+            "30-34",
+            age %between% c(35, 39),
+            "35-39",
+            age %between% c(40, 44),
+            "40-44",
+            age %between% c(45, 49),
+            "45-49",
+            age %between% c(50, 54),
+            "50-54",
+            age %between% c(55, 59),
+            "55-59",
+            age %between% c(60, 64),
+            "60-64",
+            age %between% c(65, 69),
+            "65-69",
+            age %between% c(70, 74),
+            "70-74",
+            age %between% c(75, 79),
+            "75-79",
+            age %between% c(80, 84),
+            "80-84",
+            age %between% c(85, 89),
+            "85-89",
+            age %between% c(90, 94),
+            "90-94",
+            age >= 95,
+            "95-99",
+            default = NA_character_
+          )
+        )][
+          !is.na(agegrp),
+          .(calculated_deaths = round(sum(deaths_calc))),
+          keyby = .(agegrp, sex)
+        ]
+
+        dbWriteTable(
+          duckdb_con,
+          "stroke_ftlt_ext_2016_table",
+          as.data.frame(stroke_joined),
+          overwrite = TRUE
+        )
         rm(stroke_joined) # Immediate cleanup
 
-        
         # Cleanup large intermediate objects immediately
         rm(obs_pop_2016, chd_ftlt_2016, stroke_ftlt_2016)
 
         # Update mortality views
         private$execute_sql(
-          duckdb_con, 
+          duckdb_con,
           "
           CREATE OR REPLACE TEMP VIEW chd_mrtl_2016_agg_view AS
           SELECT i.agegrp, i.sex, 
@@ -3721,7 +3954,7 @@ Simulation <-
 
         # Direct cost parameters
         private$execute_sql(
-          duckdb_con, 
+          duckdb_con,
           "
           CREATE OR REPLACE TEMP VIEW chd_direct_tcost_view AS
           SELECT agegrp2, sex, CAST(tcost_val AS DOUBLE) AS tcost_val FROM (VALUES
@@ -3772,12 +4005,48 @@ Simulation <-
 
         # Create all cost parameter views efficiently
         cost_configs <- list(
-          list("chd_prvl_prdv_cost_param_view", "employees", "employee_params_view", "chd_prvl_2016_agg_view", 141000000000.00),
-          list("stroke_prvl_prdv_cost_param_view", "employees", "employee_params_view", "stroke_prvl_2016_agg_view", 322000000000.00),
-          list("chd_mrtl_prdv_cost_param_view", "employees", "employee_params_view", "chd_mrtl_2016_agg_view", 2257000000000.00),
-          list("stroke_mrtl_prdv_cost_param_view", "employees", "employee_params_view", "stroke_mrtl_2016_agg_view", 1352000000000.00),
-          list("chd_informal_cost_param_view", "infm_care_hrs", "chd_infm_care_view", "chd_prvl_2016_agg_view", 291000000000.00),
-          list("stroke_informal_cost_param_view", "infm_care_hrs", "stroke_infm_care_view", "stroke_prvl_2016_agg_view", 1651000000000.00)
+          list(
+            "chd_prvl_prdv_cost_param_view",
+            "employees",
+            "employee_params_view",
+            "chd_prvl_2016_agg_view",
+            141000000000.00
+          ),
+          list(
+            "stroke_prvl_prdv_cost_param_view",
+            "employees",
+            "employee_params_view",
+            "stroke_prvl_2016_agg_view",
+            322000000000.00
+          ),
+          list(
+            "chd_mrtl_prdv_cost_param_view",
+            "employees",
+            "employee_params_view",
+            "chd_mrtl_2016_agg_view",
+            2257000000000.00
+          ),
+          list(
+            "stroke_mrtl_prdv_cost_param_view",
+            "employees",
+            "employee_params_view",
+            "stroke_mrtl_2016_agg_view",
+            1352000000000.00
+          ),
+          list(
+            "chd_informal_cost_param_view",
+            "infm_care_hrs",
+            "chd_infm_care_view",
+            "chd_prvl_2016_agg_view",
+            291000000000.00
+          ),
+          list(
+            "stroke_informal_cost_param_view",
+            "infm_care_hrs",
+            "stroke_infm_care_view",
+            "stroke_prvl_2016_agg_view",
+            1651000000000.00
+          )
         )
 
         for (config in cost_configs) {
@@ -3824,8 +4093,15 @@ Simulation <-
         "
 
         private$execute_sql(
-          duckdb_con, 
-          sprintf(direct_cost_sql, "chd_direct_cost_param_view", "chd_prvl_2019_agg_view", direct_costs_inflation_factor, "chd_prvl_2019_agg_view", "chd_direct_tcost_view"),
+          duckdb_con,
+          sprintf(
+            direct_cost_sql,
+            "chd_direct_cost_param_view",
+            "chd_prvl_2019_agg_view",
+            direct_costs_inflation_factor,
+            "chd_prvl_2019_agg_view",
+            "chd_direct_tcost_view"
+          ),
           "chd_direct_cost_param_view"
         )
 
@@ -3992,38 +4268,45 @@ Simulation <-
       ) {
         # Normalize path for cross-platform compatibility
         sDirPathName <- normalizePath(sDirPathName, mustWork = FALSE)
-        
+
         if (!dir.exists(sDirPathName)) {
           # Try creating directory with retries for Windows compatibility
           max_retries <- 3
           retry_count <- 0
           bSuccess <- FALSE
-          
+
           while (!bSuccess && retry_count < max_retries) {
             retry_count <- retry_count + 1
-            
-            tryCatch({
-              bSuccess <- dir.create(sDirPathName, recursive = TRUE)
-              
-              # Add small delay for Windows file system sync
-              if (.Platform$OS.type == "windows") {
-                Sys.sleep(0.05)
-              }
-              
-              # Verify directory was actually created
-              if (!dir.exists(sDirPathName)) {
+
+            tryCatch(
+              {
+                bSuccess <- dir.create(sDirPathName, recursive = TRUE)
+
+                # Add small delay for Windows file system sync
+                if (.Platform$OS.type == "windows") {
+                  Sys.sleep(0.05)
+                }
+
+                # Verify directory was actually created
+                if (!dir.exists(sDirPathName)) {
+                  bSuccess <- FALSE
+                }
+              },
+              error = function(e) {
+                warning(sprintf(
+                  "Directory creation attempt %d failed: %s",
+                  retry_count,
+                  e$message
+                ))
                 bSuccess <- FALSE
               }
-            }, error = function(e) {
-              warning(sprintf("Directory creation attempt %d failed: %s", retry_count, e$message))
-              bSuccess <- FALSE
-            })
-            
+            )
+
             if (!bSuccess && retry_count < max_retries) {
               Sys.sleep(0.1 * retry_count) # Progressive backoff
             }
           }
-          
+
           if (!bSuccess) {
             warning(paste0(
               "Failed creating directory ",
@@ -4033,7 +4316,9 @@ Simulation <-
               " attempts"
             ))
           } else {
-            if (bReport) message(paste0("Folder ", sDirPathName, " was created"))
+            if (bReport) {
+              message(paste0("Folder ", sDirPathName, " was created"))
+            }
           }
         }
       },
@@ -4314,7 +4599,11 @@ Simulation <-
       ) {
         # Create output directories
         lapply(
-          paste0(rep(c("dis_characteristics"), each = 2), "_", c("scaled_up", "esp")),
+          paste0(
+            rep(c("dis_characteristics"), each = 2),
+            "_",
+            c("scaled_up", "esp")
+          ),
           function(subdir) {
             private$create_new_folder(private$output_dir(paste0(
               "summaries/",
@@ -4330,22 +4619,25 @@ Simulation <-
 
         # Construct the SQL query dynamically
         # Ensure agegrp is excluded from grouping to aggregate over it
-        select_cols_no_agegrp <- paste(setdiff(strata_noagegrp, "agegrp"), collapse = ", ")
+        select_cols_no_agegrp <- paste(
+          setdiff(strata_noagegrp, "agegrp"),
+          collapse = ", "
+        )
 
         if (length(nm) > 0) {
           # Memory-efficient approach: Process diseases one at a time
           disease_results_scaled_up <- list()
           disease_results_esp <- list()
-          
+
           # Get disease names without _prvl suffix
           disease_names <- gsub("_prvl$", "", nm)
-          
+
           # Process each disease individually to avoid memory issues
           for (i in seq_along(nm)) {
             disease_col <- nm[i]
             disease_name <- disease_names[i]
             quoted_disease_col <- paste0('"', disease_col, '"')
-            
+
             # Query for current disease (scaled_up version)
             disease_query_scaled_up <- sprintf(
               "SELECT %s, '%s' AS disease,
@@ -4368,80 +4660,122 @@ Simulation <-
               quoted_disease_col,
               select_cols_no_agegrp
             )
-            
+
             # Execute and store result for scaled_up
-            result_scaled_up <- private$query_sql(duckdb_con, disease_query_scaled_up, paste("Disease characteristics for", disease_name, "(scaled_up)"))
+            result_scaled_up <- private$query_sql(
+              duckdb_con,
+              disease_query_scaled_up,
+              paste("Disease characteristics for", disease_name, "(scaled_up)")
+            )
             if (nrow(result_scaled_up) > 0) {
               disease_results_scaled_up[[i]] <- result_scaled_up
             }
-            
+
             # Query for current disease (ESP version)
             disease_query_esp <- gsub("wt", "wt_esp", disease_query_scaled_up)
-            
+
             # Execute and store result for ESP
-            result_esp <- private$query_sql(duckdb_con, disease_query_esp, paste("Disease characteristics for", disease_name, "(ESP)"))
+            result_esp <- private$query_sql(
+              duckdb_con,
+              disease_query_esp,
+              paste("Disease characteristics for", disease_name, "(ESP)")
+            )
             if (nrow(result_esp) > 0) {
               disease_results_esp[[i]] <- result_esp
             }
           }
-          
+
           # Combine and process scaled_up results
           if (length(disease_results_scaled_up) > 0) {
             # Remove NULL entries
-            disease_results_scaled_up <- disease_results_scaled_up[!sapply(disease_results_scaled_up, is.null)]
-            
+            disease_results_scaled_up <- disease_results_scaled_up[
+              !sapply(disease_results_scaled_up, is.null)
+            ]
+
             if (length(disease_results_scaled_up) > 0) {
               combined_scaled_up <- rbindlist(disease_results_scaled_up)
               setDT(combined_scaled_up)
-              
+
               # Get strata columns without agegrp for formula
               strata_no_agegrp <- setdiff(strata_noagegrp, "agegrp")
-              
+
               # Create pivot transformation using data.table dcast
               pivot_result_scaled_up <- dcast(
                 combined_scaled_up,
-                formula = as.formula(paste(paste(strata_no_agegrp, collapse = " + "), "~ disease")),
-                value.var = c("cases", "mean_age_incd", "mean_age_prvl", "mean_duration", "mean_cms_score", "mean_cms_count"),
+                formula = as.formula(paste(
+                  paste(strata_no_agegrp, collapse = " + "),
+                  "~ disease"
+                )),
+                value.var = c(
+                  "cases",
+                  "mean_age_incd",
+                  "mean_age_prvl",
+                  "mean_duration",
+                  "mean_cms_score",
+                  "mean_cms_count"
+                ),
                 fill = 0
               )
-              
+
               # Order by strata columns (excluding agegrp)
               setkeyv(pivot_result_scaled_up, strata_no_agegrp)
-              
+
               # Write scaled_up version
               output_path <- private$output_dir(
-                paste0("summaries/dis_characteristics_scaled_up/", mcaggr, "_dis_characteristics_scaled_up.", ext)
+                paste0(
+                  "summaries/dis_characteristics_scaled_up/",
+                  mcaggr,
+                  "_dis_characteristics_scaled_up.",
+                  ext
+                )
               )
               arrow::write_parquet(pivot_result_scaled_up, output_path)
             }
           }
-          
+
           # Combine and process ESP results
           if (length(disease_results_esp) > 0) {
             # Remove NULL entries
-            disease_results_esp <- disease_results_esp[!sapply(disease_results_esp, is.null)]
-            
+            disease_results_esp <- disease_results_esp[
+              !sapply(disease_results_esp, is.null)
+            ]
+
             if (length(disease_results_esp) > 0) {
               combined_esp <- rbindlist(disease_results_esp)
               setDT(combined_esp)
-              
+
               # Get strata columns without agegrp for formula
               strata_no_agegrp <- setdiff(strata_noagegrp, "agegrp")
-              
+
               # Create pivot transformation using data.table dcast
               pivot_result_esp <- dcast(
                 combined_esp,
-                formula = as.formula(paste(paste(strata_no_agegrp, collapse = " + "), "~ disease")),
-                value.var = c("cases", "mean_age_incd", "mean_age_prvl", "mean_duration", "mean_cms_score", "mean_cms_count"),
+                formula = as.formula(paste(
+                  paste(strata_no_agegrp, collapse = " + "),
+                  "~ disease"
+                )),
+                value.var = c(
+                  "cases",
+                  "mean_age_incd",
+                  "mean_age_prvl",
+                  "mean_duration",
+                  "mean_cms_score",
+                  "mean_cms_count"
+                ),
                 fill = 0
               )
-              
+
               # Order by strata columns (excluding agegrp)
               setkeyv(pivot_result_esp, strata_no_agegrp)
-              
+
               # Write ESP version
               output_path_esp <- private$output_dir(
-                paste0("summaries/dis_characteristics_esp/", mcaggr, "_dis_characteristics_esp.", ext)
+                paste0(
+                  "summaries/dis_characteristics_esp/",
+                  mcaggr,
+                  "_dis_characteristics_esp.",
+                  ext
+                )
               )
               arrow::write_parquet(pivot_result_esp, output_path_esp)
             }
@@ -4812,7 +5146,10 @@ Simulation <-
 
         # Get disease prevalence columns from DuckDB schema
         lc_table_name <- "lc_table"
-        schema <- private$query_sql(duckdb_con, sprintf("DESCRIBE %s;", lc_table_name))
+        schema <- private$query_sql(
+          duckdb_con,
+          sprintf("DESCRIBE %s;", lc_table_name)
+        )
         prvl_cols <- schema$column_name[endsWith(schema$column_name, "_prvl")]
         disease_names <- gsub("_prvl$", "", prvl_cols)
 
@@ -5131,11 +5468,15 @@ Simulation <-
         )
 
         # get scenario names
-        scnams <- gsub("^scenario=", "", list.dirs(
-          private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))),
-          full.names = FALSE,
-          recursive = FALSE
-        ))
+        scnams <- gsub(
+          "^scenario=",
+          "",
+          list.dirs(
+            private$output_dir(file.path("lifecourse", paste0("mc=", mcaggr))),
+            full.names = FALSE,
+            recursive = FALSE
+          )
+        )
         # Safer but slow
         # scnam <- private$query_sql(
         #   duckdb_con,
@@ -5194,12 +5535,12 @@ Simulation <-
         # Initialize result collectors for both ESP and scaled-up results
         esp_results <- list()
         scaled_up_results <- list()
-        
+
         # Process each scenario individually to avoid loading all scenarios in RAM
         for (i in seq_along(scnams)) {
           scnam <- scnams[i]
           view_name <- costs_scn_views[i]
-          
+
           # ESP query for current scenario
           query_esp_scenario <- sprintf(
             "SELECT %s, SUM(wt_esp) AS popsize, %s
@@ -5210,12 +5551,20 @@ Simulation <-
             view_name,
             quoted_strata_cols_sql
           )
-          
+
           # Execute and store result for ESP
-          esp_results[[i]] <- as.data.table(private$query_sql(duckdb_con, query_esp_scenario, paste("ESP costs for scenario", scnam)))
-          
+          esp_results[[i]] <- as.data.table(private$query_sql(
+            duckdb_con,
+            query_esp_scenario,
+            paste("ESP costs for scenario", scnam)
+          ))
+
           # Scaled-up query for current scenario (replace wt_esp with wt)
-          cost_metrics_select_wt <- gsub("wt_esp", "wt", cost_metrics_select_wt_esp)
+          cost_metrics_select_wt <- gsub(
+            "wt_esp",
+            "wt",
+            cost_metrics_select_wt_esp
+          )
           query_scaled_up_scenario <- sprintf(
             "SELECT %s, SUM(wt) AS popsize, %s
              FROM %s
@@ -5225,39 +5574,51 @@ Simulation <-
             view_name,
             quoted_strata_cols_sql
           )
-          
+
           # Execute and store result for scaled-up
-          scaled_up_results[[i]] <- as.data.table(private$query_sql(duckdb_con, query_scaled_up_scenario, paste("Scaled-up costs for scenario", scnam)))
+          scaled_up_results[[i]] <- as.data.table(private$query_sql(
+            duckdb_con,
+            query_scaled_up_scenario,
+            paste("Scaled-up costs for scenario", scnam)
+          ))
         }
-        
+
         # Combine all ESP results and write to disk
         if (length(esp_results) > 0) {
           combined_esp <- rbindlist(esp_results, use.names = TRUE, fill = TRUE)
           rm(esp_results)
           # Order by strata columns
           setkeyv(combined_esp, strata)
-          
+
           output_path_esp <- private$output_dir(
             paste0("summaries/costs_esp/", mcaggr, "_costs_esp.", ext)
           )
-          
+
           arrow::write_parquet(combined_esp, output_path_esp)
         }
-        
+
         # Combine all scaled-up results and write to disk
         if (length(scaled_up_results) > 0) {
-          combined_scaled_up <- rbindlist(scaled_up_results, use.names = TRUE, fill = TRUE)
+          combined_scaled_up <- rbindlist(
+            scaled_up_results,
+            use.names = TRUE,
+            fill = TRUE
+          )
           rm(scaled_up_results)
           # Order by strata columns
           setkeyv(combined_scaled_up, strata)
 
           output_path_scaled_up <- private$output_dir(
-            paste0("summaries/costs_scaled_up/", mcaggr, "_costs_scaled_up.", ext)
+            paste0(
+              "summaries/costs_scaled_up/",
+              mcaggr,
+              "_costs_scaled_up.",
+              ext
+            )
           )
-          
+
           arrow::write_parquet(combined_scaled_up, output_path_scaled_up)
         }
-
 
         # Drop the temporary views if they're no longer needed for this mcaggr
         sapply(costs_scn_views, function(view_name) {

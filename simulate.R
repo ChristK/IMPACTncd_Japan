@@ -3,7 +3,7 @@
 # break simcpp
 # run
 source("./global.R")
-IMPACTncd <- Simulation$new("./inputs/sim_design.yaml")
+IMPACTncd <- Simulation$new("./inputs/sim_design_test.yaml")
 
 # IMPACTncd$del_parfs()
 # IMPACTncd$del_synthpops()

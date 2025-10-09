@@ -10,7 +10,7 @@ A simulation environment.
 To be completed...
 }
 \note{
-The calibration parameters are stored in `./simulation/calibration_prms.csv` 
+The calibration parameters are stored in `./simulation/calibration_prms.csv`
   and are automatically applied in subsequent simulations.
 }
 \section{Calibration Process}{
@@ -49,11 +49,11 @@ The calibration process follows these steps for each age from `ageL` to `ageH`:
 
 
 \itemize{
-  \item **Sequential Processing**: Ages are processed sequentially to ensure proper 
+  \item **Sequential Processing**: Ages are processed sequentially to ensure proper
     prevalence carryover between age groups
-  \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends 
+  \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends
     in the calibration period
-  \item **Robust Estimation**: Employs median-based estimators to handle 
+  \item **Robust Estimation**: Employs median-based estimators to handle
     rare events and reduce Monte Carlo variability
 }
 }
@@ -242,7 +242,7 @@ that simulation outputs match observed epidemiological patterns.
 \item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
 iterations of synthetic population to simulate, or a scalar.}
 
-\item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and 
+\item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and
 starts from scratch. If FALSE, continues from the last uncalibrated age.}
 }
 \if{html}{\out{</div>}}
@@ -359,7 +359,7 @@ Otherwise, if a named node only the subgraph of the 1st order
 neighbours that point to the given vertrice is returned.}
 
 \item{\code{mode}}{Character. When focus is specified, determines direction:
-"in" for neighbors pointing to the node, "out" for neighbors 
+"in" for neighbors pointing to the node, "out" for neighbors
 stemming from the node, "all" for both directions.}
 
 \item{\code{order}}{Integer. When focus is specified, determines how many

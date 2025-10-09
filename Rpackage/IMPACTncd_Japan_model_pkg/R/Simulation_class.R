@@ -1068,7 +1068,7 @@ Simulation <-
           stop("No scenarios found in lifecourse data")
         }
 
-        # test that the rng seeds that were generated for each scenario/sp$mc
+        # test that the rng seeds that were generated for each scenario/sp$mc_aggr
         # combination are unique
         scn_set <- c(paste0("primary", scn_set), paste0("secondary", scn_set))
         rng_seeds <- sapply(mc_set, function(i) digest2int(scn_set, i))
@@ -3067,18 +3067,21 @@ Simulation <-
 
         # Isolate tha rng state for the user defines scenarios
         rs <- .Random.seed
-        dqrs <- dqrng::dqrng_get_state()
-        sdn <- digest2int(paste0("primary", scenario_nam), sp$mc) # Not mc_aggr
+        dqrs <- dqrng_get_state()
+        sdn <- digest2int(paste0("primary", scenario_nam), sp$mc_aggr) # sp$mc_aggr ensures same seed for sp batches that stem from the same sp.
+        # consequently if the user needs different seeds for different batches
+        # they have to explicitly use a new seed, generate rn and then restore
+        # the seed.
         set.seed(sdn) # set seed based on scenario name
         dqset.seed(sdn)
         # Note that above does nor guarantee that different scenario_name/sp$mc combination
         # always generate different seed. But the probability of collision is
         # very low. export_summaries() checks if collision happened and warns user.
-        
-        private$primary_prevention_scn(sp) # apply primary pevention scenario
+
+        private$primary_prevention_scn(sp) # apply primary prevention scenario
         # message("scenario finished")
         set.seed(rs)
-        dqset.seed(dqrs)
+        dqrng_set_state(dqrs)
 
         lapply(self$diseases, function(x) {
           x$set_rr(sp, self$design)$set_incd_prb(sp, self$design)$set_dgns_prb(
@@ -3090,8 +3093,11 @@ Simulation <-
 
         # Isolate tha rng state for the user defines scenarios
         rs <- .Random.seed
-        dqrs <- dqrng::dqrng_get_state()
-        sdn <- digest2int(paste0("secondary", scenario_nam), sp$mc) # Not mc_aggr
+        dqrs <- dqrng_get_state()
+        sdn <- digest2int(paste0("secondary", scenario_nam), sp$mc_aggr) # sp$mc_aggr ensures same seed for sp batches that stem from the same sp.
+        # consequently if the user needs different seeds for different batches
+        # they have to explicitly use a new seed, generate rn and then restore
+        # the seed.
         set.seed(sdn) # set seed based on scenario name
         dqset.seed(sdn) # Note that above does nor guarantee that different scenario_name/sp$mc combination
         # always generate different seed. But the probability of collision is
@@ -3100,7 +3106,7 @@ Simulation <-
         # message("2nd scenario finished")
         # message("scenario finished")
         set.seed(rs)
-        dqset.seed(dqrs)
+        dqrng_set_state(dqrs)
 
         # ds <- copy(self$diseases) # Necessary for parallelisation
         # lapply(self$diseases, function(x) {

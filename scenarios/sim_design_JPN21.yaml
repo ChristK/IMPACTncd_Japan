@@ -1,0 +1,177 @@
+iteration_n: 100
+clusternumber: 56 # explicit parallelisation
+clusternumber_export: 20 # NEW: number of clusters for export_summaries
+logs: yes
+export_xps: yes
+export_PARF: no
+'n': 100000 # The number of simulants in each chunk. A Monte Carlo iteration consists of 1 to 10 chunks.
+num_chunks: 4 # number of chunks (num_chunks is clearer than chunk_number)
+init_year_long: 2001  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007. Need to be <= 2016 for costs to work.
+sim_horizon_max: 2040 # population projections do not support longer horizon corresponding to CJ function
+ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass
+ageH: 99 # This was based on observed exposure data and observed population size
+apply_RR_to_mrtl2: yes # Is disease mortality influenced by exposures like incidence does? NOTE it affects nonmodelled as well
+calibrate_to_incd_trends: yes # Use incidence calibration multipliers from file
+calibrate_to_ftlt_trends: yes # Use fatality calibration multipliers from file
+init_year_incd_calibration: no # Indicates whether parf*p0 is calibrated to incd for the initial year
+incd_uncertainty_distr: beta #  The distribution of incidence uncertainty. Either beta or uniform.
+prvl_uncertainty_distr: beta #  The distribution of prevalence uncertainty. Either beta or uniform.
+ftlt_uncertainty_distr: beta #  The distribution of case fatality uncertainty. Either beta or uniform.
+output_dir: /mnt/dataAnalyses/IMPACT_NON_git/outputs_and_synthpop/outputs # ./outputs
+synthpop_dir: /mnt/dataAnalyses/IMPACT_NON_git/outputs_and_synthpop/synthpop # ./inputs/synthpop
+
+diseases:
+- name: LDLcOver160
+  friendly_name: LDLc_over_160_mgdL
+  meta:
+    incidence:
+      type: 1 # deterministically depend on exposure(s) not relative risk.
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: yes # cure depends on the relevant exposure(s)
+    diagnosis:
+      type: 1
+      probability: 1
+      mm_wt: 0.0
+    mortality:
+      type: ~ # NULL
+  notes: .na
+- name: obesity
+  friendly_name: Obesity
+  meta:
+    incidence:
+      type: 1 # deterministically depend on exposure(s) not relative risk.
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: yes # cure depends on the relevant exposure(s)
+    diagnosis:
+      type: 1
+      probability: 1
+      mm_wt: 0.0
+    mortality:
+      type: ~ # NULL
+  notes: .na
+- name: htn
+  friendly_name: Hypertension
+  meta:
+    incidence:
+      type: 1 # deterministically depend on exposure(s) not relative risk.
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: no # once hypertensive always hypertensive
+    diagnosis:
+      type: 1
+      probability: 1
+      mm_wt: 0.0
+    mortality:
+      type: ~ # NULL
+  notes: .na
+- name: t2dm
+  friendly_name: T2DM
+  meta:
+    incidence:
+      type: 1
+      aggregation: 'any' # Other option is "all". If more than one RF is case definition expects any or all to be present?. Irrelevant for 1 RF
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      mm_wt: 0.0
+    mortality:
+      type: ~
+  notes: .na
+- name: chd
+  friendly_name: CHD
+  meta:
+    incidence:
+      type: 2 # it depends on exposure and relative risk
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      duration_distr: NBI
+      mm_wt: 0.49
+    mortality:
+      type: 1
+      code: 2
+  notes: .na
+- name: stroke
+  friendly_name: Stroke
+  meta:
+    incidence:
+      type: 2
+      can_recur: no
+    diagnosis:
+      type: 1
+      probability: 1
+      duration_distr: PIG
+      mm_wt: 0.8
+    mortality:
+      type: 1
+      code: 3
+  notes: .na
+- name: cvd
+  friendly_name: CVD
+  meta:
+    incidence:
+      type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
+      influenced_by_disease_name:
+        - chd
+        - stroke
+    diagnosis:
+      type: 0
+      mm_wt: 0.0
+    mortality:
+      type: ~
+  notes: .na
+- name: nonmodelled
+  friendly_name: nonmodelled
+  meta:
+    incidence:
+      type: Universal
+    diagnosis:
+      type: ~ # NULL
+    mortality:
+      type: 3 # influenced by
+      influenced_by_disease_name:
+        - t2dm
+      # type: 1
+      code: 1
+  notes: .na
+maxlag: 6 # To allow init year of 2001. 
+jumpiness: 1.0 # increase for more erratic jumps in trajectories
+keep_simulants_rn: yes # Keep the random numbers used to generate the exposures for each simulants
+load_simulants_rn: yes # Load the random numbers used to generate the exposures for each simulants. Set to no if the random numbers are not necessary for the scenarios.
+decision_aid: 0.8
+stochastic: yes
+kismet: yes
+max_prvl_for_outputs: 2 # duration 1 is incidence and 2 is prevalence
+iteration_n_max: 1000
+scenarios: ''
+cols_for_output:
+- pid # NEED TO be 1st (perhaps not anymore)
+- pid_mrk
+- year
+- mc
+- age
+- agegrp
+- sex
+- wt
+- wt_esp
+strata_for_output:
+- scenario
+- year
+- agegrp
+- sex
+exposures:
+- age
+- sex
+- Fruit_vege
+- Smoking
+- Smoking_number
+- Med_HT
+- Med_HL
+- Med_DM
+- PA_days
+- PA_3cat
+- BMI
+- HbA1c
+- LDLc
+- SBP

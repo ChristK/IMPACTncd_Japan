@@ -3,7 +3,7 @@ xps_name: BMI
 outcome: obesity
 lag: 0
 distribution: lognormal
-source: ???
+source: guideline_driven
 notes: The usual 25 kg/m2 cut-off
 apply_rr_extra_fn: >
   function(sp) {

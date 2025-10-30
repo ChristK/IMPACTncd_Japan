@@ -3272,11 +3272,11 @@ Simulation <-
 
         to_agegrp(
           sp$pop,
-          grp_width = 20L,
-          max_age = self$design$sim_prm$ageH,
+          grp_width = 10L,
+          max_age = min(70L, self$design$sim_prm$ageH),
           min_age = self$design$sim_prm$ageL,
           age_colname = "age",
-          agegrp_colname = "agegrp20",
+          agegrp_colname = "agegrp10",
           to_factor = TRUE
         )
 
@@ -3311,13 +3311,13 @@ Simulation <-
               age >= self$design$sim_prm$ageL,
           ],
           j = lapply(.SD, weighted.mean, wt, na.rm = TRUE),
-          by = c("year", "sex", "agegrp20"), # "ethnicity", "sha"
+          by = c("year", "sex", "agegrp10"), # "ethnicity", "sha"
           .SDcols = xps,
           sets = list(
             "year",
-            c("year", "agegrp20"),
+            c("year", "agegrp10"),
             c("year", "sex"),
-            c("year", "agegrp20", "sex")
+            c("year", "agegrp10", "sex")
             # c("year", "ethnicity"),
             # c("year", "sha")
           )
@@ -3413,7 +3413,7 @@ Simulation <-
         # Tidy up
         sp$pop[,
           c(
-            "agegrp20",
+            "agegrp10",
             "smok_never_curr_xps",
             "smok_active_curr_xps",
             "pa567_curr_xps"

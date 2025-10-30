@@ -867,3 +867,61 @@ setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
 
+# XPS - SBP 40+ standardised ----
+xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps", "xpsJPN21")))
+xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
+
+outstrata <- c("mc", "year", "sex", "scenario")
+d <- xps_tab[sex != "All"] # This should depend on outstrata
+d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+d <- melt(d, id.vars = outstrata)
+setkey(d, "variable")
+d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+setkeyv(d, setdiff(outstrata, "mc"))
+fwrite(d, file.path(sTablesSubDirPath, "exposure SBP by year-sex (age standardised 40+).csv"))
+
+outstrata <- c("mc", "year", "scenario")
+d <- xps_tab[sex == "All"] # This should depend on outstrata
+d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
+d <- melt(d, id.vars = outstrata)
+setkey(d, "variable")
+d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
+setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
+setkeyv(d, setdiff(outstrata, "mc"))
+fwrite(d, file.path(sTablesSubDirPath, "exposure SBP by year (age-sex standardised 40+).csv"))
+
+# obesity prevalence ----
+fpth <- file.path(
+  output_dir,
+  "summaries",
+  paste0("prvl", "_esp")
+)
+if (!file.exists(fpth)) stop(fpth, " doesn't exist")
+
+t1 <- as.data.table(open_dataset(fpth)) 
+d <- t1[
+  (sex == "men" & agegrp %in% agegrp_name(30, 69, 5)) |
+    (sex == "women" & agegrp %in% agegrp_name(40, 69, 5))
+]
+d <- d[, sum(obesity_prvl) / sum(popsize), keyby = .(mc, year, scenario, sex)
+  ][, as.list(quantile(V1, prbl)), keyby = .(year, scenario, sex)]
+setnames(d, paste0(prbl * 100, "%"), paste0("obesity_prvl_", prbl * 100, "%"))
+fwrite(d, file.path(sTablesSubDirPath, "obesity by year-sex (age standardised 30-69 men, 40-69 women).csv"))
+
+LDLcOver160
+d <- t1[
+  (agegrp %in% agegrp_name(30, 99, 5))
+]
+d <- d[,
+  sum(LDLcOver160_prvl) / sum(popsize),
+  keyby = .(mc, year, scenario)
+][, as.list(quantile(V1, prbl)), keyby = .(year, scenario)]
+setnames(d, paste0(prbl * 100, "%"), paste0("LDLcOver160_prvl_", prbl * 100, "%"))
+fwrite(
+  d,
+  file.path(
+    sTablesSubDirPath,
+    "LDLcOver160 by year (age-sex standardised 40-99).csv"
+  )
+)

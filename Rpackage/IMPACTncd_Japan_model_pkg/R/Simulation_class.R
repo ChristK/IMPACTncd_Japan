@@ -3296,7 +3296,7 @@ Simulation <-
 
         xps <- grep("_curr_xps$", names(sp$pop), value = TRUE)
         xps <- grep("_prvl_curr_xps$", xps, value = TRUE, invert = TRUE)
-        xps <- xps[-which(xps %in% c("Smoking_curr_xps", "PA_days_curr_xps"))]
+        xps <- xps[!xps %in% c("Smoking_curr_xps", "PA_days_curr_xps")]
         sp$pop[
           Smoking_curr_xps != "3",
           `:=`(
@@ -3373,6 +3373,42 @@ Simulation <-
 
         # NOTE parquet format about 30 times smaller but about 50% slower in writting to disk
         write_dataset(dataset = out_xps5, path = fnam, format = fileformat)
+
+
+      if (TRUE) { # TODO Set to FALSE when JPN21 project is over
+        out_xpsJPN21 <- groupingsets(
+          sp$pop[
+            all_cause_mrtl >= 0L &
+              year >= self$design$sim_prm$init_year_long &
+              age >= 40L,
+          ],
+          j = lapply(.SD, weighted.mean, wt_esp, na.rm = TRUE), # TODO avoid append option
+          by = c("year", "sex"), # "ethnicity", "sha"
+          .SDcols = "SBP_curr_xps",
+          sets = list(
+            "year",
+            c("year", "sex")
+            # c("year", "ethnicity"),
+            # c("year", "sha")
+          )
+        )[, `:=`(year = year, mc = sp$mc, scenario = scenario_nam)]
+        for (j in names(out_xpsJPN21)[-which(names(out_xpsJPN21) %in% xps)]) {
+          set(out_xpsJPN21, which(is.na(out_xpsJPN21[[j]])), j, "All")
+        }
+        setkey(out_xpsJPN21, year)
+
+        fnam <- private$output_dir(file.path(
+          "xps",
+          "xpsJPN21",
+          paste0("mc=", sp$mc_aggr),
+          paste0("scenario=", scenario_nam),
+          paste0(sp$mc, "_xps_esp.", fileformat)
+        ))
+
+        # NOTE parquet format about 30 times smaller but about 50% slower in writting to disk
+        write_dataset(dataset = out_xpsJPN21, path = fnam, format = fileformat)
+      }
+
 
         # Tidy up
         sp$pop[,

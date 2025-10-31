@@ -909,9 +909,9 @@ d <- d[, sum(obesity_prvl) / sum(popsize), keyby = .(mc, year, scenario, sex)
 setnames(d, paste0(prbl * 100, "%"), paste0("obesity_prvl_", prbl * 100, "%"))
 fwrite(d, file.path(sTablesSubDirPath, "obesity by year-sex (age standardised 30-69 men, 40-69 women).csv"))
 
-LDLcOver160
+# LDLcOver160  prevalence ----
 d <- t1[
-  (agegrp %in% agegrp_name(30, 99, 5))
+  (agegrp %in% agegrp_name(40 99, 5))
 ]
 d <- d[,
   sum(LDLcOver160_prvl) / sum(popsize),

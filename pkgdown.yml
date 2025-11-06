@@ -1,0 +1,18 @@
+pandoc: 3.1.3
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  docker-setup: docker-setup.html
+  extending-model: extending-model.html
+  installation: installation.html
+  model-architecture: model-architecture.html
+  publications: publications.html
+  quickstart: quickstart.html
+  running-simulations: running-simulations.html
+  scenario-analysis: scenario-analysis.html
+  technical-appendix: technical-appendix.html
+  troubleshooting: troubleshooting.html
+last_built: 2025-11-06T17:33Z
+urls:
+  reference: https://christk.github.io/IMPACTncd_Japan/reference
+  article: https://christk.github.io/IMPACTncd_Japan/articles

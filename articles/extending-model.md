@@ -1,0 +1,490 @@
+# Extending the Model
+
+## Extending IMPACTncd-Japan
+
+This guide shows how to extend IMPACTncd-Japan with new diseases, risk
+factors, and functionality.
+
+### Architecture Overview
+
+IMPACTncd-Japan uses an object-oriented design with R6 classes that
+makes extension straightforward. The main extension points are:
+
+- **New diseases**: Add disease models by inheriting from the `Disease`
+  class
+- **New risk factors**: Add exposures by inheriting from the `Exposure`
+  class  
+- **New functionality**: Extend existing classes or create new ones
+- **Custom calibration**: Implement domain-specific calibration
+  procedures
+
+### Adding a New Disease
+
+#### Step 1: Create Disease Class
+
+``` r
+# Define new disease class
+Dementia <- R6::R6Class("Dementia", inherit = Disease,
+  public = list(
+    initialize = function() {
+      super$initialize("dementia")
+      
+      # Disease-specific parameters
+      private$.onset_age_min <- 65
+      private$.has_subclinical_phase <- TRUE
+      private$.mortality_multiplier <- 2.5
+    },
+    
+    # Implement required methods
+    calculate_incidence = function(population, year, design) {
+      # Age-specific incidence rates
+      baseline_rates <- private$.get_baseline_incidence(year)
+      
+      # Apply risk factor effects
+      rr_age <- private$.calculate_age_effect(population$age)
+      rr_sex <- private$.calculate_sex_effect(population$sex)
+      rr_education <- private$.calculate_education_effect(population$education)
+      rr_apoe <- private$.calculate_genetic_effect(population$apoe4)
+      
+      # Combined relative risk
+      relative_risk <- rr_age * rr_sex * rr_education * rr_apoe
+      
+      # Calculate individual probabilities
+      incidence_prob <- baseline_rates[population$age] * relative_risk
+      
+      return(incidence_prob)
+    },
+    
+    apply_case_fatality = function(cases, year, design) {
+      # Dementia-specific mortality
+      baseline_cf <- private$.get_baseline_case_fatality(year)
+      
+      # Modify by severity and care quality
+      severity_multiplier <- ifelse(cases$dementia_severity == "severe", 1.5, 1.0)
+      care_quality_effect <- design$care_prm$dementia_care_quality
+      
+      case_fatality <- baseline_cf * severity_multiplier * care_quality_effect
+      
+      return(case_fatality)
+    }
+  ),
+  
+  private = list(
+    .onset_age_min = NULL,
+    .has_subclinical_phase = NULL,
+    .mortality_multiplier = NULL,
+    
+    .get_baseline_incidence = function(year) {
+      # Load or calculate baseline incidence rates by age
+      # This would typically come from epidemiological data
+      rates <- c(
+        rep(0, 64),                    # Ages 0-64: zero risk
+        seq(0.001, 0.05, length.out = 36)  # Ages 65-100: increasing risk
+      )
+      return(rates)
+    },
+    
+    .get_baseline_case_fatality = function(year) {
+      # Baseline case fatality rate
+      return(0.15)  # 15% annual mortality for dementia patients
+    },
+    
+    .calculate_age_effect = function(age) {
+      # Exponential increase with age after 65
+      ifelse(age < 65, 0, exp((age - 65) * 0.08))
+    },
+    
+    .calculate_sex_effect = function(sex) {
+      # Higher risk for women
+      ifelse(sex == 0, 1.0, 1.3)  # 0=male, 1=female
+    },
+    
+    .calculate_education_effect = function(education) {
+      # Protective effect of education
+      case_when(
+        education == "high" ~ 0.7,
+        education == "medium" ~ 0.85,
+        education == "low" ~ 1.0,
+        TRUE ~ 1.0
+      )
+    },
+    
+    .calculate_genetic_effect = function(apoe4) {
+      # APOE4 genetic risk factor
+      case_when(
+        apoe4 == 0 ~ 1.0,      # No copies
+        apoe4 == 1 ~ 3.0,      # One copy
+        apoe4 == 2 ~ 15.0,     # Two copies (rare)
+        TRUE ~ 1.0
+      )
+    }
+  )
+)
+```
+
+#### Step 2: Register Disease
+
+``` r
+# Add to disease registry
+register_disease <- function(design) {
+  design$diseases[["dementia"]] <- Dementia$new()
+  return(design)
+}
+
+# Use in simulation
+design <- Design$new()
+design <- register_disease(design)
+```
+
+#### Step 3: Add Configuration
+
+``` yaml
+# In sim_design.yaml
+diseases:
+  - CHD
+  - Stroke
+  - Diabetes
+  - COPD
+  - Lung_cancer
+  - Dementia  # New disease
+
+# Disease-specific parameters
+dementia_prm:
+  onset_age_min: 65
+  subclinical_duration: 5
+  genetic_testing: true
+  care_quality_improvement: 0.02  # 2% annual improvement
+```
+
+### Adding a New Risk Factor
+
+#### Step 1: Create Exposure Class
+
+``` r
+# Define new exposure class
+Diet <- R6::R6Class("Diet", inherit = Exposure,
+  public = list(
+    initialize = function() {
+      super$initialize("diet_quality")
+      
+      # Exposure-specific parameters
+      private$.scale <- "continuous"  # continuous, ordinal, or binary
+      private$.range <- c(0, 100)     # Diet quality score 0-100
+      private$.unit <- "score"
+    },
+    
+    simulate_trajectory = function(population, years, design) {
+      # Initialize diet quality scores
+      if (!"diet_quality" %in% names(population)) {
+        population$diet_quality <- private$.initialize_diet_scores(population)
+      }
+      
+      # Simulate year-by-year changes
+      for (year in years) {
+        population$diet_quality <- private$.update_diet_scores(
+          population, year, design
+        )
+      }
+      
+      return(population)
+    },
+    
+    get_disease_effects = function() {
+      # Return relative risks for associated diseases
+      list(
+        CHD = list(
+          type = "continuous",
+          effect_per_unit = -0.02,    # 2% RR reduction per point
+          reference_value = 50
+        ),
+        Stroke = list(
+          type = "continuous", 
+          effect_per_unit = -0.015,   # 1.5% RR reduction per point
+          reference_value = 50
+        ),
+        Diabetes = list(
+          type = "continuous",
+          effect_per_unit = -0.025,   # 2.5% RR reduction per point
+          reference_value = 50
+        )
+      )
+    }
+  ),
+  
+  private = list(
+    .scale = NULL,
+    .range = NULL,
+    .unit = NULL,
+    
+    .initialize_diet_scores = function(population) {
+      # Initialize based on demographics and other factors
+      baseline_score <- 50  # Population mean
+      
+      # Age effects (diet quality improves with age)
+      age_effect <- (population$age - 40) * 0.2
+      
+      # Sex effects (women tend to have better diet)
+      sex_effect <- ifelse(population$sex == 1, 5, 0)
+      
+      # Education effects
+      education_effect <- case_when(
+        population$education == "high" ~ 10,
+        population$education == "medium" ~ 5,
+        population$education == "low" ~ 0,
+        TRUE ~ 0
+      )
+      
+      # Random variation
+      random_effect <- rnorm(nrow(population), 0, 10)
+      
+      # Combine effects
+      diet_scores <- baseline_score + age_effect + sex_effect + 
+                    education_effect + random_effect
+      
+      # Constrain to valid range
+      diet_scores <- pmax(0, pmin(100, diet_scores))
+      
+      return(diet_scores)
+    },
+    
+    .update_diet_scores = function(population, year, design) {
+      current_scores <- population$diet_quality
+      
+      # Secular trends (improving diet over time)
+      trend_effect <- design$exposure_prm$diet_trend * (year - 2020)
+      
+      # Age-related changes (small decline with aging)
+      age_change <- rnorm(nrow(population), -0.1, 0.5)
+      
+      # Policy interventions
+      intervention_effect <- private$.apply_interventions(population, year, design)
+      
+      # Update scores
+      new_scores <- current_scores + trend_effect + age_change + intervention_effect
+      
+      # Add random variation
+      new_scores <- new_scores + rnorm(nrow(population), 0, 1)
+      
+      # Constrain to valid range
+      new_scores <- pmax(0, pmin(100, new_scores))
+      
+      return(new_scores)
+    },
+    
+    .apply_interventions = function(population, year, design) {
+      intervention_effect <- rep(0, nrow(population))
+      
+      # Check for diet intervention
+      if (!is.null(design$interventions$diet)) {
+        intervention <- design$interventions$diet
+        
+        if (year >= intervention$start_year) {
+          # Calculate intervention effect
+          years_since_start <- year - intervention$start_year
+          max_effect <- intervention$max_effect
+          
+          # Gradual implementation
+          current_effect <- max_effect * 
+            (1 - exp(-years_since_start / intervention$ramp_years))
+          
+          # Apply to covered population
+          covered <- rbinom(nrow(population), 1, intervention$coverage)
+          intervention_effect <- covered * current_effect
+        }
+      }
+      
+      return(intervention_effect)
+    }
+  )
+)
+```
+
+#### Step 2: Integration
+
+``` r
+# Register exposure
+register_diet_exposure <- function(design) {
+  design$exposures[["diet_quality"]] <- Diet$new()
+  return(design)
+}
+
+# Configure in YAML
+# exposure_prm:
+#   diet_trend: 0.5  # 0.5 point improvement per year
+```
+
+### Adding Custom Functionality
+
+#### New Output Formats
+
+``` r
+# Custom export class
+CustomExporter <- R6::R6Class("CustomExporter",
+  public = list(
+    export_policy_summary = function(simulation_results, policy_name) {
+      # Create policy-specific summary
+      summary <- simulation_results %>%
+        filter(scenario == policy_name) %>%
+        group_by(year, age_group) %>%
+        summarise(
+          deaths_averted = sum(deaths_baseline - deaths_scenario),
+          qalys_gained = sum(qalys_scenario - qalys_baseline),
+          cost_savings = sum(costs_baseline - costs_scenario)
+        )
+      
+      # Export to custom format
+      write_csv(summary, paste0("policy_summary_", policy_name, ".csv"))
+      
+      # Create visualization
+      plot <- create_policy_plot(summary)
+      ggsave(paste0("policy_impact_", policy_name, ".png"), plot)
+      
+      return(summary)
+    }
+  )
+)
+```
+
+#### Custom Calibration
+
+``` r
+# Disease-specific calibration
+calibrate_dementia <- function(design, target_data) {
+  # Custom calibration for dementia model
+  objective_function <- function(params) {
+    # Update model parameters
+    design$diseases$dementia$set_parameters(params)
+    
+    # Run short simulation
+    results <- run_calibration_simulation(design)
+    
+    # Calculate distance from targets
+    distance <- calculate_calibration_distance(results, target_data)
+    
+    return(distance)
+  }
+  
+  # Optimize parameters
+  optimal_params <- optim(
+    par = design$diseases$dementia$get_parameters(),
+    fn = objective_function,
+    method = "L-BFGS-B"
+  )
+  
+  return(optimal_params)
+}
+```
+
+### Best Practices
+
+#### Code Organization
+
+``` r
+# Organize extensions in separate files
+# R/diseases/dementia.R
+# R/exposures/diet.R  
+# R/extensions/custom_calibration.R
+
+# Use consistent naming conventions
+# Classes: PascalCase (e.g., Dementia, DietQuality)
+# Methods: snake_case (e.g., calculate_incidence)
+# Parameters: snake_case (e.g., onset_age_min)
+```
+
+#### Testing Extensions
+
+``` r
+# Create tests for new functionality
+test_that("Dementia incidence calculation works correctly", {
+  # Create test population
+  test_pop <- data.table(
+    age = c(60, 70, 80, 90),
+    sex = c(0, 1, 0, 1),
+    education = c("high", "medium", "low", "high")
+  )
+  
+  # Test incidence calculation
+  dementia <- Dementia$new()
+  incidence <- dementia$calculate_incidence(test_pop, 2025, design)
+  
+  # Verify results
+  expect_equal(length(incidence), nrow(test_pop))
+  expect_true(all(incidence >= 0))
+  expect_true(all(incidence <= 1))
+  expect_true(incidence[1] < incidence[3])  # Age effect
+})
+```
+
+#### Documentation
+
+``` r
+#' Dementia Disease Model
+#'
+#' Implements dementia incidence and progression modeling for the 
+#' IMPACTncd-Japan framework.
+#'
+#' @section Risk Factors:
+#' The model incorporates the following risk factors:
+#' \itemize{
+#'   \item Age (exponential increase after 65)
+#'   \item Sex (higher risk for women)
+#'   \item Education (protective effect)
+#'   \item APOE4 genetic variant
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' dementia <- Dementia$new()
+#' design$diseases[["dementia"]] <- dementia
+#' }
+#'
+#' @export
+Dementia <- R6::R6Class(...)
+```
+
+#### Performance Considerations
+
+``` r
+# Optimize for large populations
+calculate_incidence = function(population, year, design) {
+  # Use vectorized operations
+  baseline_rates <- private$.baseline_rates[population$age + 1]
+  
+  # Pre-calculate effects
+  effects <- data.table(
+    age_effect = private$.age_effects[population$age + 1],
+    sex_effect = private$.sex_effects[population$sex + 1],
+    education_effect = private$.education_effects[population$education]
+  )
+  
+  # Vectorized calculation
+  relative_risk <- effects$age_effect * effects$sex_effect * effects$education_effect
+  incidence_prob <- baseline_rates * relative_risk
+  
+  return(incidence_prob)
+}
+```
+
+### Contributing Extensions
+
+#### Preparing for Contribution
+
+1.  **Follow coding standards**: Use the established patterns
+2.  **Add comprehensive tests**: Cover edge cases and error conditions  
+3.  **Document thoroughly**: Include examples and parameter descriptions
+4.  **Validate scientifically**: Ensure biological/medical plausibility
+
+#### Submission Process
+
+1.  Fork the repository
+2.  Create feature branch
+3.  Implement extension
+4.  Add tests and documentation
+5.  Submit pull request
+
+#### Extension Guidelines
+
+- **Modularity**: Extensions should be self-contained
+- **Compatibility**: Maintain backward compatibility
+- **Performance**: Consider impact on simulation speed
+- **Validation**: Include calibration and validation data

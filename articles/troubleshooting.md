@@ -1,0 +1,535 @@
+# Troubleshooting
+
+## Troubleshooting Guide
+
+This guide helps diagnose and resolve common issues when using
+IMPACTncd-Japan.
+
+### Installation Issues
+
+#### Package Dependencies
+
+**Problem**: Package installation fails due to missing dependencies.
+
+``` r
+# Error message
+Error: package 'CKutils' is not available (for R version 4.x.x)
+```
+
+**Solution**:
+
+``` r
+# Install dependencies in correct order
+install.packages("devtools")
+devtools::install_github("ChristK/CKutils")
+devtools::install_github("ChristK/IMPACTncd_Japan", 
+                         subdir = "Rpackage/IMPACTncd_Japan_model_pkg")
+```
+
+#### Compilation Errors
+
+**Problem**: C++ compilation fails.
+
+``` r
+# Error message
+Error: C++17 standard requested but CXX17 is not defined
+```
+
+**Solutions**:
+
+``` r
+# Option 1: Update R and packages
+update.packages()
+
+# Option 2: Set compiler flags
+Sys.setenv(CXX17 = "g++")
+Sys.setenv(CXX17FLAGS = "-std=c++17")
+
+# Option 3: Use Docker instead
+# See Docker setup guide
+```
+
+#### System Dependencies (Linux)
+
+**Problem**: Missing system libraries.
+
+``` bash
+# Common missing libraries
+sudo apt-get install build-essential
+sudo apt-get install r-base-dev
+sudo apt-get install libxml2-dev
+sudo apt-get install libssl-dev
+sudo apt-get install libcurl4-openssl-dev
+```
+
+### Docker Issues
+
+#### Container Won’t Start
+
+**Problem**: Docker container fails to start.
+
+**Diagnostics**:
+
+``` bash
+# Check Docker status
+docker info
+
+# Check available space
+df -h
+
+# Check memory limits
+docker system info | grep Memory
+```
+
+**Solutions**:
+
+``` bash
+# Restart Docker service (Linux)
+sudo systemctl restart docker
+
+# Increase Docker memory (Windows/macOS)
+# Docker Desktop > Settings > Resources > Memory
+
+# Clean up Docker resources
+docker system prune -a
+```
+
+#### Permission Errors
+
+**Problem**: Cannot access mounted directories.
+
+``` bash
+# Error message
+Permission denied: '/outputs'
+```
+
+**Solutions**:
+
+``` bash
+# Linux: Fix directory permissions
+sudo chown -R $USER:$USER ./outputs ./synthpop
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Windows: Use PowerShell as Administrator
+# macOS: Ensure directory is accessible to Docker
+```
+
+#### Slow Performance
+
+**Problem**: Docker simulation runs very slowly.
+
+**Solutions**:
+
+``` bash
+# Use volume mode for better I/O
+./setup_user_docker_env.sh --UseVolumes
+
+# Increase Docker resources
+# Docker Desktop > Settings > Resources
+# - CPUs: Set to number of cores - 1
+# - Memory: Set to maximum available
+# - Swap: Set to 2GB
+
+# Use faster storage
+# Move output directories to SSD
+```
+
+### Memory Issues
+
+#### Out of Memory Errors
+
+**Problem**: Simulation crashes with memory errors.
+
+``` r
+# Error message
+Error: cannot allocate vector of size 2.3 Gb
+```
+
+**Diagnostics**:
+
+``` r
+# Check memory usage
+memory.size()  # Windows
+object.size(ls()) # All platforms
+
+# Monitor during simulation
+design$sim_prm$memory_monitoring <- TRUE
+```
+
+**Solutions**:
+
+``` r
+# Reduce population size
+design$sim_prm$pop_size <- 50000  # Instead of 100000
+
+# Use fewer cores
+design$sim_prm$clusternumber <- 1
+
+# Disable full lifecourse storage
+design$sim_prm$store_full_lifecourse <- FALSE
+
+# Enable garbage collection
+design$sim_prm$gc_freq <- 1000
+
+# Use summary-only mode
+design$sim_prm$summary_only <- TRUE
+```
+
+#### Memory Leaks
+
+**Problem**: Memory usage grows during simulation.
+
+**Diagnostics**:
+
+``` r
+# Profile memory usage
+Rprof(memory.profiling = TRUE)
+# ... run simulation ...
+Rprof(NULL)
+summaryRprof("Rprof.out", memory = "both")
+```
+
+**Solutions**:
+
+``` r
+# Force garbage collection
+gc()
+
+# Clear large objects periodically
+rm(large_object)
+gc()
+
+# Use memory-efficient data structures
+options(datatable.auto.index = FALSE)
+```
+
+### Performance Issues
+
+#### Slow Simulation Speed
+
+**Problem**: Simulation takes much longer than expected.
+
+**Diagnostics**:
+
+``` r
+# Enable timing
+design$sim_prm$timing <- TRUE
+
+# Profile performance
+Rprof("simulation_profile.out")
+# ... run simulation ...
+Rprof(NULL)
+summaryRprof("simulation_profile.out")
+```
+
+**Solutions**:
+
+``` r
+# Optimize core usage
+design$sim_prm$clusternumber <- parallel::detectCores() - 1
+
+# Reduce I/O frequency
+design$export_prm$batch_size <- 10000
+
+# Use faster storage
+design$sim_prm$temp_dir <- "/tmp"  # Linux/macOS
+design$sim_prm$temp_dir <- "C:/temp"  # Windows
+
+# Simplify model
+design$diseases <- c("CHD", "Stroke")  # Fewer diseases
+design$exposures <- c("Smoking", "BMI")  # Fewer risk factors
+```
+
+#### Disk I/O Bottlenecks
+
+**Problem**: Simulation slow due to disk writes.
+
+**Solutions**:
+
+``` r
+# Use faster file formats
+design$export_prm$use_fst <- TRUE
+design$export_prm$compression <- 85
+
+# Batch outputs
+design$export_prm$batch_size <- 20000
+
+# Use RAM disk (Linux/macOS)
+design$sim_prm$temp_dir <- "/dev/shm/impactncdjapan"
+
+# Parallel I/O
+design$export_prm$parallel_export <- TRUE
+```
+
+### Calibration Issues
+
+#### Model Won’t Calibrate
+
+**Problem**: Calibration fails to converge.
+
+``` r
+# Error message
+Warning: Calibration did not converge after 100 iterations
+```
+
+**Diagnostics**:
+
+``` r
+# Check calibration targets
+design$validate_calibration_targets()
+
+# Review fit statistics
+design$calibration_prm$tolerance <- 0.10  # More lenient
+design$calibration_prm$max_iterations <- 200
+```
+
+**Solutions**:
+
+``` r
+# Improve starting values
+design$set_better_initial_parameters()
+
+# Use different optimization method
+design$calibration_prm$method <- "BFGS"
+
+# Check input data quality
+design$validate_input_data()
+
+# Simplify calibration targets
+design$calibration_prm$targets <- subset_targets
+```
+
+#### Poor Model Fit
+
+**Problem**: Model doesn’t match observed data well.
+
+**Diagnostics**:
+
+``` r
+# Generate validation plots
+design$plot_calibration_fit()
+
+# Compare model vs. observed
+validation_report <- design$validate_fit()
+print(validation_report)
+```
+
+**Solutions**:
+
+``` r
+# Adjust model structure
+# - Add age interactions
+# - Include cohort effects
+# - Modify trend assumptions
+
+# Update input data
+# - Use more recent data sources
+# - Improve data quality
+# - Add missing covariates
+
+# Refine calibration approach
+# - Weight targets differently
+# - Use subset of population for calibration
+# - Calibrate in stages
+```
+
+### Results Issues
+
+#### Missing Output Files
+
+**Problem**: Expected output files are not created.
+
+**Diagnostics**:
+
+``` bash
+# Check output directory structure
+ls -la ./outputs/
+
+# Check simulation logs
+tail -f ./outputs/logs/simulation.log
+
+# Check for errors
+grep "ERROR" ./outputs/logs/*.txt
+```
+
+**Solutions**:
+
+``` r
+# Verify output directory settings
+design$sim_prm$output_dir <- normalizePath("./outputs")
+
+# Check permissions
+# Ensure write access to output directory
+
+# Enable verbose logging
+design$sim_prm$verbose <- TRUE
+design$sim_prm$debug_mode <- TRUE
+```
+
+#### Corrupted Output Files
+
+**Problem**: Output files are unreadable or corrupted.
+
+**Diagnostics**:
+
+``` r
+# Test file integrity
+tryCatch({
+  data <- fst::read_fst("./outputs/mc=1/population.fst")
+  print(nrow(data))
+}, error = function(e) print(e))
+```
+
+**Solutions**:
+
+``` r
+# Use more robust file formats
+design$export_prm$use_csv_backup <- TRUE
+
+# Reduce compression
+design$export_prm$compression <- 50
+
+# Check disk space
+# Ensure adequate free space before running
+
+# Use checksums for validation
+design$export_prm$verify_checksums <- TRUE
+```
+
+### Error Messages
+
+#### Common Error Messages and Solutions
+
+##### “cannot allocate vector of size X.X Gb”
+
+``` r
+# Reduce memory usage
+design$sim_prm$pop_size <- 25000
+design$sim_prm$clusternumber <- 1
+```
+
+##### “subscript out of bounds”
+
+``` r
+# Check data dimensions
+design$validate_input_dimensions()
+
+# Enable bounds checking
+design$sim_prm$safe_mode <- TRUE
+```
+
+##### “object ‘X’ not found”
+
+``` r
+# Check package loading
+library(IMPACTncdJapan)
+
+# Verify object creation
+exists("design")
+class(design)
+```
+
+##### “Invalid YAML file”
+
+``` r
+# Validate YAML syntax
+yaml::yaml.load_file("./inputs/sim_design.yaml")
+
+# Check file encoding
+# Ensure UTF-8 encoding without BOM
+```
+
+### Debugging Strategies
+
+#### Enable Debug Mode
+
+``` r
+# Comprehensive debugging
+design$sim_prm$debug_mode <- TRUE
+design$sim_prm$verbose <- TRUE
+design$sim_prm$save_checkpoints <- TRUE
+design$sim_prm$checkpoint_freq <- 1000
+```
+
+#### Systematic Testing
+
+``` r
+# Test with minimal configuration
+test_design <- Design$new()
+test_design$sim_prm$pop_size <- 1000
+test_design$sim_prm$years <- c(2020, 2022)
+test_design$sim_prm$mc <- 1
+test_design$diseases <- c("CHD")
+test_design$exposures <- c("BMI")
+
+# Run test simulation
+test_sim <- Simulation$new(test_design)
+test_sim$run()
+```
+
+#### Log Analysis
+
+``` bash
+# Monitor real-time logs
+tail -f ./outputs/logs/simulation.log
+
+# Search for specific issues
+grep -i "error\|warning\|failed" ./outputs/logs/*.txt
+
+# Check timing information
+grep "elapsed" ./outputs/logs/simulation.log
+```
+
+### Getting Help
+
+#### Before Reporting Issues
+
+1.  **Update packages**: Ensure you have the latest version
+2.  **Check documentation**: Review relevant vignettes
+3.  **Search existing issues**: Check GitHub issues for similar problems
+4.  **Create minimal example**: Reproduce with smallest possible case
+
+#### Reporting Bugs
+
+Include the following information:
+
+``` r
+# System information
+sessionInfo()
+
+# Package version
+packageVersion("IMPACTncdJapan")
+
+# Configuration used
+print(design$sim_prm)
+
+# Error message and traceback
+traceback()
+```
+
+#### Support Channels
+
+- **GitHub Issues**: Bug reports and feature requests
+- **GitHub Discussions**: Questions and community support
+- **Email**: For sensitive or private issues
+
+#### Emergency Workarounds
+
+If you need immediate results:
+
+``` r
+# Ultra-minimal simulation
+emergency_design <- Design$new()
+emergency_design$sim_prm$pop_size <- 5000
+emergency_design$sim_prm$years <- c(2020, 2025)
+emergency_design$sim_prm$mc <- 1
+emergency_design$sim_prm$clusternumber <- 1
+emergency_design$diseases <- c("CHD")
+
+# Skip optional components
+emergency_design$sim_prm$generate_plots <- FALSE
+emergency_design$sim_prm$store_full_lifecourse <- FALSE
+```

@@ -3432,6 +3432,9 @@ Simulation <-
             "pa567_curr_xps"
           ) := NULL
         ]
+        if (TRUE) { # TODO Set to FALSE when JPN21 project is over
+          sp$pop[, smok_cess_rate_curr_xps := NULL]
+        } 
         sp$pop[
           Smoking_curr_xps != "3",
           `:=`(

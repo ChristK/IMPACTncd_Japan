@@ -3286,6 +3286,19 @@ Simulation <-
         sp$pop[,
           smok_active_curr_xps := fifelse(Smoking_curr_xps == "3", 1L, 0L)
         ]
+        if (TRUE) { # TODO Set to FALSE when JPN21 project is over
+          sp$pop[,
+            smok_cess_rate_curr_xps := shift(smok_active_curr_xps, 1L, type = "lag"), by = pid # last year's status
+          ] 
+          sp$pop[
+            !is.na(smok_cess_rate_curr_xps),
+            smok_cess_rate_curr_xps := fifelse(
+              smok_cess_rate_curr_xps == 1L & smok_active_curr_xps == 0L,
+              1L,
+              0L
+            )
+          ]
+        }
         sp$pop[,
           pa567_curr_xps := fifelse(
             PA_days_curr_xps %in% c("5", "6", "7"),

@@ -4366,12 +4366,12 @@ Simulation <-
           }
 
           if (!bSuccess) {
-            warning(paste0(
+            stop(paste0(
               "Failed creating directory ",
               sDirPathName,
               " after ",
               max_retries,
-              " attempts"
+              " attempts. Check permissions."
             ))
           } else {
             if (bReport) {
@@ -4379,6 +4379,17 @@ Simulation <-
             }
           }
         }
+        
+        # Check if directory is writable
+        if (file.access(sDirPathName, mode = 2) != 0) {
+          stop(paste0(
+            "Directory ",
+            sDirPathName,
+            " exists but is not writable. Check permissions."
+          ))
+        }
+        
+        invisible(TRUE)
       },
 
       # Life Expectancy (LE) Export Section

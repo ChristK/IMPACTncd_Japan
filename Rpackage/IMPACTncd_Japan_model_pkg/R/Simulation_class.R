@@ -63,14 +63,50 @@ Simulation <-
           )
         }
 
-        data.table::setDTthreads(
-          threads = self$design$sim_prm$clusternumber,
-          restore_after_fork = NULL
+        # FIX: rocky uses OPENBLAS-OPENMP that creates issues with forking if
+        # more than 1 thread is used before a foreach loop. The following code
+        # fixes the issue by setting the number of threads to 1 from the
+        # beginning of the simulation.       
+        blas_info <- sessionInfo()$BLAS
+        is_openmp_blas <- grepl(
+          "OPENMP|MKL",
+          blas_info,
+          ignore.case = TRUE
         )
-        fst::threads_fst(
-          nr_of_threads = self$design$sim_prm$clusternumber,
-          reset_after_fork = NULL
-        )
+        if (is_openmp_blas) {
+          if (self$design$sim_prm$logs) {
+            message(
+              "Detected OPENMP/MKL BLAS library (",
+              blas_info,
+              "). Setting number of threads to 1 to avoid issues with forking."
+            )
+          }
+          data.table::setDTthreads(
+            threads = 1L,
+            restore_after_fork = FALSE
+          )
+          fst::threads_fst(
+            nr_of_threads = 1L,
+            reset_after_fork = FALSE
+          )
+        } else {
+          if (self$design$sim_prm$logs) {
+            message(
+              "BLAS library detected: ",
+              blas_info,
+              ". No need to adjust number of threads."
+            )
+          }
+          data.table::setDTthreads(
+            threads = self$design$sim_prm$clusternumber,
+            restore_after_fork = NULL
+          )
+          fst::threads_fst(
+            nr_of_threads = self$design$sim_prm$clusternumber,
+            reset_after_fork = NULL
+          )
+        }
+
         arrow::set_cpu_count(self$design$sim_prm$clusternumber) # limit Arrow's internal threading
 
         # Create folders if don't exist

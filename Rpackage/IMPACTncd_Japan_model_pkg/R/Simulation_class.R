@@ -3324,15 +3324,20 @@ Simulation <-
         ]
         if (TRUE) { # TODO Set to FALSE when JPN21 project is over
           sp$pop[,
-            smok_cess_rate_curr_xps := shift(smok_active_curr_xps, 1L, type = "lag"), by = pid # last year's status
+            smok_active_lagged := shift(
+              smok_active_curr_xps,
+              1L,
+              type = "lag"
+            ),
+            by = pid # last year's status
           ] 
           sp$pop[
-            !is.na(smok_cess_rate_curr_xps),
-            smok_cess_rate_curr_xps := fifelse(
-              smok_cess_rate_curr_xps == 1L & smok_active_curr_xps == 0L,
-              1L,
-              0L
-            )
+            smok_active_lagged == 1L & smok_active_curr_xps == 0L,
+            smok_cess_rate_curr_xps := 1L
+          ]
+          sp$pop[
+            smok_active_lagged == 1L & smok_active_curr_xps == 1L,
+            smok_cess_rate_curr_xps := 0L
           ]
         }
         sp$pop[,
@@ -3465,6 +3470,7 @@ Simulation <-
             "agegrp10",
             "smok_never_curr_xps",
             "smok_active_curr_xps",
+            "smok_active_lagged",
             "pa567_curr_xps"
           ) := NULL
         ]

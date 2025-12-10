@@ -23,10 +23,19 @@
 #' R6 Class representing a simulation design
 #'
 #' @description
-#' A design has a sim_prm list that holds the simulation parameters.
+#' The `Design` class is responsible for managing the configuration and parameters of the simulation.
+#' It handles the loading of parameters from a YAML file or a list, validates them, and performs
+#' necessary preprocessing such as topological sorting of diseases based on their dependencies.
 #'
 #' @details
-#' To be completed...
+#' The `Design` class ensures that the simulation is set up correctly before execution.
+#' It performs the following key tasks:
+#' \itemize{
+#'   \item **Parameter Loading:** Reads simulation parameters from a YAML file or a list.
+#'   \item **Validation:** Checks for the existence of required parameters and validates their values (e.g., non-negative numbers).
+#'   \item **Environment Configuration:** Detects if the simulation is running inside a Docker container and adjusts output directories accordingly.
+#'   \item **Dependency Management:** Reorders the list of diseases based on their dependencies (topological sort) to ensure correct initialization order.
+#' }
 #'
 #' @export
 Design <-
@@ -35,15 +44,29 @@ Design <-
 
     # public ------------------------------------------------------------------
     public = list(
-      #' @field sim_prm The simulation parameters.
+      #' @field sim_prm A list containing all the simulation parameters.
       sim_prm = NA,
 
-      #' @description Create a new design object.
-      #' @param sim_prm Either a path to a yaml file or a list with
-      #'   appropriate format.
+      #' @description
+      #' Create a new `Design` object.
+      #'
+      #' @param sim_prm Either a path to a YAML configuration file or a list containing the simulation parameters.
+      #'   The parameters must include keys such as:
+      #'   \itemize{
+      #'     \item `iteration_n`: Number of iterations.
+      #'     \item `clusternumber`: Number of clusters/cores to use.
+      #'     \item `logs`: Logical, whether to enable logging.
+      #'     \item `scenarios`: List of scenarios.
+      #'     \item `diseases`: List of diseases and their parameters.
+      #'     \item ... and others (see code for full list).
+      #'   }
+      #'
       #' @return A new `Design` object.
+      #'
       #' @examples
+      #' \dontrun{
       #' design <- Design$new("./validation/design_for_trends_validation.yaml")
+      #' }
       initialize = function(sim_prm) {
         data_type <- typeof(sim_prm)
         if (data_type == "character") {
@@ -57,37 +80,35 @@ Design <-
         }
 
         # Validation
+        required_params <- c(
+          "iteration_n",
+          "clusternumber",
+          "logs",
+          "scenarios",
+          "cols_for_output",
+          "strata_for_output",
+          "exposures",
+          "n",
+          "init_year_long",
+          "sim_horizon_max",
+          "ageL",
+          "ageH",
+          "diseases",
+          "maxlag",
+          "stochastic",
+          "kismet",
+          "jumpiness",
+          "decision_aid",
+          "export_xps",
+          "output_dir",
+          "synthpop_dir",
+          "max_prvl_for_outputs",
+          "iteration_n_max",
+          "num_chunks"
+        )
+        
         stopifnot(
-          c(
-            "iteration_n"           ,
-            # "iteration_n_final"     ,
-            "clusternumber"         ,
-            # "n_cpus"                ,
-            "logs"                  ,
-            "scenarios"             ,
-            "cols_for_output"       ,
-            "strata_for_output"     ,
-            "exposures"             ,
-            "n"                     ,
-            "init_year_long"        ,
-            "sim_horizon_max"       ,
-            "ageL"                  ,
-            "ageH"                  ,
-            "diseases"              ,
-            "maxlag"                ,
-            "stochastic"            ,
-            "kismet"                ,
-            "jumpiness"             ,
-            "decision_aid"          ,
-            "export_xps"            ,
-            "output_dir"            ,
-            "synthpop_dir"          ,
-            "max_prvl_for_outputs"  ,
-            "iteration_n_max"       ,
-            "num_chunks"
-          ) %in% names(sim_prm),
-
-          # any(sim_prm$clusternumber == 1L, sim_prm$n_cpus == 1L),
+          required_params %in% names(sim_prm),
           sapply(sim_prm, function(x)
             if (is.numeric(x))
               x >= 0
@@ -172,19 +193,27 @@ Design <-
         invisible(self)
       },
 
-      #' @description Create a new design object.
-      #' @param path Path including file name and extension to save a yaml
-      #'   file with the simulation parameters.
-      #' @return The `Design` object.
+      #' @description
+      #' Save the current simulation parameters to a YAML file.
+      #'
+      #' @param path A character string specifying the file path (including file name and extension)
+      #'   where the YAML file will be saved.
+      #'
+      #' @return The `Design` object (invisibly) for method chaining.
       save_to_disk = function(path) {
         write_yaml(self$sim_prm, base::normalizePath(path, mustWork = FALSE))
 
         invisible(self)
       },
 
-      #' @description Updates the design object from GUI.
-      #' @param GUI_prm A GUI parameter object.
-      #' @return The `Design` object.
+      #' @description
+      #' Update the simulation parameters from a GUI input object.
+      #'
+      #' @param GUI_prm A list or object containing parameters from the GUI.
+      #'   Expected fields include `national_qimd_checkbox`, `locality_select`,
+      #'   `iteration_n_gui`, `n_gui`, etc.
+      #'
+      #' @return The `Design` object (invisibly) for method chaining.
       update_fromGUI = function(GUI_prm) {
         self$sim_prm$national_qimd       <- GUI_prm$national_qimd_checkbox
         # T = use national qimd, F = use local qimd
@@ -215,7 +244,8 @@ Design <-
 
       #' @description
       #' Print the simulation parameters.
-      #' @return The `Design` object.
+      #'
+      #' @return The `Design` object (invisibly).
       print = function() {
         print(self$sim_prm)
 
@@ -227,19 +257,16 @@ Design <-
      private = list(
       mc_aggr = NA,
 
-      # is_in_docker ----
-      # @description
-      # Check whether the R session is running inside a Docker container.
-      #
-      # @details
-      # This method detects whether the current R session is running in a Docker
-      # container by checking for the presence of the special file `/.dockerenv` and
-      # examining system-specific files for identifiers associated with
-      # Docker or Kubernetes. The function is cross-platform compatible.
-      #
-      # @return A logical value: `TRUE` if inside a Docker container, otherwise `FALSE`.
-      #
-      # @keywords internal
+      #' @description
+      #' Check whether the R session is running inside a Docker container.
+      #'
+      #' @details
+      #' This method detects whether the current R session is running in a Docker
+      #' container by checking for the presence of the special file `/.dockerenv` and
+      #' examining system-specific files for identifiers associated with
+      #' Docker or Kubernetes. The function is cross-platform compatible.
+      #'
+      #' @return A logical value: `TRUE` if inside a Docker container, otherwise `FALSE`.
       is_in_docker = function() {
         # Check for the standard Docker environment file (works on all platforms)
         if (file.exists("/.dockerenv")) {

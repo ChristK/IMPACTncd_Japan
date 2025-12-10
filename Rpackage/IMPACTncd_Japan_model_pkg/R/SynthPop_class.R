@@ -1147,7 +1147,7 @@ SynthPop <-
             )[between(Age, limit_age$min, limit_age$max)]
           setnames(tbl, tolower(names(tbl)))
           tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-
+          # unnecessary comment 
 
 
 

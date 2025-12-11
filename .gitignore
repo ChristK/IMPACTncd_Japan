@@ -32,6 +32,7 @@ Rpackage/IMPACTncd_Japan_model_pkg/src/*.dll
 # R Environment Variables
 validation_internal
 /inputs/synthpop
+/synthpop
 /outputs
 IMPACTncd_Japan.code-workspace
 inputs/exposure_distributions/Table_HbA1c.fst

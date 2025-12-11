@@ -48,7 +48,7 @@ jobs:
         run: |
           dnf install -y git wget epel-release dnf-plugins-core
           dnf config-manager --set-enabled crb
-          dnf install -y R libcurl-devel openssl-devel libxml2-devel fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel glpk-devel make gcc-c++
+          dnf install -y R libcurl-devel openssl-devel libxml2-devel fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel glpk-devel make gcc-c++ cmake pandoc
 
       - uses: actions/checkout@v4
 

@@ -122,9 +122,16 @@ if (file.exists(pkg_list_file)) {
 # Install the local R package if its source code has changed
 # Uses a snapshot file to track changes
 # Assumes the working directory is the project root
-installLocalPackageIfChanged(
-  pkg_path = "./Rpackage/IMPACTncd_Japan_model_pkg/",
-  snapshot_path = "./Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.rds"
-)
+# Use withCallingHandlers to suppress "package in use" warnings on Windows
+withCallingHandlers({
+  installLocalPackageIfChanged(
+    pkg_path = "./Rpackage/IMPACTncd_Japan_model_pkg/",
+    snapshot_path = "./Rpackage/.IMPACTncd_Japan_model_pkg_snapshot.rds"
+  )
+}, warning = function(w) {
+  if (grepl("is in use and will not be installed", conditionMessage(w))) {
+    invokeRestart("muffleWarning")
+  }
+})
 
 library(IMPACTncdJapan)

@@ -106,9 +106,9 @@ if (file.exists(pkg_list_file)) {
   # Filter out empty lines and comments
   pkg_list <- pkg_list[nzchar(pkg_list) & !grepl("^#", pkg_list)]
 
-  # Filter out packages that are already loaded to avoid "in use" errors on Windows
-  # This is particularly important for packages like 'foreach' or 'remotes'
-  pkg_list <- pkg_list[!pkg_list %in% loadedNamespaces()]
+  # Filter out packages that are already installed to avoid "in use" errors on Windows
+  # and to respect the update = FALSE intent more strictly
+  pkg_list <- pkg_list[!pkg_list %in% rownames(installed.packages())]
 
   if (length(pkg_list) > 0) {
     # update = FALSE prevents updating already installed packages

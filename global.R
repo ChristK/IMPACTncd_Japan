@@ -21,11 +21,11 @@
 # If segfault from C stack overflow see
 # https://github.com/Rdatatable/data.table/issues/1967
 
-if (!file.exists("/.dockerenv")) {
-  repos <- getOption("repos")
-  if (is.null(repos) || repos["CRAN"] == "@CRAN@") {
-    chooseCRANmirror(ind = 1)
-  }
+# Ensure a CRAN mirror is set
+repos <- getOption("repos")
+if (is.null(repos) || repos["CRAN"] == "@CRAN@") {
+  # Set default CRAN mirror if not already set
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
 }
 
 # Define and ensure the user library path exists and is writable
@@ -105,6 +105,11 @@ if (file.exists(pkg_list_file)) {
   pkg_list <- trimws(pkg_list)
   # Filter out empty lines and comments
   pkg_list <- pkg_list[nzchar(pkg_list) & !grepl("^#", pkg_list)]
+
+  # Filter out packages that are already loaded to avoid "in use" errors on Windows
+  # This is particularly important for packages like 'foreach' or 'remotes'
+  pkg_list <- pkg_list[!pkg_list %in% loadedNamespaces()]
+
   if (length(pkg_list) > 0) {
     # update = FALSE prevents updating already installed packages
     CKutils::dependencies(pkg_list, update = FALSE)

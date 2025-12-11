@@ -34,5 +34,7 @@ jobs:
           brew install harfbuzz fribidi
 
       - name: Test source("./global.R")
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Rscript -e 'tryCatch(source("./global.R"), error = function(e) { print(e); quit(status = 1) })'

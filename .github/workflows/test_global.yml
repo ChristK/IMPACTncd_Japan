@@ -26,12 +26,30 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libglpk-dev
 
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install harfbuzz fribidi
+
+      - name: Test source("./global.R")
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Rscript -e 'tryCatch(source("./global.R"), error = function(e) { print(e); quit(status = 1) })'
+
+  test-rhel:
+    runs-on: ubuntu-latest
+    container: rockylinux:9
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf install -y git wget epel-release dnf-plugins-core
+          dnf config-manager --set-enabled crb
+          dnf install -y R libcurl-devel openssl-devel libxml2-devel fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel glpk-devel make gcc-c++
+
+      - uses: actions/checkout@v4
 
       - name: Test source("./global.R")
         env:

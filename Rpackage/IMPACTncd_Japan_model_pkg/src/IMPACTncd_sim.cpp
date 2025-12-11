@@ -453,6 +453,10 @@ string GetStackTrace(void) {
 string GetStackTrace(void) {
 	return string("[No stack trace available on Windows].");
 }
+#else
+string GetStackTrace(void) {
+	return string("[No stack trace available on this platform].");
+}
 #endif
 
 /**

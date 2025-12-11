@@ -159,7 +159,8 @@ Design <-
 
 
         # change output_dir & synthpop_dir if inside a docker container created by create_env.sh (or ps1)
-        if (private$is_in_docker()) {
+        # But NOT if running in GitHub Actions (where workspace is mounted differently)
+        if (private$is_in_docker() && Sys.getenv("GITHUB_ACTIONS") == "") {
           # if in docker
           if (sim_prm$logs) 
             message ("R runs within docker.\nSetting output_dir and synthpop_dir set to /outputs and /synthpop.")

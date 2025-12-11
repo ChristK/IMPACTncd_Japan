@@ -4382,6 +4382,11 @@ Simulation <-
               {
                 bSuccess <- dir.create(sDirPathName, recursive = TRUE)
 
+                # If creation returned FALSE, check if it exists (race condition handling)
+                if (!bSuccess && dir.exists(sDirPathName)) {
+                  bSuccess <- TRUE
+                }
+
                 # Add small delay for Windows file system sync
                 if (.Platform$OS.type == "windows") {
                   Sys.sleep(0.05)

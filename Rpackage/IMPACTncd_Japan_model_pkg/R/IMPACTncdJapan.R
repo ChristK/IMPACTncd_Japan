@@ -29,7 +29,7 @@
 #' @docType package
 #' @author Chris Kypridemos
 #' @import Rcpp R6 data.table CKutils
-#' @importFrom fst read_fst metadata_fst
+#' @importFrom fst read_fst metadata_fst write_fst
 #' @importFrom dqrng dqrunif dqsample dqRNGkind dqset.seed
 #' @importFrom mc2d qpert
 #' @importFrom cowplot ggsave2

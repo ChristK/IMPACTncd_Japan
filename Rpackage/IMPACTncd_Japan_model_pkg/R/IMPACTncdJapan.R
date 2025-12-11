@@ -30,7 +30,7 @@
 #' @author Chris Kypridemos
 #' @import Rcpp R6 data.table CKutils
 #' @importFrom fst read_fst
-#' @importFrom dqrng dqrunif dqsample
+#' @importFrom dqrng dqrunif dqsample dqRNGkind dqset.seed
 #' @importFrom mc2d qpert
 #' @importFrom cowplot ggsave2
 #' @importFrom gamlss fitDist fitDistPred predictAll

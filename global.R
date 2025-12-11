@@ -25,7 +25,17 @@
 repos <- getOption("repos")
 if (is.null(repos) || repos["CRAN"] == "@CRAN@") {
   # Set default CRAN mirror if not already set
-  options(repos = c(CRAN = "https://cloud.r-project.org"))
+  # Prefer Posit Public Package Manager for Linux binaries if on Linux
+  if (Sys.info()["sysname"] == "Linux") {
+     # Check if we are on RHEL/CentOS/Rocky/Alma
+     if (file.exists("/etc/redhat-release")) {
+         options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/rhel9/latest"))
+     } else {
+         options(repos = c(CRAN = "https://cloud.r-project.org"))
+     }
+  } else {
+      options(repos = c(CRAN = "https://cloud.r-project.org"))
+  }
 }
 
 # Define and ensure the user library path exists and is writable

@@ -54,12 +54,14 @@ jobs:
         run: |
           dnf install -y git wget epel-release dnf-plugins-core
           dnf config-manager --set-enabled crb
-          dnf install -y R libcurl-devel openssl-devel libxml2-devel fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel glpk-devel gcc make gcc-c++ cmake pandoc
-
+          dnf install -y R libcurl-devel openssl-devel libxml2-devel fontconfig-devel harfbuzz-devel fribidi-devel freetype-devel libpng-devel libtiff-devel libjpeg-turbo-devel glpk-devel gcc make gcc-c++ cmake pandoc          # Install duckdb and arrow system dependencies if needed, though binary R packages should suffice
+          # dnf install -y ...
       - name: Configure R repositories (Binary)
         run: |
           mkdir -p ~/.R
           echo 'options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/rhel9/latest"))' >> ~/.Rprofile
+          # Also set HTTPUserAgent to ensure binary packages are served
+          echo 'options(HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version$platform, R.version$arch, R.version$os)))' >> ~/.Rprofile
 
       - uses: actions/checkout@v4
 

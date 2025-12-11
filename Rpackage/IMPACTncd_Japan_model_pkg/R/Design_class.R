@@ -6,7 +6,7 @@
 ## authors and not necessarily those of the NHS, the NIHR or the Department of
 ## Health.
 ##
-## Copyright (C) 2018-2020 University of Liverpool, Chris Kypridemos
+## Copyright (C) 2018-2026 University of Liverpool, Chris Kypridemos
 ##
 ## IMPACTncd_Japan is free software; you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by the Free

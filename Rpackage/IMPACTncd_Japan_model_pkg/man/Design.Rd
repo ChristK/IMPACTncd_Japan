@@ -4,10 +4,19 @@
 \alias{Design}
 \title{R6 Class representing a simulation design}
 \description{
-A design has a sim_prm list that holds the simulation parameters.
+The `Design` class is responsible for managing the configuration and parameters of the simulation.
+It handles the loading of parameters from a YAML file or a list, validates them, and performs
+necessary preprocessing such as topological sorting of diseases based on their dependencies.
 }
 \details{
-To be completed...
+The `Design` class ensures that the simulation is set up correctly before execution.
+It performs the following key tasks:
+\itemize{
+  \item **Parameter Loading:** Reads simulation parameters from a YAML file or a list.
+  \item **Validation:** Checks for the existence of required parameters and validates their values (e.g., non-negative numbers).
+  \item **Environment Configuration:** Detects if the simulation is running inside a Docker container and adjusts output directories accordingly.
+  \item **Dependency Management:** Reorders the list of diseases based on their dependencies (topological sort) to ensure correct initialization order.
+}
 }
 \examples{
 
@@ -15,12 +24,14 @@ To be completed...
 ## Method `Design$new`
 ## ------------------------------------------------
 
+\dontrun{
 design <- Design$new("./validation/design_for_trends_validation.yaml")
+}
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{sim_prm}}{The simulation parameters.}
+\item{\code{sim_prm}}{A list containing all the simulation parameters.}
 }
 \if{html}{\out{</div>}}
 }
@@ -38,7 +49,7 @@ design <- Design$new("./validation/design_for_trends_validation.yaml")
 \if{html}{\out{<a id="method-Design-new"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-new}{}}}
 \subsection{Method \code{new()}}{
-Create a new design object.
+Create a new `Design` object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Design$new(sim_prm)}\if{html}{\out{</div>}}
 }
@@ -46,8 +57,45 @@ Create a new design object.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{sim_prm}}{Either a path to a yaml file or a list with
-appropriate format.}
+\item{\code{sim_prm}}{Either a path to a YAML configuration file or a list containing the simulation parameters.
+The parameters must include the following keys:
+\itemize{
+  \item `iteration_n`: Integer. Number of Monte Carlo iterations for the simulation.
+  \item `clusternumber`: Integer. Number of CPU cores/clusters to use for parallel processing.
+  \item `clusternumber_export`: Integer. Number of CPU cores/clusters to use for exporting summaries.
+  \item `logs`: Logical. If TRUE, enables verbose logging of simulation progress.
+  \item `export_xps`: Logical. If TRUE, exports cross-sectional population states (xps) to disk.
+  \item `export_PARF`: Logical. If TRUE, exports Population Attributable Risk Fraction (PARF) files.
+  \item `n`: Integer. Size of the synthetic population to generate or simulate.
+  \item `num_chunks`: Integer. Number of chunks to split the simulation into for memory management.
+  \item `init_year_long`: Integer. The starting year of the simulation (e.g., 2015).
+  \item `sim_horizon_max`: Integer. The final year of the simulation horizon.
+  \item `ageL`: Integer. Lower bound of the age range for the simulation.
+  \item `ageH`: Integer. Upper bound of the age range for the simulation.
+  \item `apply_RR_to_mrtl2`: Logical. If TRUE, disease mortality is influenced by exposures like incidence.
+  \item `calibrate_to_incd_trends`: Logical. If TRUE, use incidence calibration multipliers.
+  \item `calibrate_to_ftlt_trends`: Logical. If TRUE, use fatality calibration multipliers.
+  \item `init_year_incd_calibration`: Logical. Indicates whether parf*p0 is calibrated to incd for the initial year.
+  \item `incd_uncertainty_distr`: String. Distribution of incidence uncertainty ("beta" or "uniform").
+  \item `prvl_uncertainty_distr`: String. Distribution of prevalence uncertainty ("beta" or "uniform").
+  \item `ftlt_uncertainty_distr`: String. Distribution of case fatality uncertainty ("beta" or "uniform").
+  \item `output_dir`: String. Path to the directory where simulation outputs will be saved.
+  \item `synthpop_dir`: String. Path to the directory containing or saving synthetic population files.
+  \item `diseases`: List. Definitions of diseases, including incidence, mortality, and disability weights.
+  \item `maxlag`: Integer. Maximum lag period (in years) for exposure effects.
+  \item `jumpiness`: Numeric. Parameter controlling the volatility or "jumpiness" of time-variant trends.
+  \item `keep_simulants_rn`: Logical. If TRUE, keep random numbers used for exposure generation.
+  \item `load_simulants_rn`: Logical. If TRUE, load random numbers used for exposure generation.
+  \item `decision_aid`: Logical. If TRUE, enables features related to decision aid outputs.
+  \item `stochastic`: Logical. If TRUE, enables stochastic uncertainty in the model parameters.
+  \item `kismet`: Logical. If TRUE, enables "kismet" (fate/randomness) in individual life courses.
+  \item `max_prvl_for_outputs`: Numeric. Threshold for maximum prevalence to report in outputs (to filter rare conditions).
+  \item `iteration_n_max`: Integer. Maximum number of iterations allowed (safety limit).
+  \item `scenarios`: List. Definitions of different simulation scenarios (e.g., baseline, interventions).
+  \item `cols_for_output`: Character vector. Names of columns to include in the output files.
+  \item `strata_for_output`: Character vector. Variables to stratify the output by (e.g., "sex", "age_group").
+  \item `exposures`: List. Definitions of risk factor exposures included in the model.
+}}
 }
 \if{html}{\out{</div>}}
 }
@@ -56,7 +104,9 @@ A new `Design` object.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{design <- Design$new("./validation/design_for_trends_validation.yaml")
+\preformatted{\dontrun{
+design <- Design$new("./validation/design_for_trends_validation.yaml")
+}
 }
 \if{html}{\out{</div>}}
 
@@ -67,7 +117,7 @@ A new `Design` object.
 \if{html}{\out{<a id="method-Design-save_to_disk"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-save_to_disk}{}}}
 \subsection{Method \code{save_to_disk()}}{
-Create a new design object.
+Save the current simulation parameters to a YAML file.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Design$save_to_disk(path)}\if{html}{\out{</div>}}
 }
@@ -75,20 +125,20 @@ Create a new design object.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{path}}{Path including file name and extension to save a yaml
-file with the simulation parameters.}
+\item{\code{path}}{A character string specifying the file path (including file name and extension)
+where the YAML file will be saved.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-The `Design` object.
+The `Design` object (invisibly) for method chaining.
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Design-update_fromGUI"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-update_fromGUI}{}}}
 \subsection{Method \code{update_fromGUI()}}{
-Updates the design object from GUI.
+Update the simulation parameters from a GUI input object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Design$update_fromGUI(GUI_prm)}\if{html}{\out{</div>}}
 }
@@ -96,12 +146,14 @@ Updates the design object from GUI.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{GUI_prm}}{A GUI parameter object.}
+\item{\code{GUI_prm}}{A list or object containing parameters from the GUI.
+Expected fields include `national_qimd_checkbox`, `locality_select`,
+`iteration_n_gui`, `n_gui`, etc.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-The `Design` object.
+The `Design` object (invisibly) for method chaining.
 }
 }
 \if{html}{\out{<hr>}}
@@ -114,7 +166,7 @@ Print the simulation parameters.
 }
 
 \subsection{Returns}{
-The `Design` object.
+The `Design` object (invisibly).
 }
 }
 \if{html}{\out{<hr>}}

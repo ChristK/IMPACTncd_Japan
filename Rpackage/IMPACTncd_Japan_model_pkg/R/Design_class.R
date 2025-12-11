@@ -286,16 +286,16 @@ Design <-
      private = list(
       mc_aggr = NA,
 
-      #' @description
-      #' Check whether the R session is running inside a Docker container.
-      #'
-      #' @details
-      #' This method detects whether the current R session is running in a Docker
-      #' container by checking for the presence of the special file `/.dockerenv` and
-      #' examining system-specific files for identifiers associated with
-      #' Docker or Kubernetes. The function is cross-platform compatible.
-      #'
-      #' @return A logical value: `TRUE` if inside a Docker container, otherwise `FALSE`.
+      # @description
+      # Check whether the R session is running inside a Docker container.
+      #
+      # @details
+      # This method detects whether the current R session is running in a Docker
+      # container by checking for the presence of the special file `/.dockerenv` and
+      # examining system-specific files for identifiers associated with
+      # Docker or Kubernetes. The function is cross-platform compatible.
+      #
+      # @return A logical value: `TRUE` if inside a Docker container, otherwise `FALSE`.
       is_in_docker = function() {
         # Check for the standard Docker environment file (works on all platforms)
         if (file.exists("/.dockerenv")) {

@@ -39,11 +39,13 @@
 #' @importFrom utils tail
 #' @importFrom digest digest2int digest
 #' @importFrom yaml read_yaml write_yaml
-#' @importFrom foreach foreach
+#' @importFrom foreach foreach %dopar%
+#' @importFrom doParallel registerDoParallel
 #' @importFrom parallelly makeClusterPSOCK
 #' @importFrom parallel parLapplyLB
 #' @importFrom igraph make_graph is_dag V neighbors all_simple_paths topo_sort
 #' @importFrom DBI dbConnect dbDisconnect dbGetQuery dbExecute
+#' @importFrom arrow write_dataset open_dataset
 #' @importFrom qs2 qs_read qs_save
 #' @importFrom wrswoR sample_int_expj
 #' @useDynLib IMPACTncdJapan

@@ -97,7 +97,7 @@ diseases:
   friendly_name: CVD
   meta:
     incidence:
-      type: 0 # this means that other diseases influence this disease to avoid double couting from CHD and stroke.
+      type: 0 # this means that other diseases influence this disease to avoid double counting from CHD and stroke.
       influenced_by_disease_name:
         - chd
         - stroke

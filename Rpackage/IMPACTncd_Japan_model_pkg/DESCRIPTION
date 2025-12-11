@@ -34,7 +34,8 @@ Imports: Rcpp (>= 1.0.2),
          DBI,
          qs2,
          wrswoR,
-         gamlss.dist
+         gamlss.dist,
+         doParallel
 Suggests: roxygen2
 LinkingTo: Rcpp, 
            dqrng,

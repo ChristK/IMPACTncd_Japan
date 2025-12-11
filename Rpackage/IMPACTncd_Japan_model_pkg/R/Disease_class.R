@@ -885,7 +885,7 @@ Disease <-
             m2 <- tbl[sex == "women", lm(mu ~ year)]
 
             tbl <- self$get_prvl(
-              seq(design_$sim_prm$init_year_long + 1L, 2019L),
+              seq(design_$sim_prm$init_year_long, 2019L),
               mc_ = sp$mc_aggr,
               design_
             )[age == design_$sim_prm$ageL]

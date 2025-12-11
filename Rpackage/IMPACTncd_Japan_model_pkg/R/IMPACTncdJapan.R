@@ -37,12 +37,15 @@
 #' @importFrom stats as.formula na.omit qunif var weighted.mean loess predict qbinom
 #' @importFrom stats quantile rbinom rpois runif sigma
 #' @importFrom utils tail
-#' @importFrom digest digest2int
+#' @importFrom digest digest2int digest
 #' @importFrom yaml read_yaml write_yaml
 #' @importFrom foreach foreach
 #' @importFrom parallelly makeClusterPSOCK
 #' @importFrom parallel parLapplyLB
 #' @importFrom igraph make_graph is_dag V neighbors all_simple_paths topo_sort
+#' @importFrom DBI dbConnect dbDisconnect dbGetQuery dbExecute
+#' @importFrom qs2 qs_read qs_save
+#' @importFrom wrswoR sample_int_expj
 #' @useDynLib IMPACTncdJapan
 #' @name IMPACTncdJapan
 

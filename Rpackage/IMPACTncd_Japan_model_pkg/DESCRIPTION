@@ -30,7 +30,11 @@ Imports: Rcpp (>= 1.0.2),
          parallelly,
          parallel,
          duckdb,
-         arrow
+         arrow,
+         DBI,
+         qs2,
+         wrswoR,
+         gamlss.dist
 Suggests: roxygen2
 LinkingTo: Rcpp, 
            dqrng,

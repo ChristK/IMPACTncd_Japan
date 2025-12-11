@@ -51,14 +51,43 @@ Design <-
       #' Create a new `Design` object.
       #'
       #' @param sim_prm Either a path to a YAML configuration file or a list containing the simulation parameters.
-      #'   The parameters must include keys such as:
+      #'   The parameters must include the following keys:
       #'   \itemize{
-      #'     \item `iteration_n`: Number of iterations.
-      #'     \item `clusternumber`: Number of clusters/cores to use.
-      #'     \item `logs`: Logical, whether to enable logging.
-      #'     \item `scenarios`: List of scenarios.
-      #'     \item `diseases`: List of diseases and their parameters.
-      #'     \item ... and others (see code for full list).
+      #'     \item `iteration_n`: Integer. Number of Monte Carlo iterations for the simulation.
+      #'     \item `clusternumber`: Integer. Number of CPU cores/clusters to use for parallel processing.
+      #'     \item `clusternumber_export`: Integer. Number of CPU cores/clusters to use for exporting summaries.
+      #'     \item `logs`: Logical. If TRUE, enables verbose logging of simulation progress.
+      #'     \item `export_xps`: Logical. If TRUE, exports cross-sectional population states (xps) to disk.
+      #'     \item `export_PARF`: Logical. If TRUE, exports Population Attributable Risk Fraction (PARF) files.
+      #'     \item `n`: Integer. Size of the synthetic population to generate or simulate.
+      #'     \item `num_chunks`: Integer. Number of chunks to split the simulation into for memory management.
+      #'     \item `init_year_long`: Integer. The starting year of the simulation (e.g., 2015).
+      #'     \item `sim_horizon_max`: Integer. The final year of the simulation horizon.
+      #'     \item `ageL`: Integer. Lower bound of the age range for the simulation.
+      #'     \item `ageH`: Integer. Upper bound of the age range for the simulation.
+      #'     \item `apply_RR_to_mrtl2`: Logical. If TRUE, disease mortality is influenced by exposures like incidence.
+      #'     \item `calibrate_to_incd_trends`: Logical. If TRUE, use incidence calibration multipliers.
+      #'     \item `calibrate_to_ftlt_trends`: Logical. If TRUE, use fatality calibration multipliers.
+      #'     \item `init_year_incd_calibration`: Logical. Indicates whether parf*p0 is calibrated to incd for the initial year.
+      #'     \item `incd_uncertainty_distr`: String. Distribution of incidence uncertainty ("beta" or "uniform").
+      #'     \item `prvl_uncertainty_distr`: String. Distribution of prevalence uncertainty ("beta" or "uniform").
+      #'     \item `ftlt_uncertainty_distr`: String. Distribution of case fatality uncertainty ("beta" or "uniform").
+      #'     \item `output_dir`: String. Path to the directory where simulation outputs will be saved.
+      #'     \item `synthpop_dir`: String. Path to the directory containing or saving synthetic population files.
+      #'     \item `diseases`: List. Definitions of diseases, including incidence, mortality, and disability weights.
+      #'     \item `maxlag`: Integer. Maximum lag period (in years) for exposure effects.
+      #'     \item `jumpiness`: Numeric. Parameter controlling the volatility or "jumpiness" of time-variant trends.
+      #'     \item `keep_simulants_rn`: Logical. If TRUE, keep random numbers used for exposure generation.
+      #'     \item `load_simulants_rn`: Logical. If TRUE, load random numbers used for exposure generation.
+      #'     \item `decision_aid`: Logical. If TRUE, enables features related to decision aid outputs.
+      #'     \item `stochastic`: Logical. If TRUE, enables stochastic uncertainty in the model parameters.
+      #'     \item `kismet`: Logical. If TRUE, enables "kismet" (fate/randomness) in individual life courses.
+      #'     \item `max_prvl_for_outputs`: Numeric. Threshold for maximum prevalence to report in outputs (to filter rare conditions).
+      #'     \item `iteration_n_max`: Integer. Maximum number of iterations allowed (safety limit).
+      #'     \item `scenarios`: List. Definitions of different simulation scenarios (e.g., baseline, interventions).
+      #'     \item `cols_for_output`: Character vector. Names of columns to include in the output files.
+      #'     \item `strata_for_output`: Character vector. Variables to stratify the output by (e.g., "sex", "age_group").
+      #'     \item `exposures`: List. Definitions of risk factor exposures included in the model.
       #'   }
       #'
       #' @return A new `Design` object.

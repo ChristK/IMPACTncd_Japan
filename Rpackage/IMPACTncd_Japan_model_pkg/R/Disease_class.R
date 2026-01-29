@@ -505,7 +505,7 @@ Disease <-
           }
           # nam <- "m0"
 
-          if (!all(yrs %in% unique(parf_dt$years))) {
+          if (!all(yrs %in% unique(parf_dt$year))) {
             # TODO safer logic here
             parf_dt <- clone_dt(parf_dt, length(yrs))
             parf_dt[, year := .id - 1L + design_$sim_prm$init_year_long]
@@ -954,7 +954,7 @@ Disease <-
 
               ss <- sp$pop[ncases > 0, ][,
                 .(
-                  "pid" = pid[sample_int_expj(
+                  "pid" = pid[wrswoR::sample_int_expj(
                     unique(.N),
                     unique(ncases),
                     disease_wt

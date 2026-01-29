@@ -327,8 +327,11 @@ Design <-
           # Check for Windows container indicators
           tryCatch({
             # Check if running in Windows container by looking for container-specific registry
-            system_output <- system("reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\ContainerManager", 
-                                   intern = TRUE, ignore.stderr = TRUE)
+            system_output <- suppressWarnings(system(
+              "reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\ContainerManager",
+              intern = TRUE,
+              ignore.stderr = TRUE
+            ))
             return(length(system_output) > 0 && !any(grepl("ERROR", system_output)))
           }, error = function(e) {
             return(FALSE)

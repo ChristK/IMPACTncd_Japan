@@ -232,7 +232,7 @@ SynthPop <-
       #' @return The invisible self for chaining.
 
       update_design = function(design_ = design) {
-        if (!inherits(design, "Design")) {
+        if (!inherits(design_, "Design")) {
           stop("Argument design_ needs to be a Design object.")
         }
 

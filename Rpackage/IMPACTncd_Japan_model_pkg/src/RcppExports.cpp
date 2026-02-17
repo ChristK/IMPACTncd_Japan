@@ -34,10 +34,43 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// fit_beta_cpp
+NumericVector fit_beta_cpp(NumericVector x, NumericVector x_p, double tolerance, int max_restarts, bool verbose);
+RcppExport SEXP _IMPACTncdJapan_fit_beta_cpp(SEXP xSEXP, SEXP x_pSEXP, SEXP toleranceSEXP, SEXP max_restartsSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type x_p(x_pSEXP);
+    Rcpp::traits::input_parameter< double >::type tolerance(toleranceSEXP);
+    Rcpp::traits::input_parameter< int >::type max_restarts(max_restartsSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_beta_cpp(x, x_p, tolerance, max_restarts, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fit_beta_vec_cpp
+List fit_beta_vec_cpp(List q, NumericVector p, double tolerance, int max_restarts, bool verbose, int n_threads);
+RcppExport SEXP _IMPACTncdJapan_fit_beta_vec_cpp(SEXP qSEXP, SEXP pSEXP, SEXP toleranceSEXP, SEXP max_restartsSEXP, SEXP verboseSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type q(qSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type p(pSEXP);
+    Rcpp::traits::input_parameter< double >::type tolerance(toleranceSEXP);
+    Rcpp::traits::input_parameter< int >::type max_restarts(max_restartsSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_beta_vec_cpp(q, p, tolerance, max_restarts, verbose, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_IMPACTncdJapan_simcpp", (DL_FUNC) &_IMPACTncdJapan_simcpp, 3},
     {"_IMPACTncdJapan_simcpp_year_based", (DL_FUNC) &_IMPACTncdJapan_simcpp_year_based, 3},
+    {"_IMPACTncdJapan_fit_beta_cpp", (DL_FUNC) &_IMPACTncdJapan_fit_beta_cpp, 5},
+    {"_IMPACTncdJapan_fit_beta_vec_cpp", (DL_FUNC) &_IMPACTncdJapan_fit_beta_vec_cpp, 6},
     {NULL, NULL, 0}
 };
 

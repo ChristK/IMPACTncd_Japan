@@ -1,7 +1,8 @@
 # change L6 to L10 and remove "#" from L54 to L84 for IMPACT-NCD-JAPAN
 source("./global.R")
 design <- Design$new("./inputs/sim_design_clbr.yaml")
-
+library(data.table)
+library(fst)
 # recombine the chunks of large files
 # TODO logic to delete these files
 if (file.exists("./simulation/large_files_indx.csv")) {

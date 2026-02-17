@@ -10,3 +10,11 @@ simcpp_year_based <- function(dt, l, mc) {
     invisible(.Call('_IMPACTncdJapan_simcpp_year_based', PACKAGE = 'IMPACTncdJapan', dt, l, mc))
 }
 
+fit_beta_cpp <- function(x, x_p, tolerance = 0.01, max_restarts = 1000L, verbose = FALSE) {
+    .Call('_IMPACTncdJapan_fit_beta_cpp', PACKAGE = 'IMPACTncdJapan', x, x_p, tolerance, max_restarts, verbose)
+}
+
+fit_beta_vec_cpp <- function(q, p, tolerance = 0.01, max_restarts = 500L, verbose = FALSE, n_threads = 0L) {
+    .Call('_IMPACTncdJapan_fit_beta_vec_cpp', PACKAGE = 'IMPACTncdJapan', q, p, tolerance, max_restarts, verbose, n_threads)
+}
+

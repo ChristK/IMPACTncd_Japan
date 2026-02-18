@@ -1764,7 +1764,7 @@ Simulation <-
             ),
             chd_mrtl_rate = quantile(chd_mrtl_rate, p = 0.500),
             chd_mrtl_rate_low = quantile(chd_mrtl_rate, p = 0.025),
-            chd_mrtl_rate_upp = quantile(chd_mrtl_rate, p = 0.957),
+            chd_mrtl_rate_upp = quantile(chd_mrtl_rate, p = 0.975),
             stroke_mrtl_rate = quantile(stroke_mrtl_rate, p = 0.500),
             stroke_mrtl_rate_low = quantile(stroke_mrtl_rate, p = 0.025),
             stroke_mrtl_rate_upp = quantile(stroke_mrtl_rate, p = 0.975),
@@ -2117,7 +2117,7 @@ Simulation <-
           .(
             chd_incd_rate = quantile(chd_incd_rate, p = 0.500),
             chd_incd_rate_low = quantile(chd_incd_rate, p = 0.025),
-            chd_incd_rate_upp = quantile(chd_incd_rate, p = 0.957),
+            chd_incd_rate_upp = quantile(chd_incd_rate, p = 0.975),
             stroke_incd_rate = quantile(stroke_incd_rate, p = 0.500),
             stroke_incd_rate_low = quantile(stroke_incd_rate, p = 0.025),
             stroke_incd_rate_upp = quantile(stroke_incd_rate, p = 0.975),

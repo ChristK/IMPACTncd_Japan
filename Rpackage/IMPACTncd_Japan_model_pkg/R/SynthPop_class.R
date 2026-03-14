@@ -962,8 +962,8 @@ SynthPop <-
           dqRNGkind("pcg64")
           SEED <-
             2121870L # sample(1e7, 1) # Hard-coded for reproducibility
-          set.seed(SEED + mc_)
-          dqset.seed(SEED, mc_)
+          set.seed(SEED + mc_) # Only used by the two sample() calls in gen_synthpop_demog()
+          dqset.seed(SEED, mc_) # Used by all other RNG calls (dqrunif, dqrnorm, fscramble_trajectories, etc.)
 
           # Generate synthpops with sociodemographic and exposures information.
 
@@ -1307,8 +1307,12 @@ SynthPop <-
           dt[Smoking_number_grp == 5L, Smoking_number := 30L]
           dt[Smoking_number_grp == 6L, Smoking_number := 35L]
           dt[Smoking_number_grp == 7L, Smoking_number := 40L]
-          # I do not explicitly set.seed because I do so at the beginning of gen_synthpop()
-          dt[Smoking_number_grp == 8L, Smoking_number := sample(c(50L, 60L, 80L), .N, TRUE, prob = c(0.4, 0.45, 0.15))]
+          # Use rankstat_Smoking_number to deterministically assign values
+          # prob: 50 -> 0.4, 60 -> 0.45, 80 -> 0.15
+          dt[Smoking_number_grp == 8L, Smoking_number := {
+            u <- (rankstat_Smoking_number - pa7) / (1 - pa7)
+            fcase(u < 0.4, 50L, u < 0.85, 60L, default = 80L)
+          }]
 
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_Smoking_number")
           dt[, c(col_nam, "Smoking_number_grp") := NULL]

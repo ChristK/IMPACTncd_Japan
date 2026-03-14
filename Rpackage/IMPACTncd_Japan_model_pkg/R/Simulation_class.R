@@ -3734,8 +3734,7 @@ Simulation <-
           + CASE WHEN t2dm_prvl = 0 THEN 0.0 ELSE -0.055 END
         "
 
-        if (!include_non_significant) {
-          # Original logic: if (!include_non_significant == TRUE)
+        if (include_non_significant) {
           eq5d5l_expr <- paste0(
             eq5d5l_expr,
             " + CASE WHEN htn_prvl = 0 THEN 0.0 ELSE -0.005 END",

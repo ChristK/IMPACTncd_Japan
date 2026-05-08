@@ -287,7 +287,7 @@ EOF
       -e GROUP_ID="${GROUP_ID}" \
       -e USER_NAME="${USER_NAME}" \
       -e GROUP_NAME="${GROUP_NAME}" \
-      --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
+      --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/outputs \
       --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
       --mount type=bind,source="$SCENARIOS_DIR",target=/IMPACTncd_Japan/scenarios \
       --workdir /IMPACTncd_Japan \
@@ -299,7 +299,7 @@ EOF
       -e GROUP_ID="${GROUP_ID}" \
       -e USER_NAME="${USER_NAME}" \
       -e GROUP_NAME="${GROUP_NAME}" \
-      --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/output \
+      --mount type=volume,source="$VOLUME_OUTPUT_NAME",target=/outputs \
       --mount type=volume,source="$VOLUME_SYNTHPOP_NAME",target=/synthpop \
       --workdir /IMPACTncd_Japan \
       "$IMAGE_NAME" \
@@ -334,7 +334,7 @@ else
       -e GROUP_ID="${GROUP_ID}" \
       -e USER_NAME="${USER_NAME}" \
       -e GROUP_NAME="${GROUP_NAME}" \
-      --mount type=bind,source="$OUTPUT_DIR",target=/output \
+      --mount type=bind,source="$OUTPUT_DIR",target=/outputs \
       --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
       --mount type=bind,source="$SCENARIOS_DIR",target=/IMPACTncd_Japan/scenarios \
       --workdir /IMPACTncd_Japan \
@@ -346,7 +346,7 @@ else
       -e GROUP_ID="${GROUP_ID}" \
       -e USER_NAME="${USER_NAME}" \
       -e GROUP_NAME="${GROUP_NAME}" \
-      --mount type=bind,source="$OUTPUT_DIR",target=/output \
+      --mount type=bind,source="$OUTPUT_DIR",target=/outputs \
       --mount type=bind,source="$SYNTHPOP_DIR",target=/synthpop \
       --workdir /IMPACTncd_Japan \
       "$IMAGE_NAME" \

@@ -132,6 +132,13 @@ max_prvl_for_outputs: 2 # duration 1 is incidence and 2 is prevalence
 iteration_n_max: 1000
 scenarios: ''
 cols_for_output:
+# To preserve a scenario-created column in the lifecourse output, append its
+# name below. Custom columns named with one of the recognised suffixes flow
+# automatically into the matching summary file via export_summaries():
+#   *_prvl  -> summaries/prvl_scaled_up/   (SUM of wt where col > 0)
+#   *_incd  -> summaries/incd_scaled_up/   (SUM of wt where col = 1)
+#   *_contd -> summaries/contd_scaled_up/  (weighted mean; needs type="contd")
+#   *_costs -> summaries/costs_scaled_up/  (SUM of col * wt; feeds net_costs)
 - pid # NEED TO be 1st (perhaps not anymore)
 - pid_mrk
 - year

@@ -33,7 +33,7 @@ Simulation <-
   R6::R6Class(
     classname = "Simulation",
     lock_objects = TRUE, # allows primary prevention scenario to be updated
-    lock_class = TRUE,
+    lock_class = FALSE, # allows adding methods via $set() from other files
     # public ------------------------------------------------------------------
     public = list(
       #' @field design A Design object.
@@ -1330,60 +1330,12 @@ Simulation <-
         invisible(self)
       },
 
-      # export_tables ----
-      #' @description
-      #' Export summary tables for the simulation results.
-      #'
-      #' This method generates and exports summary tables for the main simulation outputs,
-      #' including prevalence, incidence, mortality, disease characteristics, and exposures.
-      #' It calls modular helper methods for each type of summary, ensuring output directories
-      #' are created as needed and that all tables are written to the appropriate locations.
-      #'
-      #' @param baseline_year_for_change_outputs Integer. The baseline year to use for change outputs (default: 2019L).
-      #' @param prbl Numeric vector. The quantiles to use for summary statistics (default: c(0.5, 0.025, 0.975, 0.1, 0.9)).
-      #'
-      #' @details
-      #' This method is a high-level wrapper that orchestrates the export of all main summary tables.
-      #' It delegates the actual export logic to the following private helper methods:
-      #' - \code{private$export_main_tables}
-      #' - \code{private$export_all_cause_mrtl_tables}
-      #' - \code{private$export_disease_characteristics_tables}
-      #' - \code{private$export_xps_tables}
-      #'
-      #' Each helper method is responsible for a specific set of outputs and ensures that
-      #' the results are saved in the correct format and location.
-      #'
-      #' @return The invisible self for chaining.
-      #'
-      #' @examples
-      #' IMPACTncd$export_tables()
-      export_tables = function(
-        baseline_year_for_change_outputs = 2019L,
-        prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)
-      ) {
-        private$export_main_tables(
-          prbl,
-          baseline_year_for_change_outputs,
-          private$output_dir()
-        )
-        private$export_all_cause_mrtl_tables(
-          prbl,
-          private$output_dir("summaries"),
-          private$output_dir("tables")
-        )
-        private$export_disease_characteristics_tables(
-          prbl,
-          private$output_dir("summaries"),
-          private$output_dir("tables")
-        )
-        private$export_xps_tables(
-          prbl,
-          private$output_dir(),
-          private$output_dir("tables")
-        )
-
-        invisible(self)
-      }, # end of export_tables
+      # NOTE: export_tables() and its private helpers (export_main_tables,
+      # export_all_cause_mrtl_tables, export_disease_characteristics_tables,
+      # export_xps_tables, tbl_smmrs_core, build_strata_config,
+      # read_summary_dataset) are defined in Simulation_class_tables.R via
+      # Simulation$set(). This keeps the table-export logic (ported from
+      # auxil/process_out.R) in its own file, mirroring the England model.
 
       # get_causal_structure ----
 

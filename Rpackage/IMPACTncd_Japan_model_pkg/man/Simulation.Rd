@@ -64,7 +64,16 @@ The calibration process follows these steps for each age from `ageL` to `ageH`:
 ## Method `Simulation$export_tables()`
 ## ------------------------------------------------
 
+\dontrun{
+# Use default strata
 IMPACTncd$export_tables()
+
+# Custom strata - minimal outputs
+IMPACTncd$export_tables(strata = list(
+  ons = list("year", c("year", "sex")),
+  esp = list("year")
+))
+}
 }
 \section{Public fields}{
   \if{html}{\out{<div class="r6-fields">}}
@@ -82,6 +91,7 @@ IMPACTncd$export_tables()
 \section{Methods}{
 \subsection{Public methods}{
   \itemize{
+    \item \href{#method-Simulation-export_tables}{\code{Simulation$export_tables()}}
     \item \href{#method-Simulation-initialize}{\code{Simulation$new()}}
     \item \href{#method-Simulation-update_primary_prevention_scn}{\code{Simulation$update_primary_prevention_scn()}}
     \item \href{#method-Simulation-get_primary_prevention_scn}{\code{Simulation$get_primary_prevention_scn()}}
@@ -90,7 +100,6 @@ IMPACTncd$export_tables()
     \item \href{#method-Simulation-run}{\code{Simulation$run()}}
     \item \href{#method-Simulation-calibrate_incd_ftlt}{\code{Simulation$calibrate_incd_ftlt()}}
     \item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
-    \item \href{#method-Simulation-export_tables}{\code{Simulation$export_tables()}}
     \item \href{#method-Simulation-get_causal_structure}{\code{Simulation$get_causal_structure()}}
     \item \href{#method-Simulation-get_node_names}{\code{Simulation$get_node_names()}}
     \item \href{#method-Simulation-get_causal_path}{\code{Simulation$get_causal_path()}}
@@ -111,6 +120,75 @@ IMPACTncd$export_tables()
     \item \href{#method-Simulation-clone}{\code{Simulation$clone()}}
   }
 }
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Simulation-export_tables"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-export_tables}{}}}
+\subsection{\code{Simulation$export_tables()}}{
+  Export summary tables for policy analysis.
+
+Builds main, all-cause mortality, disease-characteristics, and exposure
+tables from the per-summary parquet datasets produced by
+`$export_summaries()`. Outputs are written to `output_dir/tables/`
+(or `output_dir/tables2agegrps/` when `two_agegrps = TRUE`).
+
+This method replaces the standalone `auxil/process_out.R` script.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$export_tables(
+  baseline_year_for_change_outputs = 2001L,
+  prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
+  comparator_scenario = "sc0",
+  two_agegrps = FALSE,
+  strata = NULL,
+  multicore = TRUE
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{baseline_year_for_change_outputs}}{Integer. Reference year used for
+computing change-from-baseline columns. Default `2001L`. Two-digit
+values (e.g. `1`) are auto-promoted by adding 2000.}
+      \item{\code{prbl}}{Numeric vector of probability levels for output quantiles
+(median plus uncertainty bounds). Default
+`c(0.5, 0.025, 0.975, 0.1, 0.9)`.}
+      \item{\code{comparator_scenario}}{Character. Name of the scenario used as the
+comparator when computing differences between scenarios (cypp, cpp, dpp,
+net_qalys, net_costs). Default `"sc0"`.}
+      \item{\code{two_agegrps}}{Logical. If `TRUE`, collapses age into two groups
+(30-64 and 65-99) and writes to `tables2agegrps/`; otherwise uses the
+standard 5-year age groups and writes to `tables/`.}
+      \item{\code{strata}}{Optional named list overriding the default stratification
+configuration. Recognised names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`,
+`disease_char`, `xps_ons`, `xps_esp`. Each is a list of character vectors
+(e.g. `list("year", c("year", "sex"))`). Passed through
+`private$build_strata_config()`. Valid stratification variables: `year`
+(always required), `sex`, `agegrp`, `agegrp20` (xps only).}
+      \item{\code{multicore}}{Logical. If `TRUE`, runs the four table-building task
+groups in parallel with single-threaded workers; otherwise runs
+sequentially with implicit (within-task) parallelism.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The `Simulation` object, invisibly.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{# Use default strata
+IMPACTncd$export_tables()
+
+# Custom strata - minimal outputs
+IMPACTncd$export_tables(strata = list(
+  ons = list("year", c("year", "sex")),
+  esp = list("year")
+))
+}
+    \if{html}{\out{</div>}}
+  }
+}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-initialize"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-initialize}{}}}
@@ -296,54 +374,6 @@ is listed in `cols_for_output` of the design YAML.}
   }
   \subsection{Returns}{
     The invisible self for chaining.
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Simulation-export_tables"></a>}}
-\if{latex}{\out{\hypertarget{method-Simulation-export_tables}{}}}
-\subsection{\code{Simulation$export_tables()}}{
-  Export summary tables for the simulation results.
-
-This method generates and exports summary tables for the main simulation outputs,
-including prevalence, incidence, mortality, disease characteristics, and exposures.
-It calls modular helper methods for each type of summary, ensuring output directories
-are created as needed and that all tables are written to the appropriate locations.
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{Simulation$export_tables(
-  baseline_year_for_change_outputs = 2019L,
-  prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)
-)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{baseline_year_for_change_outputs}}{Integer. The baseline year to use for change outputs (default: 2019L).}
-      \item{\code{prbl}}{Numeric vector. The quantiles to use for summary statistics (default: c(0.5, 0.025, 0.975, 0.1, 0.9)).}
-    }
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Details}{
-    This method is a high-level wrapper that orchestrates the export of all main summary tables.
-It delegates the actual export logic to the following private helper methods:
-- \code{private$export_main_tables}
-- \code{private$export_all_cause_mrtl_tables}
-- \code{private$export_disease_characteristics_tables}
-- \code{private$export_xps_tables}
-
-Each helper method is responsible for a specific set of outputs and ensures that
-the results are saved in the correct format and location.
-  }
-  \subsection{Returns}{
-    The invisible self for chaining.
-  }
-  \subsection{Examples}{
-    \if{html}{\out{<div class="r example copy">}}
-    \preformatted{IMPACTncd$export_tables()
-}
-    \if{html}{\out{</div>}}
   }
 }
 

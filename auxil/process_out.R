@@ -441,7 +441,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
-                "contd", # user-defined *_contd columns; skipped if none exist
+                "contd", "contd_change", # user-defined *_contd columns; skipped if none exist
                 "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
         population = c("ons", "esp")
@@ -501,7 +501,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
-                "contd", # user-defined *_contd columns; skipped if none exist
+                "contd", "contd_change", # user-defined *_contd columns; skipped if none exist
                 "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
         population = "ons")

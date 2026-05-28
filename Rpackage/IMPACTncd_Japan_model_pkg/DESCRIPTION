@@ -35,7 +35,8 @@ Imports: Rcpp (>= 1.0.2),
          qs2,
          wrswoR,
          gamlss.dist,
-         doParallel
+         doParallel,
+         scales
 Suggests: roxygen2,
           knitr,
           rmarkdown

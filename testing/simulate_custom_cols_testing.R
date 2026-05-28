@@ -222,7 +222,10 @@ if (length(failures) > 0L) {
   )
 }
 
-source("./auxil/process_out.R")
+# Smoke-test the table export end-to-end using the new class method (which
+# uses this simulation's own design, unlike auxil/process_out.R which reads
+# ./inputs/sim_design.yaml). Summaries for absent sources are skipped.
+IMPACTncd$export_tables(baseline_year_for_change_outputs = 2001L)
 
 message("\nAll custom-column export checks PASSED.")
 print("Custom column export test has finished!")

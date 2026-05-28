@@ -41,9 +41,7 @@ IMPACTncd$export_summaries(
   )
 )
 
-# IMPACTncd$export_tables(baseline_year_for_change_outputs = 2001L)
-
-# source("./auxil/process_out.R")
+IMPACTncd$export_tables(baseline_year_for_change_outputs = 2001L)
 
 print("Simulation has finished!")
 

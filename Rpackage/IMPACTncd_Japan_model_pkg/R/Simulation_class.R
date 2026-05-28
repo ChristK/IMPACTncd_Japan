@@ -1019,10 +1019,11 @@ Simulation <-
       #'   "le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
       #'   "all_cause_mrtl_by_dis", "cms", "qalys", "costs". Add `"contd"` to
       #'   also aggregate scenario-created columns named with the `_contd$`
-      #'   suffix (weighted mean). Custom columns named with `_prvl`, `_incd`,
-      #'   or `_costs` suffixes are picked up automatically by the existing
-      #'   prvl/incd/costs exporters as long as the column is listed in
-      #'   `cols_for_output` of the design YAML.
+      #'   suffix (weighted mean). A custom column named with the `_prvl`
+      #'   suffix is picked up automatically by both the prvl exporter
+      #'   (prevalence, col > 0) and the incd exporter (incidence, col = 1),
+      #'   and a `_costs` column by the costs exporter, as long as the column
+      #'   is listed in `cols_for_output` of the design YAML.
       #' @param single_year_of_age Export summaries by single year of age. Useful for the calibration proccess.
       #' @return The invisible self for chaining.
       export_summaries = function(
@@ -3209,14 +3210,16 @@ Simulation <-
         # scenario function (`synthpop$pop[, my_col := ...]`) and have them
         # flow into summaries automatically by naming them with the right
         # suffix:
-        #   *_prvl  -> prevalence-style:  SUM(wt) where col > 0   (export_prvl_summaries)
-        #   *_incd  -> incidence-style:   SUM(wt) where col = 1   (export_incd_summaries)
-        #   *_contd -> continuous:        weighted mean over wt   (export_contd_summaries)
-        #   *_costs -> economic cost:     SUM(col * wt)           (export_costs_summaries)
+        #   *_prvl  -> duration counter: prevalence is SUM(wt) where col > 0
+        #              (export_prvl_summaries) AND incidence is SUM(wt) where
+        #              col = 1 (export_incd_summaries). One column drives both,
+        #              mirroring the disease *_prvl columns.
+        #   *_contd -> continuous:        weighted mean over wt (export_contd_summaries)
+        #   *_costs -> economic cost:     SUM(col * wt)         (export_costs_summaries)
         #   *_dgns  -> diagnosis flag,    cms_* / *_mrtl -> kept for internal use
         nam <- c(
           self$design$sim_prm$cols_for_output,
-          grep("^cms_|_prvl$|_incd$|_contd$|_costs$|_dgns$|_mrtl$",
+          grep("^cms_|_prvl$|_contd$|_costs$|_dgns$|_mrtl$",
                names(sp$pop), value = TRUE)
         )
         nam <- grep("^prb_", nam, value = TRUE, invert = TRUE) # exclude prb_ ... _dgns
@@ -5013,34 +5016,15 @@ Simulation <-
         lc_table_name <- "lc_table" # Assuming the view/table name in DuckDB is lc_table
         all_cols <- dbListFields(duckdb_con, lc_table_name)
         nm_prvl <- grep("_prvl$", all_cols, value = TRUE)
-        # Native (user-created) _incd columns are aggregated the same way as
-        # those derived from _prvl. If the same name would be produced by both
-        # routes (e.g. user has foo_prvl AND foo_incd), the native column wins
-        # and the derived one is dropped.
-        nm_incd_native <- grep("_incd$", all_cols, value = TRUE)
-        derived_incd <- gsub("_prvl$", "_incd", nm_prvl)
-        keep_prvl <- !derived_incd %in% nm_incd_native
-        nm_prvl_kept <- nm_prvl[keep_prvl]
-        derived_incd_kept <- derived_incd[keep_prvl]
 
         # Construct the SQL query dynamically
         select_cols <- paste(strata, collapse = ", ")
-        derived_sum_sql <- if (length(nm_prvl_kept) > 0L) {
-          sprintf(
-            'SUM(CASE WHEN "%s" = 1 THEN wt ELSE 0 END) AS "%s"',
-            nm_prvl_kept,
-            derived_incd_kept
-          )
-        } else character(0)
-        native_sum_sql <- if (length(nm_incd_native) > 0L) {
-          sprintf(
-            'SUM(CASE WHEN "%s" = 1 THEN wt ELSE 0 END) AS "%s"',
-            nm_incd_native,
-            nm_incd_native
-          )
-        } else character(0)
         sum_cases_cols <- paste(
-          c(derived_sum_sql, native_sum_sql),
+          sprintf(
+            'SUM(CASE WHEN "%s" = 1 THEN wt ELSE 0 END) AS "%s"',
+            nm_prvl,
+            gsub("_prvl$", "_incd", nm_prvl)
+          ),
           collapse = ", "
         )
 

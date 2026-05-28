@@ -140,7 +140,13 @@ This method replaces the standalone `auxil/process_out.R` script.
   comparator_scenario = "sc0",
   two_agegrps = FALSE,
   strata = NULL,
-  multicore = TRUE
+  multicore = TRUE,
+  cea = TRUE,
+  wtp = c(5e+06, 7500000, 1e+07),
+  qaly_discount_rate = 2,
+  cost_discount_rate = 2,
+  discount_from_year = NULL,
+  custom_costs_in_healthcare = FALSE
 )}
     \if{html}{\out{</div>}}
   }
@@ -165,9 +171,27 @@ configuration. Recognised names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`,
 (e.g. `list("year", c("year", "sex"))`). Passed through
 `private$build_strata_config()`. Valid stratification variables: `year`
 (always required), `sex`, `agegrp`, `agegrp20` (xps only).}
-      \item{\code{multicore}}{Logical. If `TRUE`, runs the four table-building task
+      \item{\code{multicore}}{Logical. If `TRUE`, runs the table-building task
 groups in parallel with single-threaded workers; otherwise runs
 sequentially with implicit (within-task) parallelism.}
+      \item{\code{cea}}{Logical. If `TRUE` (default), additionally export
+cost-effectiveness tables (incremental cost-effectiveness ratio, ICER, and
+net monetary benefit, NMB) from the societal and healthcare perspectives.
+These are built from the `qalys` and `costs` summaries for the actual
+(`scaled_up`) population only.}
+      \item{\code{wtp}}{Numeric vector of willingness-to-pay thresholds (monetary units
+per QALY, i.e. the same currency as the cost columns) at which NMB is
+computed. Default `c(5e6, 7.5e6, 1e7)`.}
+      \item{\code{qaly_discount_rate}}{Numeric. Annual discount rate (percent) applied to
+QALYs in the CEA tables. Default `2`.}
+      \item{\code{cost_discount_rate}}{Numeric. Annual discount rate (percent) applied to
+costs in the CEA tables. Default `2`.}
+      \item{\code{discount_from_year}}{Integer or `NULL`. First year from which present
+values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
+When `NULL` (default) it is set to `baseline_year_for_change_outputs`.}
+      \item{\code{custom_costs_in_healthcare}}{Logical. User-defined `*_costs` columns are
+always included in the societal perspective; set `TRUE` to also include
+them in the healthcare perspective. Default `FALSE`.}
     }
     \if{html}{\out{</div>}}
   }

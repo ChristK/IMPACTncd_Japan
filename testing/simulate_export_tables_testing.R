@@ -270,9 +270,12 @@ compare_dirs <- function(legacy_dir, method_dir, label,
 }
 
 message("\n--- Comparing standard tables (two_agegrps = FALSE) ---")
-# Expect exact parity: identical file set and value-identical contents (this
-# includes the contd_change tables, now emitted by both sides).
-compare_dirs(tables_dir, method_dir, "standard")
+# Expect parity on all shared tables (incl. contd_change, now emitted by both).
+# The cost-effectiveness (ICER/NMB) tables are produced ONLY by the method
+# (process_out.R has no CEA), so they are allowed method-only extras here and
+# are validated separately below.
+compare_dirs(tables_dir, method_dir, "standard",
+             allowed_extra_method_pattern = "^cost-effectiveness by ")
 
 message("\n--- Comparing two_agegrps tables (two_agegrps = TRUE) ---")
 # process_out.R writes pop "by year" and "by year-sex" into tables2agegrps via
@@ -307,6 +310,118 @@ check(
            list.files(mc_dir, pattern = "\\.csv$")),
   "multicore = TRUE produces the same standard file set as multicore = FALSE"
 )
+
+# ---------------------------------------------------------------------------
+# 6. Validate cost-effectiveness (ICER / NMB) tables
+# ---------------------------------------------------------------------------
+# process_out.R produces no CEA tables, so there is no legacy baseline. Instead
+# we (a) check the expected files exist with the expected metric rows, and
+# (b) independently recompute the quantiled CEA metrics straight from the
+# qalys/costs summaries and confirm they match the method's CSVs exactly.
+message("\n--- Validating cost-effectiveness (ICER/NMB) tables ---")
+
+WTP <- c(5e6, 7.5e6, 1e7)
+NMB_LABELS <- paste0("NMB_at_wtp_", vapply(WTP, function(w)
+  format(w, scientific = FALSE, trim = TRUE, big.mark = ""), character(1)))
+CEA_TYPES <- c("dCosts_cuml", "dQALYs_cuml", "ICER", NMB_LABELS)
+
+# Independent re-implementation of export_cea_tables() for one
+# (strata, perspective, scale), returning the quantiled table.
+recompute_cea <- function(s, persp, scale,
+                          base = BASELINE_YEAR, comparator = "sc0",
+                          qaly_rate = 2, cost_rate = 2,
+                          prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)) {
+  q <- CKutils::read_parquet_dt(file.path(output_dir, "summaries", "qalys_scaled_up"))
+  cst <- CKutils::read_parquet_dt(file.path(output_dir, "summaries", "costs_scaled_up"))
+  all_cc <- grep("_costs$", names(cst), value = TRUE)
+  builtin <- grep("^(chd|stroke|cvd)_(direct|productivity|informal|indirect|total)_costs$",
+                  all_cc, value = TRUE)
+  custom <- setdiff(all_cc, builtin)
+  pcols <- if (persp == "societal") c("cvd_total_costs", custom) else "cvd_direct_costs"
+  pcols <- intersect(pcols, names(cst))
+  x <- c("mc", "scenario", s)
+  disc <- function(v, year, rate) v / (1 + rate / 100)^pmax(0, year - base)
+  cc <- copy(cst)
+  cc[, .cost := Reduce(`+`, .SD), .SDcols = pcols]
+  cc <- cc[, .(C = sum(.cost)), keyby = eval(x)][, C := disc(C, year, cost_rate)]
+  qq <- q[, .(Q = sum(get(scale))), keyby = eval(x)][, Q := disc(Q, year, qaly_rate)]
+  d <- merge(qq, cc, by = x, all = TRUE)
+  d[is.na(Q), Q := 0][is.na(C), C := 0]
+  cmp <- d[scenario == comparator & year >= base][, scenario := NULL]
+  d <- d[scenario != comparator & year >= base]
+  d[cmp, on = setdiff(x, "scenario"), `:=`(dQ = Q - i.Q, dC = C - i.C)]
+  d <- d[!is.na(dQ) & !is.na(dC)]
+  setkeyv(d, c(setdiff(x, "year"), "year"))
+  d[, `:=`(dQALYs_cuml = cumsum(dQ), dCosts_cuml = cumsum(dC)), by = setdiff(x, "year")]
+  d[, ICER := fifelse(dQALYs_cuml == 0, NA_real_, dCosts_cuml / dQALYs_cuml)]
+  for (i in seq_along(WTP)) set(d, NULL, NMB_LABELS[i], WTP[i] * d$dQALYs_cuml - d$dCosts_cuml)
+  dm <- melt(d, id.vars = x, measure.vars = CEA_TYPES,
+             variable.name = "type", value.name = "value")
+  dm <- dm[is.finite(value)]
+  setkey(dm, "type")
+  out <- dm[, IMPACTncdJapan:::safe_fquantile_byid(value, prbl, id = as.character(type),
+                                                   rounding = FALSE),
+            keyby = eval(setdiff(x, "mc"))]
+  setnames(out, c(setdiff(x, "mc"), "type", scales::percent(prbl, prefix = "value_")))
+  out[]
+}
+
+cea_validate <- function(s, persp, scale) {
+  suffix <- paste(s, collapse = "-")
+  fn <- sprintf("cost-effectiveness by %s (%s-%s) (not standardised).csv",
+                suffix, persp, scale)
+  fp <- file.path(method_dir, fn)
+  if (!check(file.exists(fp), paste0("CEA file exists: ", fn))) return(invisible())
+  csv <- fread(fp)
+  check(all(CEA_TYPES %in% unique(csv$type)),
+        paste0(fn, ": all 6 metric types present"))
+  rc <- recompute_cea(s, persp, scale)
+  keys <- c("type", "scenario", s)
+  qcols <- grep("^value_", names(csv), value = TRUE)
+  m <- merge(csv, rc, by = keys, suffixes = c(".csv", ".rc"))
+  ok <- nrow(m) == nrow(csv)
+  for (qc in qcols) {
+    ok <- ok && isTRUE(all.equal(m[[paste0(qc, ".csv")]], m[[paste0(qc, ".rc")]],
+                                 tolerance = 1e-6))
+  }
+  check(ok, paste0(fn, ": all quantile columns match independent recompute"))
+}
+
+cea_files <- list.files(method_dir, pattern = "^cost-effectiveness by .*\\.csv$")
+check(length(cea_files) == 16L,
+      sprintf("16 CEA files produced (4 strata x 2 perspectives x 2 scales); got %d",
+              length(cea_files)))
+
+for (persp in c("societal", "healthcare")) {
+  for (scale in c("EQ5D5L", "HUI3")) {
+    cea_validate("year", persp, scale)
+  }
+}
+cea_validate(c("year", "sex"), "societal", "EQ5D5L")
+cea_validate(c("year", "agegrp", "sex"), "healthcare", "HUI3")
+
+# Healthcare incremental costs (direct only) should never exceed societal
+# (total) in magnitude, at the median.
+hc <- fread(file.path(method_dir,
+  "cost-effectiveness by year (healthcare-EQ5D5L) (not standardised).csv"))
+soc <- fread(file.path(method_dir,
+  "cost-effectiveness by year (societal-EQ5D5L) (not standardised).csv"))
+hc_dc <- hc[type == "dCosts_cuml"]
+soc_dc <- soc[type == "dCosts_cuml"]
+mm <- merge(hc_dc, soc_dc, by = c("scenario", "year"), suffixes = c(".hc", ".soc"))
+check(nrow(mm) > 0 && all(abs(mm[["value_50.0%.hc"]]) <= abs(mm[["value_50.0%.soc"]]) + 1e-6),
+      "healthcare |dCosts_cuml| <= societal |dCosts_cuml| (median)")
+
+# cea = FALSE must suppress all CEA tables.
+nocea_dir <- file.path(output_dir, "tables_nocea_check")
+unlink(c(tables_dir, nocea_dir), recursive = TRUE, force = TRUE)
+IMPACTncd$export_tables(
+  baseline_year_for_change_outputs = BASELINE_YEAR,
+  two_agegrps = FALSE, multicore = FALSE, cea = FALSE
+)
+file.rename(tables_dir, nocea_dir)
+check(length(list.files(nocea_dir, pattern = "^cost-effectiveness by ")) == 0L,
+      "cea = FALSE produces no CEA files")
 
 # ---------------------------------------------------------------------------
 # Report

@@ -231,9 +231,36 @@ with a recognised suffix is enough.
 
 The `net_costs` output is the difference versus the comparator scenario (by
 default `sc0`). Because it discovers all `_costs$` columns, your custom cost
-appears in net-cost tables without further configuration. Incremental
-cost-effectiveness ratios (ICER) and net monetary benefit can then be derived
-from `net_costs` and `net_qalys` in your analysis scripts.
+appears in net-cost tables without further configuration.
+
+Incremental cost-effectiveness ratios (ICER) and net monetary benefit (NMB) are
+also produced directly by the `Simulation$export_tables()` method (the class
+method that supersedes `process_out.R`). It writes
+`cost-effectiveness by <strata> (<perspective>-<scale>) (not standardised).csv`
+files containing the cumulative discounted incremental QALYs (`dQALYs_cuml`) and
+costs (`dCosts_cuml`), the `ICER`, and the `NMB` at each willingness-to-pay
+threshold, for both QALY scales (EQ5D5L and HUI3) and from two perspectives:
+
+* **societal** — uses `cvd_total_costs` (direct + productivity + informal care);
+* **healthcare** — uses `cvd_direct_costs` (treatment costs only).
+
+Discounting is applied with separate annual rates for costs and QALYs
+(`cost_discount_rate`, `qaly_discount_rate`, defaulting to 2% each), and the
+willingness-to-pay thresholds are set with the `wtp` argument
+(default `c(5e6, 7.5e6, 1e7)` ¥/QALY). See `?Simulation` / `export_tables()` for
+the full argument list.
+
+**Where do your custom `_costs` columns count?** Custom cost columns are
+**always** added to the **societal** perspective. By default they are *not*
+included in the healthcare perspective (which is meant to capture direct
+treatment costs only). If your custom cost *is* a healthcare cost, pass
+`custom_costs_in_healthcare = TRUE` to `export_tables()` so it is added to the
+healthcare perspective as well. For example, an intervention-delivery cost paid
+by the health system should set this flag, whereas a productivity-loss or
+out-of-pocket cost should be left in the societal perspective only.
+
+If you need a bespoke calculation, you can still derive ICER and NMB yourself
+from the `net_costs` and `net_qalys` tables in your own analysis scripts.
 
 ## Tips and gotchas
 

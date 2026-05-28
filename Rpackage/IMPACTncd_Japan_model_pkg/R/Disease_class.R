@@ -422,7 +422,8 @@ Disease <-
           if (design_$sim_prm$logs) {
             message("Saving parf cache.")
           }
-          qs_save(ans, tmpfile, nthreads = 1L) # NOTE multithreaded qs_save requires TBB https://cran.r-project.org/web/packages/qs2/vignettes/vignette.html
+          # Atomic write: parallel workers may generate this same cache at once.
+          atomic_qs_save(ans, tmpfile, nthreads = 1L) # NOTE multithreaded qs_save requires TBB https://cran.r-project.org/web/packages/qs2/vignettes/vignette.html
         } # end tmpfile bypass
 
         self$set_rr(ans, design_, forPARF = TRUE)
@@ -536,7 +537,8 @@ Disease <-
           message("Saving parf file ", private$parf_filenam)
         }
 
-        write_fst(parf_dt, private$parf_filenam, 100L)
+        # Atomic write: parallel workers may generate this same path at once.
+        atomic_write_fst(parf_dt, private$parf_filenam, 100L)
 
         if (!keep_intermediate_file) {
           file.remove(tmpfile)
@@ -2956,7 +2958,8 @@ Disease <-
           } else {
             self$name
           }
-          qs_save(
+          # Atomic write: parallel workers may refresh this snapshot at once.
+          atomic_qs_save(
             fileSnapshot(
               private$sDiseaseBurdenDirPath,
               timestamp = NULL,

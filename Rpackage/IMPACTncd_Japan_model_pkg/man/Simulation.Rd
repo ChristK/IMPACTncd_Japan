@@ -61,253 +61,272 @@ The calibration process follows these steps for each age from `ageL` to `ageH`:
 \examples{
 
 ## ------------------------------------------------
-## Method `Simulation$export_tables`
+## Method `Simulation$export_tables()`
 ## ------------------------------------------------
 
 IMPACTncd$export_tables()
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{design}}{A Design object.}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{design}}{A Design object.}
 
-\item{\code{diseases}}{A list of Disease objects.}
+    \item{\code{diseases}}{A list of Disease objects.}
 
-\item{\code{RR}}{A list of RR for the simulated exposures.}
+    \item{\code{RR}}{A list of RR for the simulated exposures.}
 
-\item{\code{scenarios}}{A list of scenario objects.}
-}
-\if{html}{\out{</div>}}
+    \item{\code{scenarios}}{A list of scenario objects.}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Simulation-new}{\code{Simulation$new()}}
-\item \href{#method-Simulation-update_primary_prevention_scn}{\code{Simulation$update_primary_prevention_scn()}}
-\item \href{#method-Simulation-get_primary_prevention_scn}{\code{Simulation$get_primary_prevention_scn()}}
-\item \href{#method-Simulation-update_secondary_prevention_scn}{\code{Simulation$update_secondary_prevention_scn()}}
-\item \href{#method-Simulation-get_secondary_prevention_scn}{\code{Simulation$get_secondary_prevention_scn()}}
-\item \href{#method-Simulation-run}{\code{Simulation$run()}}
-\item \href{#method-Simulation-calibrate_incd_ftlt}{\code{Simulation$calibrate_incd_ftlt()}}
-\item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
-\item \href{#method-Simulation-export_tables}{\code{Simulation$export_tables()}}
-\item \href{#method-Simulation-get_causal_structure}{\code{Simulation$get_causal_structure()}}
-\item \href{#method-Simulation-get_node_names}{\code{Simulation$get_node_names()}}
-\item \href{#method-Simulation-get_causal_path}{\code{Simulation$get_causal_path()}}
-\item \href{#method-Simulation-update_design}{\code{Simulation$update_design()}}
-\item \href{#method-Simulation-del_outputs}{\code{Simulation$del_outputs()}}
-\item \href{#method-Simulation-del_summaries}{\code{Simulation$del_summaries()}}
-\item \href{#method-Simulation-del_logs}{\code{Simulation$del_logs()}}
-\item \href{#method-Simulation-del_parfs}{\code{Simulation$del_parfs()}}
-\item \href{#method-Simulation-del_RR_cache}{\code{Simulation$del_RR_cache()}}
-\item \href{#method-Simulation-del_synthpops}{\code{Simulation$del_synthpops()}}
-\item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
-\item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
-\item \href{#method-Simulation-validate}{\code{Simulation$validate()}}
-\item \href{#method-Simulation-split_large_files}{\code{Simulation$split_large_files()}}
-\item \href{#method-Simulation-reconstruct_large_files}{\code{Simulation$reconstruct_large_files()}}
-\item \href{#method-Simulation-del_large_files}{\code{Simulation$del_large_files()}}
-\item \href{#method-Simulation-print}{\code{Simulation$print()}}
-\item \href{#method-Simulation-clone}{\code{Simulation$clone()}}
-}
+  \itemize{
+    \item \href{#method-Simulation-initialize}{\code{Simulation$new()}}
+    \item \href{#method-Simulation-update_primary_prevention_scn}{\code{Simulation$update_primary_prevention_scn()}}
+    \item \href{#method-Simulation-get_primary_prevention_scn}{\code{Simulation$get_primary_prevention_scn()}}
+    \item \href{#method-Simulation-update_secondary_prevention_scn}{\code{Simulation$update_secondary_prevention_scn()}}
+    \item \href{#method-Simulation-get_secondary_prevention_scn}{\code{Simulation$get_secondary_prevention_scn()}}
+    \item \href{#method-Simulation-run}{\code{Simulation$run()}}
+    \item \href{#method-Simulation-calibrate_incd_ftlt}{\code{Simulation$calibrate_incd_ftlt()}}
+    \item \href{#method-Simulation-export_summaries}{\code{Simulation$export_summaries()}}
+    \item \href{#method-Simulation-export_tables}{\code{Simulation$export_tables()}}
+    \item \href{#method-Simulation-get_causal_structure}{\code{Simulation$get_causal_structure()}}
+    \item \href{#method-Simulation-get_node_names}{\code{Simulation$get_node_names()}}
+    \item \href{#method-Simulation-get_causal_path}{\code{Simulation$get_causal_path()}}
+    \item \href{#method-Simulation-update_design}{\code{Simulation$update_design()}}
+    \item \href{#method-Simulation-del_outputs}{\code{Simulation$del_outputs()}}
+    \item \href{#method-Simulation-del_summaries}{\code{Simulation$del_summaries()}}
+    \item \href{#method-Simulation-del_logs}{\code{Simulation$del_logs()}}
+    \item \href{#method-Simulation-del_parfs}{\code{Simulation$del_parfs()}}
+    \item \href{#method-Simulation-del_RR_cache}{\code{Simulation$del_RR_cache()}}
+    \item \href{#method-Simulation-del_synthpops}{\code{Simulation$del_synthpops()}}
+    \item \href{#method-Simulation-get_esp}{\code{Simulation$get_esp()}}
+    \item \href{#method-Simulation-get_mm_weights}{\code{Simulation$get_mm_weights()}}
+    \item \href{#method-Simulation-validate}{\code{Simulation$validate()}}
+    \item \href{#method-Simulation-split_large_files}{\code{Simulation$split_large_files()}}
+    \item \href{#method-Simulation-reconstruct_large_files}{\code{Simulation$reconstruct_large_files()}}
+    \item \href{#method-Simulation-del_large_files}{\code{Simulation$del_large_files()}}
+    \item \href{#method-Simulation-print}{\code{Simulation$print()}}
+    \item \href{#method-Simulation-clone}{\code{Simulation$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Simulation-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Simulation-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new simulation object.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$new(sim_prm)}\if{html}{\out{</div>}}
+\if{html}{\out{<a id="method-Simulation-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Simulation-initialize}{}}}
+\subsection{\code{Simulation$new()}}{
+  Create a new simulation object.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$new(sim_prm)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{sim_prm}}{Either a path to a yaml file or a Design object.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new `Simulation` object.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{sim_prm}}{Either a path to a yaml file or a Design object.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new `Simulation` object.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-update_primary_prevention_scn"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-update_primary_prevention_scn}{}}}
-\subsection{Method \code{update_primary_prevention_scn()}}{
-Updates the primary prevention policy scenario
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$update_primary_prevention_scn(method)}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$update_primary_prevention_scn()}}{
+  Updates the primary prevention policy scenario
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$update_primary_prevention_scn(method)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{method}}{a function with synthpop as an argument that models the primary prevention policy.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{method}}{a function with synthpop as an argument that models the primary prevention policy.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_primary_prevention_scn"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_primary_prevention_scn}{}}}
-\subsection{Method \code{get_primary_prevention_scn()}}{
-Get the primary prevention policy scenario
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_primary_prevention_scn()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$get_primary_prevention_scn()}}{
+  Get the primary prevention policy scenario
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_primary_prevention_scn()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The primary prevention policy scenario.
+  }
 }
 
-\subsection{Returns}{
-The primary prevention policy scenario.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-update_secondary_prevention_scn"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-update_secondary_prevention_scn}{}}}
-\subsection{Method \code{update_secondary_prevention_scn()}}{
-Updates the secondary prevention policy scenario
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$update_secondary_prevention_scn(method)}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$update_secondary_prevention_scn()}}{
+  Updates the secondary prevention policy scenario
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$update_secondary_prevention_scn(method)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{method}}{a function with synthpop as an argument that models the secondary prevention policy.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{method}}{a function with synthpop as an argument that models the secondary prevention policy.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_secondary_prevention_scn"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_secondary_prevention_scn}{}}}
-\subsection{Method \code{get_secondary_prevention_scn()}}{
-Get the secondary prevention policy scenario
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_secondary_prevention_scn()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$get_secondary_prevention_scn()}}{
+  Get the secondary prevention policy scenario
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_secondary_prevention_scn()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The secondary prevention policy scenario.
+  }
 }
 
-\subsection{Returns}{
-The secondary prevention policy scenario.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-run"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-run}{}}}
-\subsection{Method \code{run()}}{
-Runs a simulation
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$run(mc, multicore = TRUE, scenario_nam)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
+\subsection{\code{Simulation$run()}}{
+  Runs a simulation
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$run(mc, multicore = TRUE, scenario_nam)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
 iterations of synthetic population to simulate, or a scalar.}
+      \item{\code{multicore}}{If TRUE run the simulation in parallel.}
+      \item{\code{scenario_nam}}{A string for the scenario name (i.e. sc1)}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
+}
 
-\item{\code{multicore}}{If TRUE run the simulation in parallel.}
-
-\item{\code{scenario_nam}}{A string for the scenario name (i.e. sc1)}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-calibrate_incd_ftlt"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-calibrate_incd_ftlt}{}}}
-\subsection{Method \code{calibrate_incd_ftlt()}}{
-Generates new calibration parameters for incidence and case fatality rates.
+\subsection{\code{Simulation$calibrate_incd_ftlt()}}{
+  Generates new calibration parameters for incidence and case fatality rates.
 
 This method implements a sequential age-based calibration process that aligns
 modeled disease incidence and case fatality rates with user input data from
 external sources (e.g., GBD, national statistics). The calibration ensures
 that simulation outputs match observed epidemiological patterns.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$calibrate_incd_ftlt(mc, replace = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$calibrate_incd_ftlt(mc, replace = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{mc}}{A positive sequential integer vector with the Monte Carlo
 iterations of synthetic population to simulate, or a scalar.}
-
-\item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and
+      \item{\code{replace}}{If TRUE the calibration deletes the previous calibration file and
 starts from scratch. If FALSE, continues from the last uncalibrated age.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-export_summaries"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-export_summaries}{}}}
-\subsection{Method \code{export_summaries()}}{
-Process the lifecourse files
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$export_summaries(
+\subsection{\code{Simulation$export_summaries()}}{
+  Process the lifecourse files
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$export_summaries(
   multicore = TRUE,
   type = c("le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
     "all_cause_mrtl_by_dis", "cms", "qalys", "costs"),
   single_year_of_age = FALSE
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{multicore}}{If TRUE run the simulation in parallel.}
+      \item{\code{type}}{The type of summary to extract. Built-in types include
+"le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
+"all_cause_mrtl_by_dis", "cms", "qalys", "costs". Add `"contd"` to
+also aggregate scenario-created columns named with the `_contd$`
+suffix (weighted mean). A custom column named with the `_prvl`
+suffix is picked up automatically by both the prvl exporter
+(prevalence, col > 0) and the incd exporter (incidence, col = 1),
+and a `_costs` column by the costs exporter, as long as the column
+is listed in `cols_for_output` of the design YAML.}
+      \item{\code{single_year_of_age}}{Export summaries by single year of age. Useful for the calibration proccess.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{multicore}}{If TRUE run the simulation in parallel.}
-
-\item{\code{type}}{The type of summary to extract.}
-
-\item{\code{single_year_of_age}}{Export summaries by single year of age. Useful for the calibration proccess.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-export_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-export_tables}{}}}
-\subsection{Method \code{export_tables()}}{
-Export summary tables for the simulation results.
+\subsection{\code{Simulation$export_tables()}}{
+  Export summary tables for the simulation results.
 
 This method generates and exports summary tables for the main simulation outputs,
 including prevalence, incidence, mortality, disease characteristics, and exposures.
 It calls modular helper methods for each type of summary, ensuring output directories
 are created as needed and that all tables are written to the appropriate locations.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$export_tables(
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$export_tables(
   baseline_year_for_change_outputs = 2019L,
   prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{baseline_year_for_change_outputs}}{Integer. The baseline year to use for change outputs (default: 2019L).}
-
-\item{\code{prbl}}{Numeric vector. The quantiles to use for summary statistics (default: c(0.5, 0.025, 0.975, 0.1, 0.9)).}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Details}{
-This method is a high-level wrapper that orchestrates the export of all main summary tables.
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{baseline_year_for_change_outputs}}{Integer. The baseline year to use for change outputs (default: 2019L).}
+      \item{\code{prbl}}{Numeric vector. The quantiles to use for summary statistics (default: c(0.5, 0.025, 0.975, 0.1, 0.9)).}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    This method is a high-level wrapper that orchestrates the export of all main summary tables.
 It delegates the actual export logic to the following private helper methods:
 - \code{private$export_main_tables}
 - \code{private$export_all_cause_mrtl_tables}
@@ -316,326 +335,351 @@ It delegates the actual export logic to the following private helper methods:
 
 Each helper method is responsible for a specific set of outputs and ensures that
 the results are saved in the correct format and location.
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{IMPACTncd$export_tables()
+}
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{IMPACTncd$export_tables()
-}
-\if{html}{\out{</div>}}
-
-}
-
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_causal_structure"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_causal_structure}{}}}
-\subsection{Method \code{get_causal_structure()}}{
-Returns the causality matrix and optionally plots the
+\subsection{\code{Simulation$get_causal_structure()}}{
+  Returns the causality matrix and optionally plots the
   causality structure.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_causal_structure(
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_causal_structure(
   processed = TRUE,
   print_plot = FALSE,
   focus = FALSE,
   mode = "in",
   order = 1
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{processed}}{If `TRUE` generates the causality matrix from the
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{processed}}{If `TRUE` generates the causality matrix from the
 graph.}
-
-\item{\code{print_plot}}{If `TRUE` prints the causal structure graph.}
-
-\item{\code{focus}}{If missing the whole causal structure is returned.
+      \item{\code{print_plot}}{If `TRUE` prints the causal structure graph.}
+      \item{\code{focus}}{If missing the whole causal structure is returned.
 Otherwise, if a named node only the subgraph of the 1st order
 neighbours that point to the given vertrice is returned.}
-
-\item{\code{mode}}{Character. When focus is specified, determines direction:
+      \item{\code{mode}}{Character. When focus is specified, determines direction:
 "in" for neighbors pointing to the node, "out" for neighbors
 stemming from the node, "all" for both directions.}
-
-\item{\code{order}}{Integer. When focus is specified, determines how many
+      \item{\code{order}}{Integer. When focus is specified, determines how many
 steps away to include neighbors. Use Inf for all possible orders.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The processed causality matrix if `processed = TRUE` or the
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The processed causality matrix if `processed = TRUE` or the
   graph otherwise.
+  }
 }
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_node_names"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_node_names}{}}}
-\subsection{Method \code{get_node_names()}}{
-Returns the names of all exposures and diseases.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_node_names()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$get_node_names()}}{
+  Returns the names of all exposures and diseases.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_node_names()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A string vector.
+  }
 }
 
-\subsection{Returns}{
-A string vector.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_causal_path"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_causal_path}{}}}
-\subsection{Method \code{get_causal_path()}}{
-Returns the causal paths between an exposure and an outcome (disease).
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_causal_path(from, to, shortest_paths = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$get_causal_path()}}{
+  Returns the causal paths between an exposure and an outcome (disease).
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_causal_path(from, to, shortest_paths = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{from}}{the beginning of the path (an exposure) as a string. Use `get_node_names` for available nodes.}
+      \item{\code{to}}{the end of the path (a disease) as a string. Use `get_node_names` for available nodes.}
+      \item{\code{shortest_paths}}{Boolean. If true, only returns the paths with the smallest number of nodes. Else, all possible paths (excluding multiple and loop edges) are returned.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A list with all the possible paths between exposure and disease.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{from}}{the beginning of the path (an exposure) as a string. Use `get_node_names` for available nodes.}
-
-\item{\code{to}}{the end of the path (a disease) as a string. Use `get_node_names` for available nodes.}
-
-\item{\code{shortest_paths}}{Boolean. If true, only returns the paths with the smallest number of nodes. Else, all possible paths (excluding multiple and loop edges) are returned.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A list with all the possible paths between exposure and disease.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-update_design"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-update_design}{}}}
-\subsection{Method \code{update_design()}}{
-Updates the Design object that is stored in the Simulation
+\subsection{\code{Simulation$update_design()}}{
+  Updates the Design object that is stored in the Simulation
   object.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$update_design(new_design)}\if{html}{\out{</div>}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$update_design(new_design)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{new_design}}{A design object with the simulation parameters.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{new_design}}{A design object with the simulation parameters.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_outputs"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_outputs}{}}}
-\subsection{Method \code{del_outputs()}}{
-Delete all output files and folders below the first level.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_outputs()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$del_outputs()}}{
+  Delete all output files and folders below the first level.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_outputs()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_summaries"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_summaries}{}}}
-\subsection{Method \code{del_summaries()}}{
-Delete all output summary files and subdirectories while preserving first-level directory structure.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_summaries()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$del_summaries()}}{
+  Delete all output summary files and subdirectories while preserving first-level directory structure.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_summaries()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_logs"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_logs}{}}}
-\subsection{Method \code{del_logs()}}{
-Delete log files.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_logs()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$del_logs()}}{
+  Delete log files.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_logs()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_parfs"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_parfs}{}}}
-\subsection{Method \code{del_parfs()}}{
-Delete all files in the ./simulation/parf folder.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_parfs()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$del_parfs()}}{
+  Delete all files in the ./simulation/parf folder.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_parfs()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_RR_cache"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_RR_cache}{}}}
-\subsection{Method \code{del_RR_cache()}}{
-Delete all files in the ./simulation/rr folder.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_RR_cache()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$del_RR_cache()}}{
+  Delete all files in the ./simulation/rr folder.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_RR_cache()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_synthpops"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_synthpops}{}}}
-\subsection{Method \code{del_synthpops()}}{
-Delete all files in the synthpop folder.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_synthpops()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$del_synthpops()}}{
+  Delete all files in the synthpop folder.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_synthpops()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_esp"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_esp}{}}}
-\subsection{Method \code{get_esp()}}{
-Get the European Standardised Population 2013 by sex and
+\subsection{\code{Simulation$get_esp()}}{
+  Get the European Standardised Population 2013 by sex and
   dimd.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_esp()}\if{html}{\out{</div>}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_esp()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A data.table with the European Standardised Population 2013.
+  }
 }
 
-\subsection{Returns}{
-A data.table with the European Standardised Population 2013.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-get_mm_weights"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-get_mm_weights}{}}}
-\subsection{Method \code{get_mm_weights()}}{
-Get the disease multimorbidity weights (i.e. Cambridge
+\subsection{\code{Simulation$get_mm_weights()}}{
+  Get the disease multimorbidity weights (i.e. Cambridge
   Morbidity Score weights).
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$get_mm_weights()}\if{html}{\out{</div>}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$get_mm_weights()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A named vector with disease weights.
+  }
 }
 
-\subsection{Returns}{
-A named vector with disease weights.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-validate"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-validate}{}}}
-\subsection{Method \code{validate()}}{
-Internal validation of the disease burden.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$validate()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$validate()}}{
+  Internal validation of the disease burden.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$validate()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible self for chaining.
+  }
 }
 
-\subsection{Returns}{
-The invisible self for chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-split_large_files"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-split_large_files}{}}}
-\subsection{Method \code{split_large_files()}}{
-Splits files larger than 50Mb into chunks of 49Mb.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$split_large_files()}\if{html}{\out{</div>}}
-}
-
-\subsection{Details}{
-The function splits files larger than 50Mb into chunks of 49Mb
+\subsection{\code{Simulation$split_large_files()}}{
+  Splits files larger than 50Mb into chunks of 49Mb.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$split_large_files()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    The function splits files larger than 50Mb into chunks of 49Mb
 so they can be tracked by GitHub. The large files are deleted and an
 index is created at "./simulation/large_files_indx.csv" so they can be
 reconstructed. The function also adds the large files to `.gitignore`.
 It works on Linux and Windows. Untested on Mac.
+  }
+  \subsection{Returns}{
+    The invisible `Simulation` object.
+  }
 }
 
-\subsection{Returns}{
-The invisible `Simulation` object.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-reconstruct_large_files"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-reconstruct_large_files}{}}}
-\subsection{Method \code{reconstruct_large_files()}}{
-Reconstructs large files from chunks.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$reconstruct_large_files()}\if{html}{\out{</div>}}
-}
-
-\subsection{Details}{
-The function reconstructs large files from chunks. The path of
+\subsection{\code{Simulation$reconstruct_large_files()}}{
+  Reconstructs large files from chunks.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$reconstruct_large_files()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    The function reconstructs large files from chunks. The path of
 the files are stored in "./simulation/large_files_indx.csv". It works
 on Linux and Windows. Untested on Mac.
+  }
+  \subsection{Returns}{
+    The invisible `Simulation` object.
+  }
 }
 
-\subsection{Returns}{
-The invisible `Simulation` object.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-del_large_files"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_large_files}{}}}
-\subsection{Method \code{del_large_files()}}{
-Deletes large files.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$del_large_files()}\if{html}{\out{</div>}}
-}
-
-\subsection{Details}{
-The function deletes large files that are stored in chunks.
+\subsection{\code{Simulation$del_large_files()}}{
+  Deletes large files.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$del_large_files()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    The function deletes large files that are stored in chunks.
 The path of the files are stored in
 "./simulation/large_files_indx.csv".
+  }
+  \subsection{Returns}{
+    The invisible `Simulation` object.
+  }
 }
 
-\subsection{Returns}{
-The invisible `Simulation` object.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-print"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-print}{}}}
-\subsection{Method \code{print()}}{
-Prints the simulation object metadata.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$print()}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$print()}}{
+  Prints the simulation object metadata.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$print()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The invisible `Simulation` object.
+  }
 }
 
-\subsection{Returns}{
-The invisible `Simulation` object.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Simulation-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Simulation$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Simulation$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Simulation$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

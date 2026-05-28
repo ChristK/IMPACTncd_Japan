@@ -1015,7 +1015,15 @@ Simulation <-
 
       #' @description Process the lifecourse files
       #' @param multicore If TRUE run the simulation in parallel.
-      #' @param type The type of summary to extract.
+      #' @param type The type of summary to extract. Built-in types include
+      #'   "le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
+      #'   "all_cause_mrtl_by_dis", "cms", "qalys", "costs". Add `"contd"` to
+      #'   also aggregate scenario-created columns named with the `_contd$`
+      #'   suffix (weighted mean). A custom column named with the `_prvl`
+      #'   suffix is picked up automatically by both the prvl exporter
+      #'   (prevalence, col > 0) and the incd exporter (incidence, col = 1),
+      #'   and a `_costs` column by the costs exporter, as long as the column
+      #'   is listed in `cols_for_output` of the design YAML.
       #' @param single_year_of_age Export summaries by single year of age. Useful for the calibration proccess.
       #' @return The invisible self for chaining.
       export_summaries = function(
@@ -1157,6 +1165,8 @@ Simulation <-
           file_pth <- private$output_dir("summaries/qalys_scaled_up")
         } else if ("costs" %in% type) {
           file_pth <- private$output_dir("summaries/costs_scaled_up")
+        } else if ("contd" %in% type) {
+          file_pth <- private$output_dir("summaries/contd_scaled_up")
         } else {
           stop("Unknown type of summary")
         }
@@ -3194,9 +3204,23 @@ Simulation <-
           private$export_xps(sp, scenario_nam)
         }
 
+        # Columns kept in the lifecourse output are those listed in
+        # `cols_for_output` (YAML) OR whose name matches one of the supported
+        # suffix conventions below. Users can create custom columns inside a
+        # scenario function (`synthpop$pop[, my_col := ...]`) and have them
+        # flow into summaries automatically by naming them with the right
+        # suffix:
+        #   *_prvl  -> duration counter: prevalence is SUM(wt) where col > 0
+        #              (export_prvl_summaries) AND incidence is SUM(wt) where
+        #              col = 1 (export_incd_summaries). One column drives both,
+        #              mirroring the disease *_prvl columns.
+        #   *_contd -> continuous:        weighted mean over wt (export_contd_summaries)
+        #   *_costs -> economic cost:     SUM(col * wt)         (export_costs_summaries)
+        #   *_dgns  -> diagnosis flag,    cms_* / *_mrtl -> kept for internal use
         nam <- c(
           self$design$sim_prm$cols_for_output,
-          grep("^cms_|_prvl$|_dgns$|_mrtl$", names(sp$pop), value = TRUE)
+          grep("^cms_|_prvl$|_contd$|_costs$|_dgns$|_mrtl$",
+               names(sp$pop), value = TRUE)
         )
         nam <- grep("^prb_", nam, value = TRUE, invert = TRUE) # exclude prb_ ... _dgns
         sp$pop[, setdiff(names(sp$pop), nam) := NULL]
@@ -3647,6 +3671,9 @@ Simulation <-
         }
         if ("costs" %in% type) {
           private$export_costs_summaries(duckdb_con, mcaggr, strata, ext)
+        }
+        if ("contd" %in% type) {
+          private$export_contd_summaries(duckdb_con, mcaggr, strata, ext)
         }
 
         sink()
@@ -5646,6 +5673,23 @@ Simulation <-
           sep = ", "
         )
 
+        # User-created custom `_costs$` columns live in `lc_table` (preserved
+        # via cols_for_output) but are filtered out by calc_costs's base_filtered
+        # CTE. Aggregate them with SUM(col * wt[_esp]) directly from lc_table
+        # per (mc, scenario, strata) and merge into the cost outputs below.
+        custom_cost_cols <- grep(
+          "_costs$",
+          dbListFields(duckdb_con, lc_table_name),
+          value = TRUE
+        )
+        build_custom_cost_select <- function(wt_col) {
+          paste(
+            sprintf('SUM("%s" * %s) AS "%s"',
+                    custom_cost_cols, wt_col, custom_cost_cols),
+            collapse = ", "
+          )
+        }
+
         # Memory-efficient approach: Process scenarios one at a time
         # Initialize result collectors for both ESP and scaled-up results
         esp_results <- list()
@@ -5696,6 +5740,41 @@ Simulation <-
             query_scaled_up_scenario,
             paste("Scaled-up costs for scenario", scnam)
           ))
+
+          # Append user-defined `_costs$` columns (aggregated from lc_table)
+          if (length(custom_cost_cols) > 0L) {
+            for (wt_col in c("wt_esp", "wt")) {
+              custom_query <- sprintf(
+                "SELECT %s, %s
+                 FROM %s
+                 WHERE mc = %d AND scenario = '%s'
+                 GROUP BY %s",
+                quoted_strata_cols_sql,
+                build_custom_cost_select(wt_col),
+                lc_table_name,
+                mcaggr,
+                scnam,
+                quoted_strata_cols_sql
+              )
+              custom_dt <- as.data.table(private$query_sql(
+                duckdb_con,
+                custom_query,
+                paste(
+                  if (wt_col == "wt") "Scaled-up" else "ESP",
+                  "custom costs for scenario", scnam
+                )
+              ))
+              if (wt_col == "wt_esp") {
+                esp_results[[i]] <- merge(
+                  esp_results[[i]], custom_dt, by = strata, all = TRUE
+                )
+              } else {
+                scaled_up_results[[i]] <- merge(
+                  scaled_up_results[[i]], custom_dt, by = strata, all = TRUE
+                )
+              }
+            }
+          }
         }
 
         # Combine all ESP results and write to disk
@@ -5744,6 +5823,73 @@ Simulation <-
         })
 
         NULL
-      }
+      }, # end of export_costs_summaries
+
+      # export_contd_summaries ----
+      # Aggregates user-created continuous columns named with the `_contd$`
+      # suffix using a population-weighted mean over the strata. Mirrors the
+      # role of `_curr_xps` columns but writes to the summaries pipeline
+      # alongside prvl / incd / costs. Outputs:
+      #   summaries/contd_scaled_up/<mcaggr>_contd_scale_up.<ext>
+      #   summaries/contd_esp/<mcaggr>_contd_esp.<ext>
+      export_contd_summaries = function(duckdb_con, mcaggr, strata, ext) {
+        lc_table_name <- "lc_table"
+        nm_contd <- grep(
+          "_contd$",
+          dbListFields(duckdb_con, lc_table_name),
+          value = TRUE
+        )
+        if (length(nm_contd) == 0L) {
+          if (self$design$sim_prm$logs) {
+            message(
+              "export_contd_summaries: no `_contd` columns found in ",
+              "lifecourse; nothing to export."
+            )
+          }
+          return(NULL)
+        }
+
+        lapply(
+          paste0("contd_", c("scaled_up", "esp")),
+          function(subdir) {
+            private$create_new_folder(
+              private$output_dir(paste0("summaries/", subdir))
+            )
+          }
+        )
+
+        select_cols <- paste(strata, collapse = ", ")
+
+        write_one <- function(wt_col, out_subdir, out_suffix) {
+          # Weighted mean = SUM(col * wt) / SUM(wt); NULL when SUM(wt) = 0.
+          wm_sql <- paste(
+            sprintf(
+              'CASE WHEN SUM(%s) = 0 THEN NULL ELSE SUM("%s" * %s) / SUM(%s) END AS "%s"',
+              wt_col, nm_contd, wt_col, wt_col, nm_contd
+            ),
+            collapse = ", "
+          )
+          sql_query <- sprintf(
+            "SELECT %s, SUM(%s) AS popsize, %s
+                    FROM %s
+                    WHERE mc = %d
+                    GROUP BY %s
+                    ORDER BY %s",
+            select_cols, wt_col, wm_sql, lc_table_name, mcaggr,
+            select_cols, select_cols
+          )
+          output_path <- private$output_dir(
+            paste0("summaries/", out_subdir, "/", mcaggr, out_suffix, ".", ext)
+          )
+          private$execute_db_diskwrite_with_retry(
+            duckdb_con, sql_query, output_path
+          )
+        }
+
+        write_one("wt",     "contd_scaled_up", "_contd_scale_up")
+        write_one("wt_esp", "contd_esp",       "_contd_esp")
+
+        NULL
+      } # end of export_contd_summaries
     ) # End of private methods
   ) # End of class

@@ -36,13 +36,15 @@ Imports: Rcpp (>= 1.0.2),
          wrswoR,
          gamlss.dist,
          doParallel
-Suggests: roxygen2
+Suggests: roxygen2,
+          knitr,
+          rmarkdown
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,
            BH,
            data.table,
            CKutils
-RoxygenNote: 7.3.3
 SystemRequirements: C++17
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

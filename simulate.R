@@ -22,9 +22,20 @@ IMPACTncd$
   run(1:2, multicore = TRUE, "sc0")
 
 # example of primary prevention scenario function
+# Scenario-created columns are kept in the lifecourse output as long as their
+# name is listed in `cols_for_output` of the design YAML. Naming a column with
+# a suffix recognised by export_summaries makes it flow into the matching
+# summary file automatically: *_prvl, *_contd, *_costs.
 IMPACTncd$update_primary_prevention_scn(
   function(synthpop) {
     synthpop$pop[year > 2013, SBP_curr_xps := SBP_curr_xps * 0.9]
+    # Examples of how scenario-created columns are picked up by suffix.
+    # A _prvl column is a duration counter (1 in the incidence year, then
+    # increasing) and yields BOTH prevalence and incidence summaries:
+    # synthpop$pop[, sbp_intervention_prvl  := carry_forward_incr(
+    #                  as.integer(year > 2013), pid_mrk, TRUE, 1L, byref = TRUE)]
+    # synthpop$pop[, sbp_intervention_contd := pmax(0, SBP_curr_xps - 130)]
+    # synthpop$pop[, sbp_intervention_costs := fifelse(year > 2013, 500, 0)]
   }
 )
 
@@ -35,10 +46,11 @@ IMPACTncd$
 IMPACTncd$export_summaries(
   multicore = TRUE,
   type = c(
-    "le", "hle", "dis_char" , 
+    "le", "hle", "dis_char" ,
      "prvl", "incd", "dis_mrtl", "mrtl",
-     "all_cause_mrtl_by_dis", "cms", 
+     "all_cause_mrtl_by_dis", "cms",
      "qalys", "costs"
+     # , "contd"  # uncomment if you created *_contd columns in a scenario
   )
 )
 

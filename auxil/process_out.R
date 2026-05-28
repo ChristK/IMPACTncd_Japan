@@ -24,6 +24,16 @@ sSummariesSubDirPath <- file.path(design$sim_prm$output_dir, "summaries")
 sTablesSubDirPath <- file.path(design$sim_prm$output_dir, "tables")
 output_dir <- design$sim_prm$output_dir
 
+# Some summary datasets may be absent (e.g. a run that did not produce
+# every output). Return FALSE (with a message) rather than letting the
+# downstream open_dataset() crash, so we only build the tables whose
+# source summary actually exists.
+file_exists_msg <- function(fpth) {
+        ex <- file.exists(fpth)
+        if (!ex) message(fpth, " doesn't exist; skipping related table(s)")
+        ex
+}
+
 tbl_smmrs <- function(
     what = c(
             "prvl", "prvl_change", "incd", "incd_change",
@@ -65,6 +75,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "cms_score_by_age",
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
+                "contd" = "contd",
+                "contd_change" = "contd",
                 "qalys" = "qalys",
                 "net_qalys" = "qalys",
                 "costs" = "costs",
@@ -95,6 +107,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "cms_score",
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
+                "contd" = "_contd$",
+                "contd_change" = "_contd$",
                 "qalys" = "^EQ5D5L$|^HUI3$",
                 "net_qalys" = "^EQ5D5L$|^HUI3$",
                 "costs" = "_costs$",
@@ -121,6 +135,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "mean_cms_score_",
                 "cms_count" = "mean_cms_count_",
                 "cms_count_change" = "mean_cms_count_",
+                "contd" = "mean_",
+                "contd_change" = "mean_change_",
                 "qalys" = "qalys_",
                 "net_qalys" = "net_qalys_",
                 "costs" = "costs_",
@@ -147,6 +163,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "mean CMS score change by ",
                 "cms_count" = "mean CMS count by ",
                 "cms_count_change" = "mean CMS count change by ",
+                "contd" = "mean of continuous outcomes by ",
+                "contd_change" = "mean of continuous outcomes change by ",
                 "qalys" = "QALYs by ",
                 "net_qalys" = "net QALYs by ",
                 "costs" = "costs by ",
@@ -177,7 +195,10 @@ tbl_smmrs <- function(
         # For ftlt I need prvl for the denominator
         if (grepl("^ftlt", what)) {
                 fpth <- file.path(output_dir, "summaries", paste0(str0[["prvl"]], str1[[population]]))
-                if (!file.exists(fpth)) stop(fpth, " doesn't exist")
+                if (!file.exists(fpth)) {
+                        message(fpth, " doesn't exist; skipping ", what)
+                        return(NULL)
+                }
 
                 t1 <- as.data.table(open_dataset(fpth)) # denominator data  
                 setnames(t1, "popsize", "nonmodelled_prvl")
@@ -300,6 +321,28 @@ tbl_smmrs <- function(
                         setkeyv(d, c("type", setdiff(x, "mc")))
                         setcolorder(d, setdiff(x, "mc"))
 
+                } else if (grepl("^contd", what)) {
+                        # _contd summaries already hold a population-weighted mean
+                        # per stratum, so collapsing to coarser strata re-weights
+                        # by popsize (NOT a sum, and no division by popsize).
+                        contd_cols <- grep("_contd$", names(tt), value = TRUE)
+                        d <- tt[, lapply(.SD, function(v) weighted.mean(v, popsize, na.rm = TRUE)),
+                                .SDcols = contd_cols, keyby = eval(x)
+                        ]
+                        d <- melt(d, id.vars = x)
+
+                        if (grepl("_change$", what)) { # when calculating change
+                                d19 <- d[year == baseline_year][, year := NULL]
+                                d[d19, on = c(setdiff(x, "year"), "variable"), value := value / i.value]
+                        }
+
+                        setkey(d, "variable")
+                        d <- d[, fquantile_byid(value, prbl, id = as.character(variable), rounding = FALSE),
+                                keyby = eval(setdiff(x, "mc"))
+                        ]
+                        setnames(d, c(setdiff(x, "mc"), "disease", percent(prbl, prefix = str3[[what]])))
+                        setkeyv(d, setdiff(x, "mc"))
+                        setcolorder(d, setdiff(x, "mc"))
                 } else { # if not cms or qalys or costs...
                         d <- tt[, lapply(.SD, sum),
                                 .SDcols = patterns(str2[[what]]),
@@ -398,6 +441,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
+                "contd", # user-defined *_contd columns; skipped if none exist
                 "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
         population = c("ons", "esp")
@@ -457,6 +501,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
+                "contd", # user-defined *_contd columns; skipped if none exist
                 "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
         population = "ons")
@@ -509,6 +554,7 @@ tbl_smmrs(what = "pop", population = "ons", list(
 
 
 # All-cause mortality by disease not standardised ----
+if (file_exists_msg(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up"))) {
 tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up")))
 
 outstrata <- c("mc", "year", "scenario")
@@ -570,8 +616,11 @@ d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(
 setnames(d, c(setdiff(outstrata, "mc"), "disease", percent(prbl, prefix = "all_cause_mrtl_by_disease_rate_")))
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "all-cause mortality given disease-year-agegroup-sex (not standardised).csv"))
+}
 
 # All-cause mortality by disease not standardised pop denominator----
+if (file_exists_msg(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up")) &&
+    file_exists_msg(file.path(sSummariesSubDirPath, "prvl_scaled_up"))) {
 tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_scaled_up")))
 pp <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "prvl_scaled_up")))
 
@@ -637,8 +686,10 @@ setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "all-cause mortality given disease-year-agegroup-sex popdenom (not standardised).csv"))
 
 rm(pp)
+}
 
 # All-cause mortality by disease standardised----
+if (file_exists_msg(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_esp"))) {
 tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "all_cause_mrtl_by_dis_esp")))
 outstrata <- c("mc", "year", "scenario")
 d <- tt[, lapply(.SD, sum),
@@ -700,9 +751,11 @@ setnames(d, c(setdiff(outstrata, "mc"), "disease", percent(prbl, prefix = "all_c
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "all-cause mortality given disease-year-sex (age standardised).csv"))
 rm(cases)
+}
 
 
 # Disease characteristics non standardised ----
+if (file_exists_msg(file.path(sSummariesSubDirPath, "dis_characteristics_scaled_up"))) {
 tt <- as.data.table(open_dataset(file.path(sSummariesSubDirPath, "dis_characteristics_scaled_up")))
 
 tt[, `:=`(mean_cms_count_cms1st_cont = as.numeric(mean_cms_count_cms1st_cont))]
@@ -786,8 +839,10 @@ setcolorder(d)
 fwrite(d, file.path(sTablesSubDirPath, "disease characteristics by year-sex (not standardised).csv"))
 
 rm(d, tt)
+}
 
 # XPS ----
+if (file_exists_msg(file.path(design$sim_prm$output_dir, "xps", "xps20"))) {
 xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps", "xps20")))
 
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
@@ -832,9 +887,11 @@ d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year-sex (not standardised).csv"))
+}
 
 
 # XPS standardised ----
+if (file_exists_msg(file.path(design$sim_prm$output_dir, "xps", "xps5"))) {
 xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps", "xps5")))
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
@@ -857,4 +914,5 @@ d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
+}
 

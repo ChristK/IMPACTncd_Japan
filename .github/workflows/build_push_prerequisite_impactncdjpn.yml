@@ -85,6 +85,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      # STEP 0: Compute a Docker-safe image tag
+      # Branch names may contain '/' (e.g. claude/my-feature), which is illegal
+      # in a Docker image tag. Replace every '/' with '-' so the tag is valid.
+      # Exposed as ${{ env.IMAGE_TAG }} for all subsequent steps.
+      - name: Compute sanitised image tag
+        run: echo "IMAGE_TAG=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
+
       # STEP 1: Source Code Checkout
       # Get the repository source code to analyze file changes
       - name: Checkout code
@@ -113,7 +120,7 @@ jobs:
         if: steps.changed-files.outputs.any_changed != 'true'
         run: |
           # Check if Docker image exists for this branch
-          if docker manifest inspect ${{ secrets.DOCKERHUB_USERNAME }}/prerequisite.impactncdjpn:${{ github.ref_name }} > /dev/null 2>&1; then
+          if docker manifest inspect ${{ secrets.DOCKERHUB_USERNAME }}/prerequisite.impactncdjpn:${{ env.IMAGE_TAG }} > /dev/null 2>&1; then
             echo "image_exists=true" >> $GITHUB_OUTPUT
             echo "Image exists for branch ${{ github.ref_name }}"
           else
@@ -170,7 +177,7 @@ jobs:
           context: docker_setup # Build context directory containing Dockerfile and dependencies
           push: true # Push the built image to Docker Hub
           no-cache: true # Force rebuild without using cache to ensure latest dependencies
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/prerequisite.impactncdjpn:${{ github.ref_name }} # Tag with branch name
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/prerequisite.impactncdjpn:${{ env.IMAGE_TAG }} # Tag with sanitised branch name
           file: docker_setup/Dockerfile.prerequisite.IMPACTncdJPN # Specific Dockerfile for prerequisites
 
 # =============================================================================

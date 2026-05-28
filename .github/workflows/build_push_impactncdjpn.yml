@@ -51,6 +51,14 @@ jobs:
     # to always proceed for push events.
     if: ${{ github.event_name == 'push' }}
     steps:
+      # STEP 0: Compute a Docker-safe image tag
+      # Branch names may contain '/' (e.g. claude/my-feature), which is illegal
+      # in a Docker image tag. Replace every '/' with '-' so the tag is valid.
+      # Exposed as ${{ env.IMAGE_TAG }} for all subsequent steps. NOTE the git
+      # clone below still uses the real branch name (git allows '/').
+      - name: Compute sanitised image tag
+        run: echo "IMAGE_TAG=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
+
       # STEP 1: Prerequisite Workflow Coordination
       # Wait for any running prerequisite workflow to complete.
       # This prevents race conditions where both workflows might run simultaneously
@@ -96,8 +104,10 @@ jobs:
       - name: Update base image tag and git clone branch
         run: |
           BRANCH_NAME="${{ github.ref_name }}"
-          sed -i "s|^FROM prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
-          sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${BRANCH_NAME}|" docker_setup/Dockerfile.IMPACTncdJPN
+          # IMAGE_TAG is the Docker-safe form (set in STEP 0); use it for the
+          # base image reference. The git clone keeps the real branch name.
+          sed -i "s|^FROM prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${IMAGE_TAG}|" docker_setup/Dockerfile.IMPACTncdJPN
+          sed -i "s|^FROM chriskypri/prerequisite.impactncdjpn:.*|FROM chriskypri/prerequisite.impactncdjpn:${IMAGE_TAG}|" docker_setup/Dockerfile.IMPACTncdJPN
           sed -i "s|git clone https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|git clone -b ${BRANCH_NAME} https://github.com/ChristK/IMPACTncd_Japan.git /IMPACTncd_Japan|" docker_setup/Dockerfile.IMPACTncdJPN
 
       # STEP 4: Docker Environment Setup
@@ -141,7 +151,7 @@ jobs:
           context: docker_setup # Build context directory containing Dockerfile and configurations
           push: true # Push the built image to Docker Hub registry
           no-cache: true # Force complete rebuild without using cached layers
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ github.ref_name }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/impactncdjpn:${{ env.IMAGE_TAG }}
           file: docker_setup/Dockerfile.IMPACTncdJPN # Main application Dockerfile
           build-args: |
             SOURCE_METHOD=git

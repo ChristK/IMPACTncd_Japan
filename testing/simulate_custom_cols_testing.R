@@ -50,8 +50,6 @@ IMPACTncd$update_primary_prevention_scn(
 IMPACTncd$
   del_logs()$
   del_outputs()$
-  del_synthpops()$
-  del_parfs()$
   run(1:2, multicore = TRUE, "sc0")
 
 # Intervention scenario (sc1): cut SBP by 10% from INTERVENTION_YEAR onwards and
@@ -223,6 +221,8 @@ if (length(failures) > 0L) {
     paste0("  - ", failures, collapse = "\n")
   )
 }
+
+source("./auxil/process_out.R")
 
 message("\nAll custom-column export checks PASSED.")
 print("Custom column export test has finished!")

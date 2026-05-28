@@ -21,7 +21,7 @@ It performs the following key tasks:
 \examples{
 
 ## ------------------------------------------------
-## Method `Design$new`
+## Method `Design$new()`
 ## ------------------------------------------------
 
 \dontrun{
@@ -29,35 +29,36 @@ design <- Design$new("./validation/design_for_trends_validation.yaml")
 }
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{sim_prm}}{A list containing all the simulation parameters.}
-}
-\if{html}{\out{</div>}}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{sim_prm}}{A list containing all the simulation parameters.}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Design-new}{\code{Design$new()}}
-\item \href{#method-Design-save_to_disk}{\code{Design$save_to_disk()}}
-\item \href{#method-Design-update_fromGUI}{\code{Design$update_fromGUI()}}
-\item \href{#method-Design-print}{\code{Design$print()}}
-\item \href{#method-Design-clone}{\code{Design$clone()}}
-}
+  \itemize{
+    \item \href{#method-Design-initialize}{\code{Design$new()}}
+    \item \href{#method-Design-save_to_disk}{\code{Design$save_to_disk()}}
+    \item \href{#method-Design-update_fromGUI}{\code{Design$update_fromGUI()}}
+    \item \href{#method-Design-print}{\code{Design$print()}}
+    \item \href{#method-Design-clone}{\code{Design$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Design-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Design-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new `Design` object.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Design$new(sim_prm)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{sim_prm}}{Either a path to a YAML configuration file or a list containing the simulation parameters.
+\if{html}{\out{<a id="method-Design-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Design-initialize}{}}}
+\subsection{\code{Design$new()}}{
+  Create a new `Design` object.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Design$new(sim_prm)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{sim_prm}}{Either a path to a YAML configuration file or a list containing the simulation parameters.
 The parameters must include the following keys:
 \itemize{
   \item `iteration_n`: Integer. Number of Monte Carlo iterations for the simulation.
@@ -96,94 +97,99 @@ The parameters must include the following keys:
   \item `strata_for_output`: Character vector. Variables to stratify the output by (e.g., "sex", "age_group").
   \item `exposures`: List. Definitions of risk factor exposures included in the model.
 }}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new `Design` object.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{design <- Design$new("./validation/design_for_trends_validation.yaml")
 }
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new `Design` object.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{\dontrun{
-design <- Design$new("./validation/design_for_trends_validation.yaml")
-}
-}
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Design-save_to_disk"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-save_to_disk}{}}}
-\subsection{Method \code{save_to_disk()}}{
-Save the current simulation parameters to a YAML file.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Design$save_to_disk(path)}\if{html}{\out{</div>}}
+\subsection{\code{Design$save_to_disk()}}{
+  Save the current simulation parameters to a YAML file.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Design$save_to_disk(path)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{path}}{A character string specifying the file path (including file name and extension)
+where the YAML file will be saved.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The `Design` object (invisibly) for method chaining.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{path}}{A character string specifying the file path (including file name and extension)
-where the YAML file will be saved.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The `Design` object (invisibly) for method chaining.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Design-update_fromGUI"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-update_fromGUI}{}}}
-\subsection{Method \code{update_fromGUI()}}{
-Update the simulation parameters from a GUI input object.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Design$update_fromGUI(GUI_prm)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{GUI_prm}}{A list or object containing parameters from the GUI.
+\subsection{\code{Design$update_fromGUI()}}{
+  Update the simulation parameters from a GUI input object.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Design$update_fromGUI(GUI_prm)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{GUI_prm}}{A list or object containing parameters from the GUI.
 Expected fields include `national_qimd_checkbox`, `locality_select`,
 `iteration_n_gui`, `n_gui`, etc.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The `Design` object (invisibly) for method chaining.
+  }
 }
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The `Design` object (invisibly) for method chaining.
-}
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Design-print"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-print}{}}}
-\subsection{Method \code{print()}}{
-Print the simulation parameters.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Design$print()}\if{html}{\out{</div>}}
+\subsection{\code{Design$print()}}{
+  Print the simulation parameters.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Design$print()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The `Design` object (invisibly).
+  }
 }
 
-\subsection{Returns}{
-The `Design` object (invisibly).
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Design-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Design$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Design$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Design$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

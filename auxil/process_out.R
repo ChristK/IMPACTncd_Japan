@@ -65,6 +65,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "cms_score_by_age",
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
+                "contd" = "contd",
+                "contd_change" = "contd",
                 "qalys" = "qalys",
                 "net_qalys" = "qalys",
                 "costs" = "costs",
@@ -95,6 +97,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "cms_score",
                 "cms_count" = "cms_count",
                 "cms_count_change" = "cms_count",
+                "contd" = "_contd$",
+                "contd_change" = "_contd$",
                 "qalys" = "^EQ5D5L$|^HUI3$",
                 "net_qalys" = "^EQ5D5L$|^HUI3$",
                 "costs" = "_costs$",
@@ -121,6 +125,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "mean_cms_score_",
                 "cms_count" = "mean_cms_count_",
                 "cms_count_change" = "mean_cms_count_",
+                "contd" = "mean_",
+                "contd_change" = "mean_change_",
                 "qalys" = "qalys_",
                 "net_qalys" = "net_qalys_",
                 "costs" = "costs_",
@@ -147,6 +153,8 @@ tbl_smmrs <- function(
                 "cms_score_age_change" = "mean CMS score change by ",
                 "cms_count" = "mean CMS count by ",
                 "cms_count_change" = "mean CMS count change by ",
+                "contd" = "mean of continuous outcomes by ",
+                "contd_change" = "mean of continuous outcomes change by ",
                 "qalys" = "QALYs by ",
                 "net_qalys" = "net QALYs by ",
                 "costs" = "costs by ",
@@ -300,6 +308,28 @@ tbl_smmrs <- function(
                         setkeyv(d, c("type", setdiff(x, "mc")))
                         setcolorder(d, setdiff(x, "mc"))
 
+                } else if (grepl("^contd", what)) {
+                        # _contd summaries already hold a population-weighted mean
+                        # per stratum, so collapsing to coarser strata re-weights
+                        # by popsize (NOT a sum, and no division by popsize).
+                        contd_cols <- grep("_contd$", names(tt), value = TRUE)
+                        d <- tt[, lapply(.SD, function(v) weighted.mean(v, popsize, na.rm = TRUE)),
+                                .SDcols = contd_cols, keyby = eval(x)
+                        ]
+                        d <- melt(d, id.vars = x)
+
+                        if (grepl("_change$", what)) { # when calculating change
+                                d19 <- d[year == baseline_year][, year := NULL]
+                                d[d19, on = c(setdiff(x, "year"), "variable"), value := value / i.value]
+                        }
+
+                        setkey(d, "variable")
+                        d <- d[, fquantile_byid(value, prbl, id = as.character(variable), rounding = FALSE),
+                                keyby = eval(setdiff(x, "mc"))
+                        ]
+                        setnames(d, c(setdiff(x, "mc"), "disease", percent(prbl, prefix = str3[[what]])))
+                        setkeyv(d, setdiff(x, "mc"))
+                        setcolorder(d, setdiff(x, "mc"))
                 } else { # if not cms or qalys or costs...
                         d <- tt[, lapply(.SD, sum),
                                 .SDcols = patterns(str2[[what]]),
@@ -398,6 +428,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
+                "contd", # user-defined *_contd columns; skipped if none exist
                 "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
         population = c("ons", "esp")
@@ -457,6 +488,7 @@ outperm <- expand.grid(
                 "dis_mrtl", "dis_mrtl_change", "qalys", "costs",
                 # "cms_score", "cms_score_change", "cms_score_age",
                 # "cms_score_age_change", "cms_count", "cms_count_change",
+                "contd", # user-defined *_contd columns; skipped if none exist
                 "cypp", "cpp", "dpp", "net_qalys", "net_costs", "pop"
         ),
         population = "ons")

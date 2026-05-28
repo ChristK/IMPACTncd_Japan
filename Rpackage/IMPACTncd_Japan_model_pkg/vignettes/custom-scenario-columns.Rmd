@@ -211,16 +211,29 @@ Notes on the column names:
 * The `_contd` column keeps its name and holds the weighted mean.
 * The `_costs` column keeps its name and holds the weighted sum.
 
-## Costs, net costs and economic evaluation
+## Downstream tables (`auxil/process_out.R`)
 
-Custom `_costs` columns are summed exactly like the model's built-in cost
-columns, so they automatically participate in the downstream economic
-post-processing in `auxil/process_out.R`. In particular, the `net_costs`
-output (difference versus the comparator scenario, by default `sc0`) discovers
-all columns matching `_costs$`, so your custom cost appears in net-cost tables
-without further configuration. Incremental cost-effectiveness ratios (ICER) and
-net monetary benefit can then be derived from `net_costs` and `net_qalys` in
-your analysis scripts.
+The post-processing script `auxil/process_out.R` turns the per-Monte-Carlo
+summaries into quantile tables. It selects columns by **suffix**, so most
+custom columns are tabulated automatically:
+
+* `_prvl` columns feed the `prvl`, `prvl_change` and `cypp` (case-years
+  prevented/postponed) tables.
+* the derived `_incd` columns feed `incd`, `incd_change` and `cpp`.
+* `_costs` columns feed `costs` and `net_costs`.
+* `_contd` columns feed the `contd` table (a population-weighted mean,
+  re-weighted by `popsize` when collapsing strata).
+
+You do not need to edit `process_out.R` to add a new custom column — naming it
+with a recognised suffix is enough.
+
+### Costs, net costs and economic evaluation
+
+The `net_costs` output is the difference versus the comparator scenario (by
+default `sc0`). Because it discovers all `_costs$` columns, your custom cost
+appears in net-cost tables without further configuration. Incremental
+cost-effectiveness ratios (ICER) and net monetary benefit can then be derived
+from `net_costs` and `net_qalys` in your analysis scripts.
 
 ## Tips and gotchas
 

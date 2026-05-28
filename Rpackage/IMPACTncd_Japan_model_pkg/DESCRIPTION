@@ -36,7 +36,9 @@ Imports: Rcpp (>= 1.0.2),
          wrswoR,
          gamlss.dist,
          doParallel
-Suggests: roxygen2
+Suggests: roxygen2,
+          knitr,
+          rmarkdown
 LinkingTo: Rcpp, 
            dqrng,
            sitmo,

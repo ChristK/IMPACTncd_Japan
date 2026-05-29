@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.5.1
+FROM rocker/r-ver:4.6.0
 
 LABEL maintainer="Chris Kypridemos <ckyprid@liverpool.ac.uk>"
 ARG DEBIAN_FRONTEND=noninteractive

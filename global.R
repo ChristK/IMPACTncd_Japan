@@ -121,8 +121,17 @@ if (file.exists(pkg_list_file)) {
   pkg_list <- pkg_list[!pkg_list %in% rownames(installed.packages())]
 
   if (length(pkg_list) > 0) {
-    # update = FALSE prevents updating already installed packages
-    CKutils::dependencies(pkg_list, update = FALSE)
+    # update = FALSE prevents updating already installed packages.
+    # Muffle the Windows-only "in use" warning: a package earlier in the list
+    # can load a later one as its dependency (e.g. doParallel loads foreach),
+    # making the later install attempt a harmless skip.
+    withCallingHandlers({
+      CKutils::dependencies(pkg_list, update = FALSE)
+    }, warning = function(w) {
+      if (grepl("is in use and will not be installed", conditionMessage(w))) {
+        invokeRestart("muffleWarning")
+      }
+    })
   }
   rm(pkg_list, pkg_list_file) # Clean up
 } else {

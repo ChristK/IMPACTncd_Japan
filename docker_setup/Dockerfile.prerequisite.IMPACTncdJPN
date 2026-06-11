@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.5.1
+FROM rocker/r-ver:4.6.0
 
 LABEL maintainer="Chris Kypridemos <ckyprid@liverpool.ac.uk>"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -40,7 +40,11 @@ RUN sed -i '1s/^\xEF\xBB\xBF//' /tmp/r-packages.txt && \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
 # RUN installGithub.r "ChristK/CKutils@master"
-RUN installGithub.r "ChristK/CKutils@ba08744f53b65b2f8ddfa86b1b58f9e634645153" # v0.1.24, the HEAD as of 31/01/2026 (adds read_parquet_dt/write_parquet_dt)
+# installGithub.r exits 0 even when the R package fails to install (R treats a
+# failed install as a warning), so explicitly verify CKutils loads and meets
+# the minimum version required by the model package DESCRIPTION.
+RUN installGithub.r "ChristK/CKutils@ba08744f53b65b2f8ddfa86b1b58f9e634645153" \
+  && Rscript -e 'library(CKutils); stopifnot(packageVersion("CKutils") >= "0.1.24")' # v0.1.24, the HEAD as of 31/01/2026 (adds read_parquet_dt/write_parquet_dt)
 
 # The following commented out lines are an example on how to load a specific version of a package
 # RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz

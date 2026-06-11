@@ -1,4 +1,4 @@
-# CRAN snapshot date: 2025-09-30
+# CRAN snapshot date: 2026-05-28
 # This date controls the R package repository snapshot used in the Docker build
 # Update this date to change the package versions. Format: YYYY-MM-DD
 # See https://packagemanager.posit.co/client/#/repos/cran/setup for available snapshots
@@ -15,6 +15,7 @@ gamlss
 ggplot2
 ggthemes
 igraph
+jsonlite
 MASS
 parallelly
 qs2

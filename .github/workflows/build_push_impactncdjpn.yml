@@ -75,7 +75,7 @@ jobs:
       # STEP 2: Source Code Checkout
       # Checkout the repository source code using the current commit being pushed
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Use the current commit for push events
           ref: ${{ github.sha }}
@@ -117,7 +117,7 @@ jobs:
       # - Build output options
       # - Extended build features
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # STEP 5: Docker Registry Authentication
       # Authenticate with Docker Hub using stored repository secrets.
@@ -126,7 +126,7 @@ jobs:
       # - DOCKERHUB_USERNAME: Docker Hub username
       # - DOCKERHUB_TOKEN: Docker Hub access token (not password)
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -146,7 +146,7 @@ jobs:
       # - Uses the main application Dockerfile
       # - Sets SOURCE_METHOD=git to use git clone approach
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: docker_setup # Build context directory containing Dockerfile and configurations
           push: true # Push the built image to Docker Hub registry

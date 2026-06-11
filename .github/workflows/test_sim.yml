@@ -14,7 +14,7 @@ jobs:
         r-version: ['release']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
@@ -63,7 +63,7 @@ jobs:
           # Also set HTTPUserAgent to ensure binary packages are served
           echo 'options(HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version$platform, R.version$arch, R.version$os)))' >> ~/.Rprofile
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Test source("./global.R")
         env:

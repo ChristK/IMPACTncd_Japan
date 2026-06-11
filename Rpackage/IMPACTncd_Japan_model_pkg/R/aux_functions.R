@@ -123,3 +123,41 @@ distr_best_fit <-
     }
     marg_distr
   }
+
+
+# Atomic cache writes -----------------------------------------------------
+# During a multicore run several parallel workers can compute and write the
+# SAME cache path concurrently (see Disease$gen_parf_files / gen_parf, where
+# the parf .fst path and the synthpop .qs path are deterministic functions of
+# the disease and its inputs, hence identical across workers/iterations).
+# Writing straight to the final path lets another worker read a half-written
+# file and fail with "It seems the file header was damaged or incomplete".
+# These helpers write to a per-process temporary in the SAME directory and
+# then rename it into place. POSIX rename atomically replaces the destination
+# (the content is deterministic, so all workers write identical bytes); on
+# Windows rename fails when the destination already exists, so the first writer
+# wins and later writers simply discard their temp. Either way the final path
+# only ever appears via an atomic rename of an already-complete file, so a
+# reader sees either no file or a complete one -- never a partial one.
+
+# Same-directory temp path, unique per process so forked/PSOCK workers never
+# collide. Kept next to `path` to guarantee rename stays on one filesystem.
+atomic_tmp_path <- function(path) {
+  paste0(path, ".tmp", Sys.getpid())
+}
+
+atomic_write_fst <- function(x, path, compress = 100L) {
+  tmp <- atomic_tmp_path(path)
+  on.exit(if (file.exists(tmp)) file.remove(tmp), add = TRUE)
+  write_fst(x, tmp, compress)
+  suppressWarnings(file.rename(tmp, path))
+  invisible(path)
+}
+
+atomic_qs_save <- function(x, path, nthreads = 1L) {
+  tmp <- atomic_tmp_path(path)
+  on.exit(if (file.exists(tmp)) file.remove(tmp), add = TRUE)
+  qs_save(x, tmp, nthreads = nthreads)
+  suppressWarnings(file.rename(tmp, path))
+  invisible(path)
+}

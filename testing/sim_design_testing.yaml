@@ -1,6 +1,6 @@
 iteration_n: 15
-clusternumber: 4 # explicit parallelisation
-clusternumber_export: 4 # NEW: number of clusters for export_summaries
+clusternumber: 2 # explicit parallelisation (kept low: CI runners OOM when 4 forked workers write synthpops concurrently)
+clusternumber_export: 2 # number of clusters for export_summaries (kept low for the same CI memory reason)
 logs: yes
 export_xps: yes
 export_PARF: no

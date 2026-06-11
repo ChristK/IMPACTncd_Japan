@@ -253,11 +253,14 @@ the full argument list.
 **Where do your custom `_costs` columns count?** Custom cost columns are
 **always** added to the **societal** perspective. By default they are *not*
 included in the healthcare perspective (which is meant to capture direct
-treatment costs only). If your custom cost *is* a healthcare cost, pass
-`custom_costs_in_healthcare = TRUE` to `export_tables()` so it is added to the
-healthcare perspective as well. For example, an intervention-delivery cost paid
-by the health system should set this flag, whereas a productivity-loss or
-out-of-pocket cost should be left in the societal perspective only.
+treatment costs only). If some of your custom costs *are* healthcare costs,
+pass their column names to `custom_costs_in_healthcare` in `export_tables()` and
+they are added to the healthcare perspective as well, e.g.
+`custom_costs_in_healthcare = c("screening_costs", "drug_costs")`. For example,
+an intervention-delivery cost paid by the health system should be listed here,
+whereas a productivity-loss or out-of-pocket cost should be left in the
+societal perspective only. (Passing `TRUE` includes *all* custom cost columns
+and `NULL`/`FALSE` includes none, for backward compatibility.)
 
 If you need a bespoke calculation, you can still derive ICER and NMB yourself
 from the `net_costs` and `net_qalys` tables in your own analysis scripts.

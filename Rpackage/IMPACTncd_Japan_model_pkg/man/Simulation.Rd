@@ -139,14 +139,19 @@ This method replaces the standalone `auxil/process_out.R` script.
   prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
   comparator_scenario = "sc0",
   two_agegrps = FALSE,
-  strata = NULL,
+  strata = list(ons = list("year", c("year", "sex"), c("year", "agegrp"), c("year",
+    "agegrp", "sex")), esp = list("year", c("year", "sex")), mrtl_ons = list("year",
+    c("year", "sex"), c("year", "agegrp", "sex")), mrtl_esp = list("year", c("year",
+    "sex")), disease_char = list("year", c("year", "sex")), xps_ons = list("year",
+    c("year", "agegrp20"), c("year", "sex"), c("year", "agegrp20", "sex")), xps_esp =
+    list("year", c("year", "sex"))),
   multicore = TRUE,
   cea = TRUE,
   wtp = c(5e+06, 7500000, 1e+07),
   qaly_discount_rate = 2,
   cost_discount_rate = 2,
   discount_from_year = NULL,
-  custom_costs_in_healthcare = FALSE
+  custom_costs_in_healthcare = NULL
 )}
     \if{html}{\out{</div>}}
   }
@@ -165,12 +170,17 @@ net_qalys, net_costs). Default `"sc0"`.}
       \item{\code{two_agegrps}}{Logical. If `TRUE`, collapses age into two groups
 (30-64 and 65-99) and writes to `tables2agegrps/`; otherwise uses the
 standard 5-year age groups and writes to `tables/`.}
-      \item{\code{strata}}{Optional named list overriding the default stratification
-configuration. Recognised names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`,
-`disease_char`, `xps_ons`, `xps_esp`. Each is a list of character vectors
-(e.g. `list("year", c("year", "sex"))`). Passed through
-`private$build_strata_config()`. Valid stratification variables: `year`
-(always required), `sex`, `agegrp`, `agegrp20` (xps only).}
+      \item{\code{strata}}{Named list giving the stratification configuration. Recognised
+names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`, `disease_char`, `xps_ons`,
+`xps_esp`. Each is a list of character vectors (e.g.
+`list("year", c("year", "sex"))`). Valid stratification variables: `year`
+(always required), `sex`, `agegrp`, `agegrp20` (xps only). Defaults to the
+full standard configuration shown in the signature, so the defaults are
+visible at the call site. A partial list overrides only the named entries
+and keeps the defaults for the rest (e.g. `list(ons = list("year"))`).
+When `two_agegrps = TRUE`, the default `ons` and `mrtl_ons` strata are
+restricted to their age-group combinations; explicitly supplied strata are
+used verbatim.}
       \item{\code{multicore}}{Logical. If `TRUE`, runs the table-building task
 groups in parallel with single-threaded workers; otherwise runs
 sequentially with implicit (within-task) parallelism.}
@@ -189,9 +199,16 @@ costs in the CEA tables. Default `2`.}
       \item{\code{discount_from_year}}{Integer or `NULL`. First year from which present
 values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
 When `NULL` (default) it is set to `baseline_year_for_change_outputs`.}
-      \item{\code{custom_costs_in_healthcare}}{Logical. User-defined `*_costs` columns are
-always included in the societal perspective; set `TRUE` to also include
-them in the healthcare perspective. Default `FALSE`.}
+      \item{\code{custom_costs_in_healthcare}}{Character vector of user-defined `*_costs`
+column names to additionally include in the healthcare perspective.
+User-defined `*_costs` columns are *always* included in the societal
+perspective; by default (`NULL`) none of them are added to the healthcare
+perspective (which captures direct treatment costs only). Pass the subset
+of custom cost columns that represent healthcare costs, e.g.
+`c("screening_costs", "drug_costs")`. Names not matching a user-defined
+cost column are ignored (with a message when `logs` is on). For backward
+compatibility a logical is also accepted: `FALSE`/`NULL` means none and
+`TRUE` means all user-defined cost columns. Default `NULL`.}
     }
     \if{html}{\out{</div>}}
   }

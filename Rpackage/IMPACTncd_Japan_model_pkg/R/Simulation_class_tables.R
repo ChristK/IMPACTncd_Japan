@@ -71,12 +71,17 @@ safe_fquantile_byid <- function(x, q, id, rounding = FALSE) {
 #' @param two_agegrps Logical. If `TRUE`, collapses age into two groups
 #'   (30-64 and 65-99) and writes to `tables2agegrps/`; otherwise uses the
 #'   standard 5-year age groups and writes to `tables/`.
-#' @param strata Optional named list overriding the default stratification
-#'   configuration. Recognised names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`,
-#'   `disease_char`, `xps_ons`, `xps_esp`. Each is a list of character vectors
-#'   (e.g. `list("year", c("year", "sex"))`). Passed through
-#'   `private$build_strata_config()`. Valid stratification variables: `year`
-#'   (always required), `sex`, `agegrp`, `agegrp20` (xps only).
+#' @param strata Named list giving the stratification configuration. Recognised
+#'   names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`, `disease_char`, `xps_ons`,
+#'   `xps_esp`. Each is a list of character vectors (e.g.
+#'   `list("year", c("year", "sex"))`). Valid stratification variables: `year`
+#'   (always required), `sex`, `agegrp`, `agegrp20` (xps only). Defaults to the
+#'   full standard configuration shown in the signature, so the defaults are
+#'   visible at the call site. A partial list overrides only the named entries
+#'   and keeps the defaults for the rest (e.g. `list(ons = list("year"))`).
+#'   When `two_agegrps = TRUE`, the default `ons` and `mrtl_ons` strata are
+#'   restricted to their age-group combinations; explicitly supplied strata are
+#'   used verbatim.
 #' @param multicore Logical. If `TRUE`, runs the table-building task
 #'   groups in parallel with single-threaded workers; otherwise runs
 #'   sequentially with implicit (within-task) parallelism.
@@ -95,9 +100,16 @@ safe_fquantile_byid <- function(x, q, id, rounding = FALSE) {
 #' @param discount_from_year Integer or `NULL`. First year from which present
 #'   values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
 #'   When `NULL` (default) it is set to `baseline_year_for_change_outputs`.
-#' @param custom_costs_in_healthcare Logical. User-defined `*_costs` columns are
-#'   always included in the societal perspective; set `TRUE` to also include
-#'   them in the healthcare perspective. Default `FALSE`.
+#' @param custom_costs_in_healthcare Character vector of user-defined `*_costs`
+#'   column names to additionally include in the healthcare perspective.
+#'   User-defined `*_costs` columns are *always* included in the societal
+#'   perspective; by default (`NULL`) none of them are added to the healthcare
+#'   perspective (which captures direct treatment costs only). Pass the subset
+#'   of custom cost columns that represent healthcare costs, e.g.
+#'   `c("screening_costs", "drug_costs")`. Names not matching a user-defined
+#'   cost column are ignored (with a message when `logs` is on). For backward
+#'   compatibility a logical is also accepted: `FALSE`/`NULL` means none and
+#'   `TRUE` means all user-defined cost columns. Default `NULL`.
 #' @return The `Simulation` object, invisibly.
 #' @examples
 #' \dontrun{
@@ -115,14 +127,24 @@ Simulation$set("public", "export_tables", function(
     prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
     comparator_scenario = "sc0",
     two_agegrps = FALSE,
-    strata = NULL,
+    strata = list(
+      ons          = list("year", c("year", "sex"),
+                          c("year", "agegrp"), c("year", "agegrp", "sex")),
+      esp          = list("year", c("year", "sex")),
+      mrtl_ons     = list("year", c("year", "sex"), c("year", "agegrp", "sex")),
+      mrtl_esp     = list("year", c("year", "sex")),
+      disease_char = list("year", c("year", "sex")),
+      xps_ons      = list("year", c("year", "agegrp20"),
+                          c("year", "sex"), c("year", "agegrp20", "sex")),
+      xps_esp      = list("year", c("year", "sex"))
+    ),
     multicore = TRUE,
     cea = TRUE,
     wtp = c(5e6, 7.5e6, 1e7),
     qaly_discount_rate = 2,
     cost_discount_rate = 2,
     discount_from_year = NULL,
-    custom_costs_in_healthcare = FALSE
+    custom_costs_in_healthcare = NULL
 ) {
   # Promote a two-digit baseline year to full format (Japan years are 4-digit)
   if (baseline_year_for_change_outputs <= 100) {
@@ -377,90 +399,39 @@ Simulation$set("private", "read_summary_dataset", function(summary_type, standar
 # Builds the strata configuration by merging user-provided strata with
 # defaults. Defaults match the stratification from auxil/process_out.R.
 # Japan has no dimd/qimd (deprivation) dimension.
+#
+# The standard (5-year age group) defaults are declared once, as the visible
+# default of the `strata` argument in export_tables(), and read back here via
+# formals() so there is a single source of truth. The coarse two_agegrps set is
+# derived from them: it is identical except that the actual-population ons /
+# mrtl_ons tables keep only their age-group strata.
 Simulation$set("private", "build_strata_config", function(user_strata, two_agegrps = FALSE) {
+  # Single source of truth: the export_tables() signature default.
+  standard <- eval(formals(self$export_tables)[["strata"]])
+
+  # An unchanged default (or an explicit NULL) means "use the defaults".
+  if (is.null(user_strata)) user_strata <- standard
+  customized <- !identical(user_strata, standard)
+
+  result <- standard
+
+  # In two_agegrps mode the actual-population main (ons) and all-cause-mortality
+  # (mrtl_ons) tables are broken down by age group only, so drop their
+  # non-age-group default strata. The esp / xps / disease_char defaults are
+  # unaffected. User-supplied strata (merged below) are applied verbatim and so
+  # override this coarsening.
   if (two_agegrps) {
-    # For two_agegrps mode, main and mortality tables only include
-    # agegrp-based strata (the coarse 30-64 / 65-99 grouping).
-    defaults <- list(
-      ons = list(
-        c("year", "agegrp"),
-        c("year", "agegrp", "sex")
-      ),
-      esp = list(
-        "year",
-        c("year", "sex")
-      ),
-      mrtl_ons = list(
-        c("year", "agegrp", "sex")
-      ),
-      mrtl_esp = list(
-        "year",
-        c("year", "sex")
-      ),
-      disease_char = list(
-        "year",
-        c("year", "sex")
-      ),
-      xps_ons = list(
-        "year",
-        c("year", "agegrp20"),
-        c("year", "sex"),
-        c("year", "agegrp20", "sex")
-      ),
-      xps_esp = list(
-        "year",
-        c("year", "sex")
-      )
-    )
-  } else {
-    # Standard strata configurations
-    defaults <- list(
-      ons = list(
-        "year",
-        c("year", "sex"),
-        c("year", "agegrp"),
-        c("year", "agegrp", "sex")
-      ),
-      esp = list(
-        "year",
-        c("year", "sex")
-      ),
-      mrtl_ons = list(
-        "year",
-        c("year", "sex"),
-        c("year", "agegrp", "sex")
-      ),
-      mrtl_esp = list(
-        "year",
-        c("year", "sex")
-      ),
-      disease_char = list(
-        "year",
-        c("year", "sex")
-      ),
-      xps_ons = list(
-        "year",
-        c("year", "agegrp20"),
-        c("year", "sex"),
-        c("year", "agegrp20", "sex")
-      ),
-      xps_esp = list(
-        "year",
-        c("year", "sex")
-      )
-    )
+    for (nm in c("ons", "mrtl_ons")) {
+      result[[nm]] <- Filter(function(s) "agegrp" %in% s, result[[nm]])
+    }
   }
 
-  # If no user strata provided, return defaults
-  if (is.null(user_strata)) {
-    return(defaults)
-  }
-
-  # Merge user-provided strata with defaults (user overrides defaults)
-  result <- defaults
-  for (name in names(user_strata)) {
-    if (name %in% names(defaults)) {
-      result[[name]] <- user_strata[[name]]
+  # Merge user-provided strata over the defaults (recognised names only).
+  if (customized) {
+    for (name in names(user_strata)) {
+      if (name %in% names(result)) {
+        result[[name]] <- user_strata[[name]]
+      }
     }
   }
 
@@ -1245,9 +1216,9 @@ Simulation$set("private", "export_xps_tables", function(
 # threshold, and quantiles those across iterations.
 #
 # Cost perspectives (cvd_* already aggregate chd + stroke):
-#   societal   = cvd_total_costs  (+ user *_costs columns)
-#   healthcare = cvd_direct_costs (+ user *_costs columns iff
-#                custom_costs_in_healthcare = TRUE)
+#   societal   = cvd_total_costs  (+ all user *_costs columns)
+#   healthcare = cvd_direct_costs (+ the user *_costs columns named in
+#                custom_costs_in_healthcare)
 #
 # Discounting: PV = FV / (1 + rate/100)^max(0, year - discount_from_year),
 # with separate rates for QALYs and costs. Actual (scaled_up) population only.
@@ -1261,7 +1232,7 @@ Simulation$set("private", "export_cea_tables", function(
     qaly_discount_rate = 2,
     cost_discount_rate = 2,
     discount_from_year = NULL,
-    custom_costs_in_healthcare = FALSE,
+    custom_costs_in_healthcare = NULL,
     strata = NULL
 ) {
   if (self$design$sim_prm$logs) {
@@ -1306,12 +1277,29 @@ Simulation$set("private", "export_cea_tables", function(
   )
   custom_cost_cols <- setdiff(all_cost_cols, builtin_cost_cols)
 
+  # Resolve which custom cost columns to add to the healthcare perspective.
+  # `custom_costs_in_healthcare` accepts a character vector of (custom) cost
+  # column names to include there, in addition to the always-present
+  # cvd_direct_costs. For backward compatibility a logical is also honoured:
+  # NULL/FALSE -> none (default), TRUE -> all user-defined custom cost columns.
+  if (is.null(custom_costs_in_healthcare) ||
+      isFALSE(custom_costs_in_healthcare)) {
+    healthcare_custom_cols <- character(0)
+  } else if (isTRUE(custom_costs_in_healthcare)) {
+    healthcare_custom_cols <- custom_cost_cols
+  } else {
+    requested <- as.character(custom_costs_in_healthcare)
+    healthcare_custom_cols <- intersect(requested, custom_cost_cols)
+    unknown <- setdiff(requested, custom_cost_cols)
+    if (length(unknown) > 0L && self$design$sim_prm$logs) {
+      message("  custom_costs_in_healthcare: ignoring name(s) not matching a ",
+              "user-defined cost column: ", paste(unknown, collapse = ", "))
+    }
+  }
+
   perspective_cols <- list(
     societal = c("cvd_total_costs", custom_cost_cols),
-    healthcare = c(
-      "cvd_direct_costs",
-      if (custom_costs_in_healthcare) custom_cost_cols else character(0)
-    )
+    healthcare = c("cvd_direct_costs", healthcare_custom_cols)
   )
 
   # WTP -> NMB column-name labels (plain integer form, e.g. 5000000)

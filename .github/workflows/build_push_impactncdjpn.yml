@@ -64,7 +64,7 @@ jobs:
       # This prevents race conditions where both workflows might run simultaneously
       # and ensures we use the latest prerequisite image if it's being updated.
       - name: Wait for prerequisite workflow
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.8.0
         with:
           ref: ${{ github.sha }}
           check-name: "run_if_needed"

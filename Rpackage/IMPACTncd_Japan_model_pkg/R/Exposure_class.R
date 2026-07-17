@@ -69,6 +69,14 @@ Exposure <-
           )
         }
        
+          # fread(yaml = TRUE) decodes the .csvy YAML header under the running
+          # machine's locale and crashes cryptically on a non-UTF-8 file (e.g. a
+          # Shift-JIS/CP932 save). Fail early with a message that names the file.
+          assert_file_utf8(
+            sRelativeRiskByPopulationSubsetForExposureFilePath,
+            "Exposure relative-risk (.csvy) file"
+          )
+
           # TODO add some checks to ensure proper structure
           dtRelativeRiskByPopulationSubset <- fread(
             sRelativeRiskByPopulationSubsetForExposureFilePath,
@@ -742,7 +750,13 @@ Exposure <-
          m <- readLines(con)
          y <- paste0("#", m[-length(m)], collapse = "\n")
          y <- c(y, "\n")
-         cat(y, file = file_path)
+         # Write the header through an explicit UTF-8 connection so metadata
+         # (source citations, notes -- possibly Japanese) is stored as UTF-8
+         # regardless of the writer's locale; otherwise cat() would transcode to
+         # the native encoding and produce a file the UTF-8 reader later rejects.
+         header_con <- file(file_path, open = "w", encoding = "UTF-8")
+         cat(enc2utf8(y), file = header_con)
+         close(header_con)
          fwrite(x = dt, file = file_path, append = TRUE, col.names = TRUE)
        },
 

@@ -271,10 +271,12 @@ Simulation <-
       #' @param method a function with synthpop as an argument that models the primary prevention policy.
       #' @return The invisible self for chaining.
       update_primary_prevention_scn = function(method) {
+        private$validate_prevention_scn(method, "update_primary_prevention_scn")
         private$primary_prevention_scn <- method
         environment(private$primary_prevention_scn) <- environment(
           private$update_primary_prevention_scn
         )
+        invisible(self)
       },
 
       # get_primary_prevention_scn ----
@@ -289,10 +291,12 @@ Simulation <-
       #' @param method a function with synthpop as an argument that models the secondary prevention policy.
       #' @return The invisible self for chaining.
       update_secondary_prevention_scn = function(method) {
+        private$validate_prevention_scn(method, "update_secondary_prevention_scn")
         private$secondary_prevention_scn <- method
         environment(private$secondary_prevention_scn) <- environment(
           private$update_secondary_prevention_scn
         )
+        invisible(self)
       },
 
       # get_secondary_prevention_scn ----
@@ -2714,6 +2718,38 @@ Simulation <-
       primary_prevention_scn = NULL,
       # Models a secondary prevention policy scenario
       secondary_prevention_scn = NULL,
+
+      # validate_prevention_scn ----
+      # Checks that a prevention scenario is a function taking exactly one
+      # argument (the synthpop). Scenario scripts define these functions inline
+      # inside the update_*_prevention_scn() call, where a misplaced closing
+      # brace ends the function early and turns the rest of the scenario into
+      # stray call arguments; failing here with a targeted message is much
+      # easier to act on than R's generic "unused argument"/"unexpected symbol"
+      # errors. See also source_scenario_script() for parse-time diagnostics.
+      validate_prevention_scn = function(method, caller) {
+        if (!is.function(method)) {
+          stop(
+            caller,
+            "() expects a function of one argument (the synthpop), not an ",
+            "object of class '",
+            paste(class(method), collapse = "/"),
+            "'. If your scenario is defined inline, check that a '}' inside ",
+            "it does not close the function earlier than you intend."
+          )
+        }
+        if (length(formals(method)) != 1L) {
+          stop(
+            caller,
+            "() expects a function with exactly one argument (the synthpop), ",
+            "but the supplied function has ",
+            length(formals(method)),
+            ". A common cause is a misplaced '}' that closes the scenario ",
+            "function too early, so later code is parsed as extra arguments."
+          )
+        }
+        invisible(TRUE)
+      },
 
       # Helper function to execute database query and write to disk with retry logic
       # execute_db_diskwrite_with_retry ----

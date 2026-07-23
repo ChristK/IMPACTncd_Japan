@@ -5670,9 +5670,19 @@ Simulation <-
           dbListFields(duckdb_con, lc_table_name),
           value = TRUE
         )
+        # A custom `_costs$` column created inside one scenario's function (e.g.
+        # `statin_medical_costs`) does not exist in the parquet of scenarios that
+        # never created it. The Arrow dataset unifies the schema across scenario
+        # partitions, so the column is present in `lc_table` but NULL for every
+        # row of those other scenarios. `SUM(col * wt)` over all-NULL input is
+        # NULL, which surfaces as a blank/NA cell in the cost tables (e.g. sc0).
+        # Wrap the aggregate in COALESCE(..., 0) so a scenario that genuinely has
+        # no such cost reports 0 rather than NA. (COALESCE only fires when the
+        # whole group-sum is NULL; partial NULLs are already ignored by SUM, so
+        # this does not mask real values.)
         build_custom_cost_select <- function(wt_col) {
           paste(
-            sprintf('SUM("%s" * %s) AS "%s"',
+            sprintf('COALESCE(SUM("%s" * %s), 0) AS "%s"',
                     custom_cost_cols, wt_col, custom_cost_cols),
             collapse = ", "
           )

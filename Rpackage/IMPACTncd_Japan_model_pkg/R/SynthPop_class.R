@@ -1209,7 +1209,12 @@ SynthPop <-
           # ????? 20230206 I cannot find my_ function
           # For now, we use q___ insted of my_
           # Change-for-IMPACT-NCD-Japan
-          dt[, Smoking := as.integer(rankstat_Smoking_act < mu) * 2L] # 0 = never smoker or ex, 2 = current
+          # NOTE mu = P(current smoker). Use > (1 - mu) so current smokers occupy the HIGH
+          # rank tail, matching how Smoking_act_r was built in exposure_corr_mean.fst
+          # (pBI(Smoking_act, mu): current smoker = 1 = high rank) and how the Med_* vars
+          # are generated below. Using < mu here would invert the sign of every correlation
+          # between smoking and the other exposures/medications (marginals unaffected).
+          dt[, Smoking := as.integer(rankstat_Smoking_act > (1 - mu)) * 2L] # 0 = never smoker or ex, 2 = current
           dt[, c(col_nam) := NULL]
 
           # Never (=0) vs Ex (=1) smokers using data between 2003 and 2012 Note that I did not use tabaco tax because data were limitted to 2003 and 2012
@@ -1231,7 +1236,9 @@ SynthPop <-
           #   }
           # }
           # dt[Smoking == 0L, Smoking := as.integer(range01(rankstat_Smoking) < mu), by = .(year)] # 0 = never smoker, 1=ex, 2=current
-          dt[Smoking == 0L, Smoking := as.integer(rankstat_Smoking_ex < mu)] # 0 = never smoker, 1=ex, 2=current
+          # > (1 - mu) so ex-smokers occupy the HIGH rank tail, matching Smoking_ex_r in
+          # exposure_corr_mean.fst (pBI(Smoking_ex, mu): ex = 1 = high rank). See note above.
+          dt[Smoking == 0L, Smoking := as.integer(rankstat_Smoking_ex > (1 - mu))] # 0 = never smoker, 1=ex, 2=current
 
 
           dt[, Smoking := factor(Smoking + 1L)]

@@ -125,12 +125,50 @@ if (file.exists(pkg_list_file)) {
     # Muffle the Windows-only "in use" warning: a package earlier in the list
     # can load a later one as its dependency (e.g. doParallel loads foreach),
     # making the later install attempt a harmless skip.
-    withCallingHandlers({
-      CKutils::dependencies(pkg_list, update = FALSE)
-    }, warning = function(w) {
-      if (grepl("is in use and will not be installed", conditionMessage(w))) {
-        invokeRestart("muffleWarning")
+    install_missing_pkgs <- function(pkgs) {
+      withCallingHandlers({
+        CKutils::dependencies(pkgs, update = FALSE)
+      }, warning = function(w) {
+        if (grepl("is in use and will not be installed", conditionMessage(w))) {
+          invokeRestart("muffleWarning")
+        }
+      })
+    }
+    tryCatch(install_missing_pkgs(pkg_list), error = function(e) {
+      # During CRAN dependency transitions, pre-built binaries can be ABI
+      # mismatched for a few days (e.g. 2026-07-23: the stringfish binary was
+      # rebuilt against RcppParallel 6.0.0, which ships oneTBB's tbb12.dll,
+      # while the RcppParallel Windows binary was still 5.1.11-2 shipping the
+      # old tbb.dll). The package then installs fine but its DLL fails to
+      # load ("unable to load shared object"). Recover by recompiling the
+      # affected packages from source so they link against the versions
+      # actually installed (requires Rtools on Windows).
+      msg <- conditionMessage(e)
+      if (!grepl("unable to load shared object", msg)) {
+        stop(e)
       }
+      # The package whose shared object failed to load, from its path
+      # (<lib>/<pkg>/libs[/x64]/<dll>) ...
+      dll_dir <- dirname(sub(
+        ".*unable to load shared object '([^']+)'.*", "\\1", msg
+      ))
+      if (basename(dll_dir) %in% c("x64", "i386")) {
+        dll_dir <- dirname(dll_dir)
+      }
+      broken <- basename(dirname(dll_dir))
+      # ... and the package whose namespace failed as a consequence
+      if (grepl("namespace load failed for '", msg)) {
+        broken <- unique(c(
+          broken,
+          sub(".*namespace load failed for '([^']+)'.*", "\\1", msg)
+        ))
+      }
+      message(
+        "Binary package(s) failed to load; reinstalling from source: ",
+        paste(broken, collapse = ", ")
+      )
+      install.packages(broken, type = "source")
+      install_missing_pkgs(pkg_list) # retry once
     })
   }
   rm(pkg_list, pkg_list_file) # Clean up

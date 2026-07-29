@@ -4238,7 +4238,7 @@ Simulation <-
           "
           CREATE OR REPLACE TEMP VIEW %s AS
           WITH base_filtered AS (
-            SELECT mc, scenario, year, agegrp, sex, chd_dgns, all_cause_mrtl, stroke_dgns, wt, wt_esp
+            SELECT mc, scenario, year, age, agegrp, sex, chd_dgns, all_cause_mrtl, stroke_dgns, wt, wt_esp
             FROM %s 
             WHERE mc = %d AND scenario = %s
             ),
@@ -4266,7 +4266,7 @@ Simulation <-
             ),
             basic_costs AS (
               SELECT
-                m.mc, m.scenario, m.year, m.agegrp, m.sex,
+                m.mc, m.scenario, m.year, m.age, m.agegrp, m.sex,
                 m.wt, m.wt_esp,
               
                 -- CHD basic cost components
@@ -4286,7 +4286,7 @@ Simulation <-
               LEFT JOIN stroke_costs sc ON m.agegrp = sc.agegrp AND m.sex = sc.sex
             )
             SELECT
-              mc, scenario, year, agegrp, sex, wt, wt_esp,
+              mc, scenario, year, age, agegrp, sex, wt, wt_esp,
             
               -- Basic cost components (already calculated)
               chd_prvl_prdv_costs,

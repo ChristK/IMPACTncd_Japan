@@ -805,26 +805,51 @@ Disease <-
               value = TRUE,
               perl = TRUE
             )
-            if (length(riskcolnam) == 1L) {
+            # NOTE the branches below must be exhaustive. Before, an
+            # unmatched case left `thresh` undefined and the set() call
+            # failed with the unhelpful "object 'thresh' not found".
+            if (length(riskcolnam) == 0L) {
+              stop(
+                "Disease '",
+                self$name,
+                "' has incidence type 1 (prevalence determined deterministically ",
+                "by its exposure(s)), but no '*_rr' column was produced for it. ",
+                length(private$rr),
+                " RR file(s) are linked to this disease. Check that a file ",
+                "inputs/RR/<exposure>~",
+                self$name,
+                ".csvy exists and that its 'outcome:' field is exactly '",
+                self$name,
+                "' (the 'name:' of this disease in the design yaml)."
+              )
+            } else if (length(riskcolnam) == 1L) {
               thresh <- as.integer(sp$get_risks(self$name)[[riskcolnam]])
-            }
-            if (
-              length(riskcolnam) > 1L &&
-                self$meta$incidence$aggregation == "any"
-            ) {
+            } else if (identical(self$meta$incidence$aggregation, "any")) {
               thresh <- as.integer(sp$get_risks(self$name)[,
                 do.call(pmax, .SD),
                 .SDcols = riskcolnam
               ])
-            }
-            if (
-              length(riskcolnam) > 1L &&
-                self$meta$incidence$aggregation == "all"
-            ) {
+            } else if (identical(self$meta$incidence$aggregation, "all")) {
               thresh <- as.integer(sp$get_risks(self$name)[,
                 Reduce(`*`, .SD),
                 .SDcols = riskcolnam
               ])
+            } else {
+              stop(
+                "Disease '",
+                self$name,
+                "' is defined by ",
+                length(riskcolnam),
+                " exposures (",
+                paste(riskcolnam, collapse = ", "),
+                ") so meta$incidence$aggregation must be exactly 'any' or ",
+                "'all' in the design yaml. Got: ",
+                if (is.null(self$meta$incidence$aggregation)) {
+                  "NULL (key missing)"
+                } else {
+                  paste0("'", self$meta$incidence$aggregation, "'")
+                }
+              )
             }
 
             set(sp$pop, NULL, namprvl, thresh)
@@ -1128,26 +1153,50 @@ Disease <-
           }
 
           if (self$meta$incidence$type == 1L) {
-            if (length(riskcolnam) == 1L) {
+            # NOTE the branches below must be exhaustive. See the matching
+            # comment in set_init_prvl().
+            if (length(riskcolnam) == 0L) {
+              stop(
+                "Disease '",
+                self$name,
+                "' has incidence type 1 (incidence determined deterministically ",
+                "by its exposure(s)), but no '*_rr' column was produced for it. ",
+                length(private$rr),
+                " RR file(s) are linked to this disease. Check that a file ",
+                "inputs/RR/<exposure>~",
+                self$name,
+                ".csvy exists and that its 'outcome:' field is exactly '",
+                self$name,
+                "' (the 'name:' of this disease in the design yaml)."
+              )
+            } else if (length(riskcolnam) == 1L) {
               thresh <- as.numeric(sp$get_risks(self$name)[[riskcolnam]])
-            }
-            if (
-              length(riskcolnam) > 1L &&
-                self$meta$incidence$aggregation == "any"
-            ) {
+            } else if (identical(self$meta$incidence$aggregation, "any")) {
               thresh <- as.numeric(sp$get_risks(self$name)[,
                 do.call(pmax, .SD),
                 .SDcols = riskcolnam
               ])
-            }
-            if (
-              length(riskcolnam) > 1L &&
-                self$meta$incidence$aggregation == "all"
-            ) {
+            } else if (identical(self$meta$incidence$aggregation, "all")) {
               thresh <- as.numeric(sp$get_risks(self$name)[,
                 Reduce(`*`, .SD),
                 .SDcols = riskcolnam
               ])
+            } else {
+              stop(
+                "Disease '",
+                self$name,
+                "' is defined by ",
+                length(riskcolnam),
+                " exposures (",
+                paste(riskcolnam, collapse = ", "),
+                ") so meta$incidence$aggregation must be exactly 'any' or ",
+                "'all' in the design yaml. Got: ",
+                if (is.null(self$meta$incidence$aggregation)) {
+                  "NULL (key missing)"
+                } else {
+                  paste0("'", self$meta$incidence$aggregation, "'")
+                }
+              )
             }
 
             set(sp$pop, NULL, private$incd_colnam, thresh)

@@ -43,8 +43,19 @@ RUN sed -i '1s/^\xEF\xBB\xBF//' /tmp/r-packages.txt && \
 # installGithub.r exits 0 even when the R package fails to install (R treats a
 # failed install as a warning), so explicitly verify CKutils loads and meets
 # the minimum version required by the model package DESCRIPTION.
-RUN installGithub.r "ChristK/CKutils@ba08744f53b65b2f8ddfa86b1b58f9e634645153" \
-  && Rscript -e 'library(CKutils); stopifnot(packageVersion("CKutils") >= "0.1.24")' # v0.1.24, the HEAD as of 31/01/2026 (adds read_parquet_dt/write_parquet_dt)
+RUN installGithub.r "ChristK/CKutils@96b894e88fb60649c164949b69f22e70ad0254b3" \
+  && Rscript -e 'library(CKutils); stopifnot(packageVersion("CKutils") >= "0.1.29")' # v0.1.29, the HEAD as of 23/07/2026
+# Why 0.1.29 rather than the previous 0.1.24 pin:
+#   0.1.29 installLocalPackageIfChanged() no longer calls requireNamespace() to
+#          test availability, and detach_package() now unloads a namespace that
+#          is loaded-but-not-attached. On 0.1.24 global.R's reinstall step
+#          overwrote IMPACTncdJapan's .rdb/.rdx/.so underneath its own live
+#          namespace, so the session then ran half-old/half-new lazily-loaded
+#          R6 method bodies (seen as spurious "object '<local>' not found").
+#   0.1.27 NaN/NA-driven crashes and undefined behaviour fixed across the C++
+#          code, incl. a NaN-safe fquantile.
+#   0.1.26 DPO normalising-constant cache made thread_local (data race; this
+#          model forks many workers).
 
 # The following commented out lines are an example on how to load a specific version of a package
 # RUN wget http://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.16.4.tar.gz

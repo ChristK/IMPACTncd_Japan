@@ -1391,7 +1391,7 @@ SynthPop <-
           # if (.Platform$OS.type == "unix") {
           #  lookup_dt(dt, tbl, check_lookup_tbl_validity = FALSE) #TODO: Lookup_dt
           dt[, trueyear := year]
-          dt[age >= 70 & trueyear > 2030L, year := 2030L]
+          dt[age >= 70 & trueyear > 2035L, year := 2035L]
           absorb_dt(dt, tbl)
           dt[, `:=`(year = trueyear, trueyear = NULL)]
 

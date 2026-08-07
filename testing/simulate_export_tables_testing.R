@@ -30,6 +30,10 @@ library(data.table)
 TEST_DESIGN <- "testing/sim_design_testing.yaml"
 INTERVENTION_YEAR <- 2025L
 BASELINE_YEAR <- 2001L
+# export_tables() reports several discount levels side by side in a `discount`
+# column; these are the labels of the two default levels.
+UNDISCOUNTED_LEVEL <- "0%"
+DISCOUNTED_LEVEL <- "2%"
 CUSTOM_COLS <- c(
   "sbp_intervention_prvl", # duration counter -> prvl + incd summaries
   "sbp_excess_contd", # continuous -> weighted mean
@@ -185,9 +189,22 @@ check(dir.exists(tables_dir) && length(list.files(tables_dir)) > 0L,
 # ---------------------------------------------------------------------------
 # Read a table CSV in a canonical (column- and row-sorted) order so the
 # comparison is robust to incidental ordering differences.
+#
+# The method's qalys/costs/net_* tables now carry one block of rows per discount
+# level, tagged in a `discount` column, whereas process_out.R does no
+# discounting at all. Comparing the undiscounted ("0%") level - which
+# export_tables() emits by default - keeps the parity check meaningful: it
+# asserts that adding discount levels left the original figures untouched. The
+# discounted levels are validated separately in
+# testing/simulate_discount_levels_testing.R. Legacy tables have no `discount`
+# column, so this is a no-op on that side.
 read_canonical <- function(path) {
   dt <- fread(path)
   if (ncol(dt) == 0L) return(dt)
+  if ("discount" %in% names(dt)) {
+    dt <- dt[discount == UNDISCOUNTED_LEVEL]
+    dt[, discount := NULL]
+  }
   setcolorder(dt, sort(names(dt)))
   setorderv(dt, names(dt))
   dt[]
@@ -327,9 +344,8 @@ CEA_TYPES <- c("dCosts_cuml", "dQALYs_cuml", "ICER", NMB_LABELS)
 
 # Independent re-implementation of export_cea_tables() for one
 # (strata, perspective, scale), returning the quantiled table.
-recompute_cea <- function(s, persp, scale,
+recompute_cea <- function(s, persp, scale, qaly_rate, cost_rate,
                           base = BASELINE_YEAR, comparator = "sc0",
-                          qaly_rate = 2, cost_rate = 2,
                           prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)) {
   q <- CKutils::read_parquet_dt(file.path(output_dir, "summaries", "qalys_scaled_up"))
   cst <- CKutils::read_parquet_dt(file.path(output_dir, "summaries", "costs_scaled_up"))
@@ -366,25 +382,37 @@ recompute_cea <- function(s, persp, scale,
   out[]
 }
 
-cea_validate <- function(s, persp, scale) {
+# Validates one discount level of a CEA file against the recompute at that
+# level's rates. Both default levels are checked, so the discounting itself is
+# exercised here as well as in simulate_discount_levels_testing.R.
+cea_validate <- function(s, persp, scale,
+                         levels = list(list(label = UNDISCOUNTED_LEVEL, rate = 0),
+                                       list(label = DISCOUNTED_LEVEL, rate = 2))) {
   suffix <- paste(s, collapse = "-")
   fn <- sprintf("cost-effectiveness by %s (%s-%s) (not standardised).csv",
                 suffix, persp, scale)
   fp <- file.path(method_dir, fn)
   if (!check(file.exists(fp), paste0("CEA file exists: ", fn))) return(invisible())
-  csv <- fread(fp)
-  check(all(CEA_TYPES %in% unique(csv$type)),
-        paste0(fn, ": all 6 metric types present"))
-  rc <- recompute_cea(s, persp, scale)
-  keys <- c("type", "scenario", s)
-  qcols <- grep("^value_", names(csv), value = TRUE)
-  m <- merge(csv, rc, by = keys, suffixes = c(".csv", ".rc"))
-  ok <- nrow(m) == nrow(csv)
-  for (qc in qcols) {
-    ok <- ok && isTRUE(all.equal(m[[paste0(qc, ".csv")]], m[[paste0(qc, ".rc")]],
-                                 tolerance = 1e-6))
+  full <- fread(fp)
+  check(setequal(unique(full$discount),
+                 vapply(levels, `[[`, character(1), "label")),
+        paste0(fn, ": both default discount levels present"))
+  for (lvl in levels) {
+    csv <- full[discount == lvl$label][, discount := NULL]
+    check(all(CEA_TYPES %in% unique(csv$type)),
+          sprintf("%s (%s): all 6 metric types present", fn, lvl$label))
+    rc <- recompute_cea(s, persp, scale, lvl$rate, lvl$rate)
+    keys <- c("type", "scenario", s)
+    qcols <- grep("^value_", names(csv), value = TRUE)
+    m <- merge(csv, rc, by = keys, suffixes = c(".csv", ".rc"))
+    ok <- nrow(m) == nrow(csv) && nrow(m) > 0L
+    for (qc in qcols) {
+      ok <- ok && isTRUE(all.equal(m[[paste0(qc, ".csv")]], m[[paste0(qc, ".rc")]],
+                                   tolerance = 1e-6))
+    }
+    check(ok, sprintf("%s (%s): all quantile columns match independent recompute",
+                      fn, lvl$label))
   }
-  check(ok, paste0(fn, ": all quantile columns match independent recompute"))
 }
 
 cea_files <- list.files(method_dir, pattern = "^cost-effectiveness by .*\\.csv$")
@@ -408,7 +436,9 @@ soc <- fread(file.path(method_dir,
   "cost-effectiveness by year (societal-EQ5D5L) (not standardised).csv"))
 hc_dc <- hc[type == "dCosts_cuml"]
 soc_dc <- soc[type == "dCosts_cuml"]
-mm <- merge(hc_dc, soc_dc, by = c("scenario", "year"), suffixes = c(".hc", ".soc"))
+# `discount` is a key too, otherwise the levels cross-join.
+mm <- merge(hc_dc, soc_dc, by = c("scenario", "year", "discount"),
+            suffixes = c(".hc", ".soc"))
 check(nrow(mm) > 0 && all(abs(mm[["value_50.0%.hc"]]) <= abs(mm[["value_50.0%.soc"]]) + 1e-6),
       "healthcare |dCosts_cuml| <= societal |dCosts_cuml| (median)")
 

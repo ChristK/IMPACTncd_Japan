@@ -148,8 +148,8 @@ This method replaces the standalone `auxil/process_out.R` script.
   multicore = TRUE,
   cea = TRUE,
   wtp = c(5e+06, 7500000, 1e+07),
-  qaly_discount_rate = 2,
-  cost_discount_rate = 2,
+  qaly_discount_rate = c(0, 2),
+  cost_discount_rate = c(0, 2),
   discount_from_year = NULL,
   custom_costs_in_healthcare = NULL
 )}
@@ -190,12 +190,43 @@ net monetary benefit, NMB) from the societal and healthcare perspectives.
 These are built from the `qalys` and `costs` summaries for the actual
 (`scaled_up`) population only.}
       \item{\code{wtp}}{Numeric vector of willingness-to-pay thresholds (monetary units
-per QALY, i.e. the same currency as the cost columns) at which NMB is
-computed. Default `c(5e6, 7.5e6, 1e7)`.}
-      \item{\code{qaly_discount_rate}}{Numeric. Annual discount rate (percent) applied to
-QALYs in the CEA tables. Default `2`.}
-      \item{\code{cost_discount_rate}}{Numeric. Annual discount rate (percent) applied to
-costs in the CEA tables. Default `2`.}
+  per QALY, i.e. the same currency as the cost columns) at which NMB is
+  computed. Default `c(5e6, 7.5e6, 1e7)`. Each threshold becomes its own
+  `type` value in the CEA tables (`NMB_at_wtp_5000000`, ...).
+
+  `wtp` and the discount levels are **crossed**: every threshold is evaluated
+  at every discount level, so a CEA table holds
+  `length(wtp)` x (number of discount levels) NMB rows per stratum cell.
+  (Contrast the two discount-rate vectors, which are *paired* with each
+  other - see `qaly_discount_rate`.) Filter on both `discount` and `type` to
+  isolate one series.
+
+  A threshold is a ratio of present values (currency per QALY), so it is
+  *not* itself discounted: it multiplies the already-discounted
+  `dQALYs_cuml`, making `NMB = wtp * dQALYs_cuml - dCosts_cuml` a present
+  value at that level's rates. When a level's QALY and cost rates differ, a
+  single NMB figure therefore combines both (QALYs at one rate, costs at the
+  other) - which is what the spelled-out `discount` label records.
+
+  `ICER` does not depend on `wtp` (it is `dCosts_cuml / dQALYs_cuml`), so it
+  appears once per discount level rather than once per threshold, and its
+  rows are absent wherever `dQALYs_cuml` is 0 (the ratio is undefined).}
+      \item{\code{qaly_discount_rate}}{Numeric *vector*. Annual discount rate(s) (percent)
+applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2%.}
+      \item{\code{cost_discount_rate}}{Numeric *vector*. Annual discount rate(s) (percent)
+  applied to costs. Default `c(0, 2)`.
+
+  The two vectors are paired **element-wise** into discount *levels* (a
+  length-1 rate is recycled against a longer one), so the defaults give two
+  levels: undiscounted, and 2% on QALYs and costs alike. Differential rates
+  are set by passing equal-length vectors, e.g. `qaly_discount_rate =
+  c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
+
+  Every level appears in the `qalys`, `net_qalys`, `costs`, `net_costs` and
+  cost-effectiveness tables, tagged in a `discount` column (`"0%"`, `"2%"`,
+  or `"QALYs 1.5%/costs 4%"` when a level's two rates differ). The `0%` level
+  reproduces the undiscounted figures, so nothing is lost by adding
+  discounted ones.}
       \item{\code{discount_from_year}}{Integer or `NULL`. First year from which present
 values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
 When `NULL` (default) it is set to `baseline_year_for_change_outputs`.}

@@ -237,18 +237,86 @@ Incremental cost-effectiveness ratios (ICER) and net monetary benefit (NMB) are
 also produced directly by the `Simulation$export_tables()` method (the class
 method that supersedes `process_out.R`). It writes
 `cost-effectiveness by <strata> (<perspective>-<scale>) (not standardised).csv`
-files containing the cumulative discounted incremental QALYs (`dQALYs_cuml`) and
-costs (`dCosts_cuml`), the `ICER`, and the `NMB` at each willingness-to-pay
-threshold, for both QALY scales (EQ5D5L and HUI3) and from two perspectives:
+files containing the cumulative incremental QALYs (`dQALYs_cuml`) and costs
+(`dCosts_cuml`), the `ICER`, and the `NMB` at each willingness-to-pay threshold,
+at each discount level (see below), for both QALY scales (EQ5D5L and HUI3) and
+from two perspectives:
 
 * **societal** — uses `cvd_total_costs` (direct + productivity + informal care);
 * **healthcare** — uses `cvd_direct_costs` (treatment costs only).
 
-Discounting is applied with separate annual rates for costs and QALYs
-(`cost_discount_rate`, `qaly_discount_rate`, defaulting to 2% each), and the
-willingness-to-pay thresholds are set with the `wtp` argument
-(default `c(5e6, 7.5e6, 1e7)` ¥/QALY). See `?Simulation` / `export_tables()` for
-the full argument list.
+The willingness-to-pay thresholds are set with the `wtp` argument
+(default `c(5e6, 7.5e6, 1e7)` ¥/QALY); each becomes its own `type` value
+(`NMB_at_wtp_5000000`, …). See `?Simulation` / `export_tables()` for the full
+argument list.
+
+#### Discounting
+
+`cost_discount_rate` and `qaly_discount_rate` take *vectors* of annual rates
+(percent), defaulting to `c(0, 2)` for both. The two are paired element-wise
+into discount **levels** (a length-1 rate is recycled against a longer one), so
+the defaults give two levels: undiscounted, and 2% on costs and QALYs alike.
+Differential rates are set by passing equal-length vectors, e.g.
+`qaly_discount_rate = c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
+
+Every level is reported in **all** the affected tables — `QALYs by …`,
+`net QALYs by …`, `costs by …`, `net costs by …` *and*
+`cost-effectiveness by …` — not just the cost-effectiveness ones. The file set
+is unchanged: each of those tables gains a `discount` column and carries one
+block of rows per level, labelled `"0%"`, `"2%"`, or
+`"QALYs 1.5%/costs 4%"` when a level's two rates differ. Filter on `discount`
+to pick a level; the `0%` rows are the undiscounted figures.
+
+Present values are computed as
+`PV = FV / (1 + rate/100)^max(0, year - discount_from_year)`, applied to each
+year's flow *before* the cumulative columns are accumulated, so
+`QALYs_cuml` / `costs_cuml` / `dQALYs_cuml` / `dCosts_cuml` are sums of present
+values. `discount_from_year` defaults to `baseline_year_for_change_outputs`, and
+years at or before it are undiscounted.
+
+#### Discount levels and WTP thresholds
+
+Two vectors meet in the cost-effectiveness tables, and they combine by
+*different* rules — worth knowing before you read one:
+
+| Pair | Rule | With `c(0, 2)` rates and 3 thresholds |
+|---|---|---|
+| `qaly_discount_rate` × `cost_discount_rate` | **paired** element-wise | 2 levels (not 4) |
+| discount level × `wtp` | **crossed** | 2 × 3 = 6 NMB rows per stratum cell |
+
+The rates are paired because a QALY rate and a cost rate together define *one*
+analysis — that pairing is what lets `c(0, 1.5)` / `c(0, 4)` express "undiscounted"
+and "1.5% QALYs, 4% costs" as two scenarios rather than a 2×2 grid you would have
+to subset. `wtp` is an independent sensitivity axis, so every threshold is
+evaluated at every discount level.
+
+Both axes end up as *rows* (the tables are long), via different columns:
+`discount` tags the level, and `type` carries the metric — so filter on **both**
+to isolate a single series:
+
+```r
+dt <- fread("cost-effectiveness by year (societal-EQ5D5L) (not standardised).csv")
+dt[discount == "2%" & type == "NMB_at_wtp_5000000"]
+```
+
+Row counts scale as
+`scenarios × strata × levels × (3 + length(wtp))`, so adding a discount level
+multiplies rows while leaving the *file* set untouched.
+
+Two consequences of the crossing:
+
+* **A threshold is never discounted.** It is a ratio of present values
+  (¥ per QALY), so it multiplies the already-discounted `dQALYs_cuml`:
+  `NMB = wtp × dQALYs_cuml − dCosts_cuml` is a present value at that level's
+  rates. Under differential rates a single NMB figure therefore mixes both
+  (QALYs at one rate, costs at the other) — which is exactly what the
+  spelled-out `"QALYs 1.5%/costs 4%"` label is recording.
+* **`ICER` does not vary with `wtp`.** It is `dCosts_cuml / dQALYs_cuml`, so it
+  appears once per discount level, not once per threshold (it *does* vary with
+  the discount level, since both parts are discounted). Its rows are absent
+  wherever `dQALYs_cuml` is 0 and the ratio is undefined — typically the years
+  before an intervention starts — so an ICER series is shorter than the NMB
+  series beside it.
 
 **Where do your custom `_costs` columns count?** Custom cost columns are
 **always** added to the **societal** perspective. By default they are *not*

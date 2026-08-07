@@ -48,6 +48,102 @@ safe_fquantile_byid <- function(x, q, id, rounding = FALSE) {
 }
 
 
+# Discounting helpers ---------------------------------------------------------
+# Costs and QALYs are reported at several discount levels side by side: every
+# affected table (qalys, net_qalys, costs, net_costs and the CEA tables) gains a
+# `discount` column and carries one block of rows per level, so the undiscounted
+# (0%) figures and the discounted ones live in the same file.
+
+
+# fmt_discount_pct ----
+# Rate -> the label used in the `discount` column ("0%", "2%", "3.5%").
+# Trailing zeros are dropped so the label round-trips the rate that was asked
+# for.
+fmt_discount_pct <- function(rate) {
+  paste0(format(rate, trim = TRUE, scientific = FALSE, drop0trailing = TRUE), "%")
+}
+
+
+# build_discount_levels ----
+# Normalises the user-supplied rates into one row per discount level.
+# `qaly_discount_rate` and `cost_discount_rate` are paired element-wise (a
+# length-1 rate is recycled against a longer one), so the default `c(0, 2)`
+# for both gives two levels: undiscounted, and 2% on QALYs and costs alike.
+# Differential rates are supported by passing equal-length vectors, e.g.
+# `qaly_discount_rate = c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
+build_discount_levels <- function(qaly_discount_rate, cost_discount_rate) {
+  q <- as.numeric(qaly_discount_rate)
+  cst <- as.numeric(cost_discount_rate)
+  if (length(q) == 0L) q <- 0
+  if (length(cst) == 0L) cst <- 0
+
+  n <- max(length(q), length(cst))
+  if (n %% length(q) != 0L || n %% length(cst) != 0L) {
+    stop("qaly_discount_rate (length ", length(q), ") and cost_discount_rate ",
+         "(length ", length(cst), ") must be the same length, or one of them ",
+         "must be a single rate to recycle.", call. = FALSE)
+  }
+  q <- rep_len(q, n)
+  cst <- rep_len(cst, n)
+
+  if (!all(is.finite(q)) || !all(is.finite(cst)) || any(c(q, cst) <= -100)) {
+    stop("Discount rates must be finite percentages greater than -100.",
+         call. = FALSE)
+  }
+
+  lvl <- unique(data.table(qaly = q, cost = cst), by = c("qaly", "cost"))
+  lvl[, `:=`(qaly_label = fmt_discount_pct(qaly),
+             cost_label = fmt_discount_pct(cost))]
+  # The CEA tables mix both rates, so their label spells the pair out whenever
+  # the two differ.
+  lvl[, label := fifelse(qaly == cost, qaly_label,
+                         paste0("QALYs ", qaly_label, "/costs ", cost_label))]
+  lvl[]
+}
+
+
+# discount_factor ----
+# Present-value factor: PV = FV * discount_factor(year, rate, from_year), i.e.
+# 1 / (1 + rate/100)^max(0, year - from_year). Years at or before `from_year`
+# are undiscounted, and a 0% rate leaves every year unchanged.
+discount_factor <- function(year, rate, from_year) {
+  1 / (1 + rate / 100)^pmax(0, year - from_year)
+}
+
+
+# expand_discount_levels ----
+# Replicates a per-year long table once per discount level, scaling `value_cols`
+# by that level's present-value factor and tagging the copy with a `discount`
+# label column. `rate_for` selects which of the paired rates applies: QALY
+# tables discount at the QALY rate and cost tables at the cost rate, so levels
+# sharing a rate collapse to a single block of rows.
+#
+# Scaling here happens on the per-year values, i.e. before any cumsum(), so the
+# cumulative columns accumulate present values rather than discounting a total.
+expand_discount_levels <- function(d, value_cols, levels, from_year,
+                                   rate_for = c("qaly", "cost")) {
+  rate_for <- match.arg(rate_for)
+  if (!"year" %in% names(d)) {
+    stop("Discounting needs a `year` column; every stratum must include \"year\".",
+         call. = FALSE)
+  }
+
+  rates <- levels[[rate_for]]
+  labels <- levels[[paste0(rate_for, "_label")]]
+  keep <- !duplicated(rates)
+  rates <- rates[keep]
+  labels <- labels[keep]
+
+  rbindlist(lapply(seq_along(rates), function(i) {
+    di <- copy(d)
+    fctr <- discount_factor(di[["year"]], rates[i], from_year)
+    for (cl in value_cols) set(di, NULL, cl, di[[cl]] * fctr)
+    set(di, NULL, "discount", labels[i])
+    di
+  }))
+}
+
+
 # export_tables ----
 #' @description
 #' Export summary tables for policy analysis.
@@ -92,11 +188,42 @@ safe_fquantile_byid <- function(x, q, id, rounding = FALSE) {
 #'   (`scaled_up`) population only.
 #' @param wtp Numeric vector of willingness-to-pay thresholds (monetary units
 #'   per QALY, i.e. the same currency as the cost columns) at which NMB is
-#'   computed. Default `c(5e6, 7.5e6, 1e7)`.
-#' @param qaly_discount_rate Numeric. Annual discount rate (percent) applied to
-#'   QALYs in the CEA tables. Default `2`.
-#' @param cost_discount_rate Numeric. Annual discount rate (percent) applied to
-#'   costs in the CEA tables. Default `2`.
+#'   computed. Default `c(5e6, 7.5e6, 1e7)`. Each threshold becomes its own
+#'   `type` value in the CEA tables (`NMB_at_wtp_5000000`, ...).
+#'
+#'   `wtp` and the discount levels are **crossed**: every threshold is evaluated
+#'   at every discount level, so a CEA table holds
+#'   `length(wtp)` x (number of discount levels) NMB rows per stratum cell.
+#'   (Contrast the two discount-rate vectors, which are *paired* with each
+#'   other - see `qaly_discount_rate`.) Filter on both `discount` and `type` to
+#'   isolate one series.
+#'
+#'   A threshold is a ratio of present values (currency per QALY), so it is
+#'   *not* itself discounted: it multiplies the already-discounted
+#'   `dQALYs_cuml`, making `NMB = wtp * dQALYs_cuml - dCosts_cuml` a present
+#'   value at that level's rates. When a level's QALY and cost rates differ, a
+#'   single NMB figure therefore combines both (QALYs at one rate, costs at the
+#'   other) - which is what the spelled-out `discount` label records.
+#'
+#'   `ICER` does not depend on `wtp` (it is `dCosts_cuml / dQALYs_cuml`), so it
+#'   appears once per discount level rather than once per threshold, and its
+#'   rows are absent wherever `dQALYs_cuml` is 0 (the ratio is undefined).
+#' @param qaly_discount_rate Numeric *vector*. Annual discount rate(s) (percent)
+#'   applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2%.
+#' @param cost_discount_rate Numeric *vector*. Annual discount rate(s) (percent)
+#'   applied to costs. Default `c(0, 2)`.
+#'
+#'   The two vectors are paired **element-wise** into discount *levels* (a
+#'   length-1 rate is recycled against a longer one), so the defaults give two
+#'   levels: undiscounted, and 2% on QALYs and costs alike. Differential rates
+#'   are set by passing equal-length vectors, e.g. `qaly_discount_rate =
+#'   c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
+#'
+#'   Every level appears in the `qalys`, `net_qalys`, `costs`, `net_costs` and
+#'   cost-effectiveness tables, tagged in a `discount` column (`"0%"`, `"2%"`,
+#'   or `"QALYs 1.5%/costs 4%"` when a level's two rates differ). The `0%` level
+#'   reproduces the undiscounted figures, so nothing is lost by adding
+#'   discounted ones.
 #' @param discount_from_year Integer or `NULL`. First year from which present
 #'   values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
 #'   When `NULL` (default) it is set to `baseline_year_for_change_outputs`.
@@ -141,8 +268,8 @@ Simulation$set("public", "export_tables", function(
     multicore = TRUE,
     cea = TRUE,
     wtp = c(5e6, 7.5e6, 1e7),
-    qaly_discount_rate = 2,
-    cost_discount_rate = 2,
+    qaly_discount_rate = c(0, 2),
+    cost_discount_rate = c(0, 2),
     discount_from_year = NULL,
     custom_costs_in_healthcare = NULL
 ) {
@@ -151,12 +278,16 @@ Simulation$set("public", "export_tables", function(
     baseline_year_for_change_outputs <- baseline_year_for_change_outputs + 2000L
   }
 
-  # CEA present values are discounted from the baseline year unless overridden
+  # Present values are discounted from the baseline year unless overridden
   if (is.null(discount_from_year)) {
     discount_from_year <- baseline_year_for_change_outputs
   } else if (discount_from_year <= 100) {
     discount_from_year <- discount_from_year + 2000L
   }
+
+  # One row per discount level, shared by the main (qalys/costs) and the CEA
+  # tables so both report the same set of levels.
+  discount_levels <- build_discount_levels(qaly_discount_rate, cost_discount_rate)
 
   # Thread control for parallel execution
   if (multicore) {
@@ -193,6 +324,8 @@ Simulation$set("public", "export_tables", function(
       tables_dir = tables_dir,
       comparator_scenario = comparator_scenario,
       two_agegrps = two_agegrps,
+      discount_levels = discount_levels,
+      discount_from_year = discount_from_year,
       strata_ons = strata_cfg$ons,
       strata_esp = strata_cfg$esp
     ),
@@ -235,8 +368,7 @@ Simulation$set("public", "export_tables", function(
       comparator_scenario = comparator_scenario,
       baseline_year = baseline_year_for_change_outputs,
       wtp = wtp,
-      qaly_discount_rate = qaly_discount_rate,
-      cost_discount_rate = cost_discount_rate,
+      discount_levels = discount_levels,
       discount_from_year = discount_from_year,
       custom_costs_in_healthcare = custom_costs_in_healthcare,
       strata = strata_cfg$ons
@@ -333,6 +465,8 @@ Simulation$set("private", "export_tables_hlpr", function(task, implicit_parallel
       tables_dir = task$tables_dir,
       comparator_scenario = task$comparator_scenario,
       two_agegrps = task$two_agegrps,
+      discount_levels = task$discount_levels,
+      discount_from_year = task$discount_from_year,
       strata_ons = task$strata_ons,
       strata_esp = task$strata_esp
     ),
@@ -363,8 +497,7 @@ Simulation$set("private", "export_tables_hlpr", function(task, implicit_parallel
       comparator_scenario = task$comparator_scenario,
       baseline_year = task$baseline_year,
       wtp = task$wtp,
-      qaly_discount_rate = task$qaly_discount_rate,
-      cost_discount_rate = task$cost_discount_rate,
+      discount_levels = task$discount_levels,
       discount_from_year = task$discount_from_year,
       custom_costs_in_healthcare = task$custom_costs_in_healthcare,
       strata = task$strata
@@ -452,6 +585,8 @@ Simulation$set("private", "tbl_smmrs_core", function(
     baseline_year,         # for _change calculations
     comparator_scenario,   # for comparison metrics
     comparison_starting_year,
+    discount_levels,       # one row per discount level (build_discount_levels)
+    discount_from_year,    # first year at which discounting bites
     tables_dir             # output directory
 ) {
   # Source datasets (used only for the *_pp variable-name stripping below)
@@ -550,17 +685,23 @@ Simulation$set("private", "tbl_smmrs_core", function(
                   "HUI3" = sum(HUI3)),
               keyby = eval(x)]
       d <- melt(d, id.vars = x, variable.name = "scale", value.name = "QALYs")
-      setkeyv(d, c(x[x != "year"], "scale", "year"))
-      d[, cumulative := cumsum(QALYs), keyby = c(setdiff(x, "year"), "scale")]
-      d <- melt(d, id.vars = c(x, "scale"), variable.name = "type")
+      # One block of rows per discount level, tagged in a `discount` column.
+      # Discounting the annual flows before cumsum() makes the cumulative
+      # column a sum of present values.
+      d <- expand_discount_levels(d, "QALYs", discount_levels,
+                                  discount_from_year, "qaly")
+      x <- c(x, "scale", "discount")
+      setkeyv(d, c(setdiff(x, "year"), "year"))
+      d[, cumulative := cumsum(QALYs), keyby = setdiff(x, "year")]
+      d <- melt(d, id.vars = x, variable.name = "type")
       d[, type := fifelse(type == "cumulative", "QALYs_cuml", "QALYs")]
 
       setkey(d, "type", "scale")
       d <- d[, safe_fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
-             keyby = eval(setdiff(c(x, "scale"), "mc"))]
-      setnames(d, c(setdiff(c(x, "scale"), "mc"), "type", scales::percent(prbl, prefix = str3[[what]])))
-      setkeyv(d, c("type", setdiff(c(x, "scale"), "mc")))
-      setcolorder(d, setdiff(c(x, "scale"), "mc"))
+             keyby = eval(setdiff(x, "mc"))]
+      setnames(d, c(setdiff(x, "mc"), "type", scales::percent(prbl, prefix = str3[[what]])))
+      setkeyv(d, c("type", setdiff(x, "mc")))
+      setcolorder(d, setdiff(x, "mc"))
 
     } else if (grepl("^net_qalys$", what)) {
       d <- tt[, .("EQ5D5L" = sum(EQ5D5L),
@@ -571,14 +712,18 @@ Simulation$set("private", "tbl_smmrs_core", function(
       d <- d[scenario != comparator_scenario & year >= comparison_starting_year][
         d_sc0, on = c(setdiff(x, "scenario"), "scale"), net_QALYs := QALYs - i.QALYs] # positive numbers for prevention
       d[, QALYs := NULL]
-      setkeyv(d, c(x[x != "year"], "scale", "year"))
-      d[, cumulative := cumsum(net_QALYs), keyby = c(setdiff(x, "year"), "scale")]
-      d <- melt(d, id.vars = c(x, "scale"), variable.name = "type")
+      # Discounting is linear in the flows, so discounting the difference is
+      # identical to differencing the two discounted arms (both share `year`).
+      d <- expand_discount_levels(d, "net_QALYs", discount_levels,
+                                  discount_from_year, "qaly")
+      x <- c(x, "scale", "discount")
+      setkeyv(d, c(setdiff(x, "year"), "year"))
+      d[, cumulative := cumsum(net_QALYs), keyby = setdiff(x, "year")]
+      d <- melt(d, id.vars = x, variable.name = "type")
       d[type == "cumulative", type := "net_QALYs_cuml"]
       setkey(d, "type", "scale")
       d <- d[, safe_fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
-             keyby = eval(setdiff(c(x, "scale"), "mc"))]
-      x <- c(x, "scale")
+             keyby = eval(setdiff(x, "mc"))]
       setnames(d, c(setdiff(x, "mc"), "type", scales::percent(prbl, prefix = str3[[what]])))
       setkeyv(d, c("type", setdiff(x, "mc")))
       setcolorder(d, setdiff(x, "mc"))
@@ -586,15 +731,19 @@ Simulation$set("private", "tbl_smmrs_core", function(
     } else if (grepl("^costs", what)) {
       d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]
       d <- melt(d, id.vars = x, variable.name = "costs_type", value.name = "costs")
-      d[, cumulative := cumsum(costs), keyby = c(setdiff(x, "year"), "costs_type")]
-      d <- melt(d, id.vars = c(x, "costs_type"), variable.name = "type")
+      d <- expand_discount_levels(d, "costs", discount_levels,
+                                  discount_from_year, "cost")
+      x <- c(x, "costs_type", "discount")
+      setkeyv(d, c(setdiff(x, "year"), "year"))
+      d[, cumulative := cumsum(costs), keyby = setdiff(x, "year")]
+      d <- melt(d, id.vars = x, variable.name = "type")
       d[type == "cumulative", type := "costs_cuml"]
       setkey(d, "type", "costs_type")
       d <- d[, safe_fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
-             keyby = eval(setdiff(c(x, "costs_type"), "mc"))]
-      setnames(d, c(setdiff(c(x, "costs_type"), "mc"), "type", scales::percent(prbl, prefix = str3[[what]])))
-      setkeyv(d, c("type", setdiff(c(x, "costs_type"), "mc")))
-      setcolorder(d, setdiff(c(x, "costs_type"), "mc"))
+             keyby = eval(setdiff(x, "mc"))]
+      setnames(d, c(setdiff(x, "mc"), "type", scales::percent(prbl, prefix = str3[[what]])))
+      setkeyv(d, c("type", setdiff(x, "mc")))
+      setcolorder(d, setdiff(x, "mc"))
 
     } else if (grepl("^net_costs", what)) {
       d <- tt[, lapply(.SD, sum), .SDcols = patterns("_costs$"), keyby = eval(x)]
@@ -603,14 +752,16 @@ Simulation$set("private", "tbl_smmrs_core", function(
       d <- d[scenario != comparator_scenario & year >= comparison_starting_year][
         d_sc0, on = c(setdiff(x, "scenario"), "costs_type"), net_costs := value - i.value] # negative numbers for prevention
       d[, value := NULL]
-      setkeyv(d, c(x[x != "year"], "costs_type", "year"))
-      d[, cumulative := cumsum(net_costs), keyby = c(setdiff(x, "year"), "costs_type")]
-      d <- melt(d, id.vars = c(x, "costs_type"), variable.name = "type")
+      d <- expand_discount_levels(d, "net_costs", discount_levels,
+                                  discount_from_year, "cost")
+      x <- c(x, "costs_type", "discount")
+      setkeyv(d, c(setdiff(x, "year"), "year"))
+      d[, cumulative := cumsum(net_costs), keyby = setdiff(x, "year")]
+      d <- melt(d, id.vars = x, variable.name = "type")
       d[type == "cumulative", type := "net_costs_cuml"]
       setkey(d, "type", "costs_type")
       d <- d[, safe_fquantile_byid(value, prbl, id = as.character(type), rounding = FALSE),
-             keyby = eval(setdiff(c(x, "costs_type"), "mc"))]
-      x <- c(x, "costs_type")
+             keyby = eval(setdiff(x, "mc"))]
       setnames(d, c(setdiff(x, "mc"), "type", scales::percent(prbl, prefix = str3[[what]])))
       setkeyv(d, c("type", setdiff(x, "mc")))
       setcolorder(d, setdiff(x, "mc"))
@@ -709,9 +860,13 @@ Simulation$set("private", "tbl_smmrs_core", function(
       "esp" = paste0(" (", paste(setdiff(c("mc", "scenario", "year", "age", "sex"), x),
                                  collapse = "-"), " standardised).csv")
     )
+    # Discount levels live in a `discount` column rather than in the file name,
+    # so the file set is the same whether one or several levels are requested.
     str6 <- paste0(
       str4[[what]],
-      paste(setdiff(x, c("mc", "scenario", "type", "scale", "costs_type")), collapse = "-"),
+      paste(setdiff(x, c("mc", "scenario", "type", "scale", "costs_type",
+                         "discount")),
+            collapse = "-"),
       str5[[population]]
     )
 
@@ -733,12 +888,18 @@ Simulation$set("private", "export_main_tables", function(
     tables_dir,
     comparator_scenario = "sc0",
     two_agegrps = FALSE,
+    discount_levels = NULL,
+    discount_from_year = NULL,
     strata_ons = NULL,
     strata_esp = NULL
 ) {
   if (self$design$sim_prm$logs) {
     message("Generating main summary tables...")
   }
+
+  # Undiscounted-only fallback, so the method still works if called directly.
+  if (is.null(discount_levels)) discount_levels <- build_discount_levels(0, 0)
+  if (is.null(discount_from_year)) discount_from_year <- baseline_year
 
   str1 <- c("ons" = "scaled_up", "esp" = "esp")
 
@@ -851,6 +1012,8 @@ Simulation$set("private", "export_main_tables", function(
           baseline_year = baseline_year,
           comparator_scenario = comparator_scenario,
           comparison_starting_year = baseline_year,
+          discount_levels = discount_levels,
+          discount_from_year = discount_from_year,
           tables_dir = tables_dir
         )
         rm(tt)
@@ -1221,7 +1384,34 @@ Simulation$set("private", "export_xps_tables", function(
 #                custom_costs_in_healthcare)
 #
 # Discounting: PV = FV / (1 + rate/100)^max(0, year - discount_from_year),
-# with separate rates for QALYs and costs. Actual (scaled_up) population only.
+# with separate rates for QALYs and costs. Every discount level in
+# `discount_levels` is reported, tagged in a `discount` column. Actual
+# (scaled_up) population only.
+#
+# Output layout. Discount levels and WTP thresholds are CROSSED, and both end up
+# on the row axis (the tables are long), just via different mechanisms:
+#
+#   discount -> rows, via rbindlist(): one block per level, in a `discount`
+#               column. Applied BEFORE the cumsum, so *_cuml are sums of
+#               present values.
+#   wtp      -> columns, via the set() loop below, then rows once melt() folds
+#               the metric columns into `type`.
+#
+# Because the wtp loop runs on the already-discount-expanded table, each
+# NMB_at_wtp_* column is computed for every level with no nested loop - the
+# cross product falls out of the column write. So a stratum cell holds
+# length(wtp) x nrow(discount_levels) NMB rows, plus dCosts_cuml, dQALYs_cuml
+# and ICER once per level:
+#
+#   rows = scenarios x strata x nrow(discount_levels) x (3 + length(wtp))
+#
+# minus the non-finite draws dropped before quantiling - in practice the ICER
+# rows where dQALYs_cuml == 0.
+#
+# A WTP threshold is a ratio of present values (currency per QALY) and so is NOT
+# discounted; it multiplies the already-discounted dQALYs_cuml. Under
+# differential rates one NMB figure therefore mixes both (QALYs at one rate,
+# costs at the other), which is why such a level's label spells both out.
 Simulation$set("private", "export_cea_tables", function(
     prbl,
     summaries_dir,
@@ -1229,8 +1419,7 @@ Simulation$set("private", "export_cea_tables", function(
     comparator_scenario = "sc0",
     baseline_year = 2001L,
     wtp = c(5e6, 7.5e6, 1e7),
-    qaly_discount_rate = 2,
-    cost_discount_rate = 2,
+    discount_levels = NULL,
     discount_from_year = NULL,
     custom_costs_in_healthcare = NULL,
     strata = NULL
@@ -1240,6 +1429,7 @@ Simulation$set("private", "export_cea_tables", function(
   }
 
   if (is.null(discount_from_year)) discount_from_year <- baseline_year
+  if (is.null(discount_levels)) discount_levels <- build_discount_levels(0, 0)
 
   qalys <- private$read_summary_dataset("qalys", "scaled_up")
   costs <- private$read_summary_dataset("costs", "scaled_up")
@@ -1309,10 +1499,6 @@ Simulation$set("private", "export_cea_tables", function(
                                    big.mark = ""), character(1))
   )
 
-  disc <- function(v, year, rate) {
-    v / (1 + rate / 100)^pmax(0, year - discount_from_year)
-  }
-
   for (s in strata) {
     x <- c("mc", "scenario", s) # s always contains "year"
 
@@ -1325,16 +1511,16 @@ Simulation$set("private", "export_cea_tables", function(
         next
       }
 
-      # Aggregate (discounted) costs for this perspective, once per stratum
+      # Aggregate costs for this perspective, once per stratum. Discounting is
+      # deferred until after the incremental difference, so a single aggregate
+      # serves every discount level.
       cc <- copy(costs)
       cc[, .cost := Reduce(`+`, .SD), .SDcols = pcols]
       cc <- cc[, .(C = sum(.cost)), keyby = eval(x)]
-      cc[, C := disc(C, year, cost_discount_rate)]
 
       for (scale in scales_avail) {
-        # Aggregate (discounted) QALYs for this scale
+        # Aggregate QALYs for this scale
         qq <- qalys[, .(Q = sum(get(scale))), keyby = eval(x)]
-        qq[, Q := disc(Q, year, qaly_discount_rate)]
 
         d <- merge(qq, cc, by = x, all = TRUE)
         d[is.na(Q), Q := 0][is.na(C), C := 0]
@@ -1348,10 +1534,26 @@ Simulation$set("private", "export_cea_tables", function(
         d <- d[!is.na(dQ) & !is.na(dC)]
         if (nrow(d) == 0L) next
 
-        # Cumulative over year within (mc, scenario, other strata)
-        setkeyv(d, c(setdiff(x, "year"), "year"))
+        # One block of rows per discount level. Unlike the single-outcome
+        # tables, a CEA row mixes both rates, so QALYs and costs are each
+        # scaled by their own factor before being cumulated.
+        d <- rbindlist(lapply(seq_len(nrow(discount_levels)), function(i) {
+          di <- copy(d)
+          di[, `:=`(
+            dQ = dQ * discount_factor(year, discount_levels$qaly[i],
+                                      discount_from_year),
+            dC = dC * discount_factor(year, discount_levels$cost[i],
+                                      discount_from_year),
+            discount = discount_levels$label[i]
+          )]
+          di
+        }))
+        xd <- c(x, "discount")
+
+        # Cumulative over year within (mc, scenario, other strata, discount)
+        setkeyv(d, c(setdiff(xd, "year"), "year"))
         d[, `:=`(dQALYs_cuml = cumsum(dQ), dCosts_cuml = cumsum(dC)),
-          by = setdiff(x, "year")]
+          by = setdiff(xd, "year")]
 
         # ICER and NMB at each WTP
         d[, ICER := fifelse(dQALYs_cuml == 0, NA_real_,
@@ -1361,7 +1563,7 @@ Simulation$set("private", "export_cea_tables", function(
         }
 
         metric_cols <- c("dCosts_cuml", "dQALYs_cuml", "ICER", wtp_labels)
-        dm <- melt(d, id.vars = x, measure.vars = metric_cols,
+        dm <- melt(d, id.vars = xd, measure.vars = metric_cols,
                    variable.name = "type", value.name = "value")
         # Drop non-finite draws (e.g. ICER when dQALYs_cuml == 0) so the
         # quantile is taken over the finite Monte-Carlo iterations only.
@@ -1371,11 +1573,11 @@ Simulation$set("private", "export_cea_tables", function(
         setkey(dm, "type")
         out <- dm[, safe_fquantile_byid(value, prbl, id = as.character(type),
                                         rounding = FALSE),
-                  keyby = eval(setdiff(x, "mc"))]
-        setnames(out, c(setdiff(x, "mc"), "type",
+                  keyby = eval(setdiff(xd, "mc"))]
+        setnames(out, c(setdiff(xd, "mc"), "type",
                         scales::percent(prbl, prefix = "value_")))
-        setkeyv(out, c("type", setdiff(x, "mc")))
-        setcolorder(out, setdiff(x, "mc"))
+        setkeyv(out, c("type", setdiff(xd, "mc")))
+        setcolorder(out, setdiff(xd, "mc"))
 
         suffix <- paste(setdiff(x, c("mc", "scenario")), collapse = "-")
         fwrite(out, file.path(

@@ -101,6 +101,21 @@ check(nrow(build_discount_levels(c(0, 0, 2.5), c(0, 0, 2.5))) == 2L,
 check(inherits(try(build_discount_levels(c(0, 2, 4), c(0, 2)), silent = TRUE),
                "try-error"),
       "incompatible rate vector lengths are an error")
+
+# The contract is EQUAL lengths or one length-1 rate -- NOT "any divisor length".
+# The guard used to be `n %% length(q) != 0L`, which accepted 4-vs-2 and 6-vs-3
+# and let rep_len() invent pairings nobody asked for: c(0,1,2,3) against c(0,2)
+# recycled the costs to c(0,2,0,2) and published "QALYs 2%/costs 0%" and
+# "QALYs 3%/costs 2%" -- discounting health but not money. It also made rejection
+# non-monotonic: 4-vs-2 passed while 3-vs-2 failed.
+check(inherits(try(build_discount_levels(c(0, 1, 2, 3), c(0, 2)), silent = TRUE),
+               "try-error"),
+      "a divisor length is NOT recycling: 4-vs-2 is an error")
+check(inherits(try(build_discount_levels(c(0, 2), c(0, 1, 2, 3)), silent = TRUE),
+               "try-error"),
+      "the same holds with the longer vector on the cost side")
+check(nrow(build_discount_levels(c(0, 1, 2, 3), 2)) == 4L,
+      "a genuine length-1 rate still recycles against any length")
 check(inherits(try(build_discount_levels(-100, 0), silent = TRUE), "try-error"),
       "a rate of -100% or below is an error")
 check(inherits(try(build_discount_levels(NA_real_, 0), silent = TRUE),

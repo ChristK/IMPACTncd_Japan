@@ -46,3 +46,6 @@ docker_setup/README.html
 auxil/memlog.txt
 auxil/memlog.png
 auxil/cpp_testing/test_data/tmp_spfor_test.qs
+
+# Claude Code process/diagnostic scripts (not part of the model)
+claude_process/

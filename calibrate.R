@@ -5,7 +5,7 @@ IMPACTncd$
   del_logs()$
   del_outputs()$
   del_parfs()$
-  calibrate_incd_ftlt(1:100, replace = TRUE)$
+  calibrate_incd_ftlt(1:200, replace = TRUE)$
   del_logs()$
   del_outputs()
   

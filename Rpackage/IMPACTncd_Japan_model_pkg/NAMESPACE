@@ -18,55 +18,129 @@ import(CKutils)
 import(R6)
 import(Rcpp)
 import(data.table)
-importFrom(DBI,dbConnect)
-importFrom(DBI,dbDisconnect)
-importFrom(DBI,dbExecute)
-importFrom(DBI,dbGetQuery)
-importFrom(arrow,open_dataset)
-importFrom(arrow,write_dataset)
+importFrom(DBI,
+  dbConnect,
+  dbDisconnect,
+  dbExecute,
+  dbGetQuery,
+  dbListFields,
+  dbWriteTable
+)
+importFrom(arrow,
+  Expression,
+  open_dataset,
+  write_dataset
+)
 importFrom(cowplot,ggsave2)
-importFrom(digest,digest)
-importFrom(digest,digest2int)
+importFrom(digest,
+  digest,
+  digest2int
+)
 importFrom(doParallel,registerDoParallel)
-importFrom(dqrng,dqRNGkind)
-importFrom(dqrng,dqrunif)
-importFrom(dqrng,dqsample)
-importFrom(dqrng,dqset.seed)
-importFrom(foreach,"%dopar%")
-importFrom(foreach,foreach)
-importFrom(fst,metadata_fst)
-importFrom(fst,read_fst)
-importFrom(fst,write_fst)
-importFrom(gamlss,fitDist)
-importFrom(gamlss,fitDistPred)
-importFrom(gamlss,predictAll)
-importFrom(igraph,V)
-importFrom(igraph,all_simple_paths)
-importFrom(igraph,is_dag)
-importFrom(igraph,make_graph)
-importFrom(igraph,neighbors)
-importFrom(igraph,topo_sort)
+importFrom(dqrng,
+  dqRNGkind,
+  dqrng_get_state,
+  dqrng_set_state,
+  dqrunif,
+  dqsample,
+  dqset.seed
+)
+importFrom(foreach,
+  "%dopar%",
+  foreach
+)
+importFrom(fst,
+  metadata_fst,
+  read_fst,
+  write_fst
+)
+importFrom(gamlss,
+  fitDist,
+  fitDistPred,
+  predictAll
+)
+importFrom(gamlss.dist,
+  pBCPE,
+  pBCT,
+  pBCTo,
+  qBCPE,
+  qBCTo
+)
+importFrom(ggplot2,
+  aes,
+  element_text,
+  facet_wrap,
+  geom_line,
+  ggplot,
+  ggsave,
+  ggtitle,
+  theme,
+  theme_bw
+)
+importFrom(grDevices,rgb)
+importFrom(graphics,
+  layout,
+  points
+)
+importFrom(igraph,
+  V,
+  all_simple_paths,
+  as_adjacency_matrix,
+  diameter,
+  get.all.shortest.paths,
+  is_dag,
+  layout_components,
+  make_ego_graph,
+  make_graph,
+  neighbors,
+  topo_sort,
+  vcount
+)
 importFrom(mc2d,qpert)
-importFrom(parallel,parLapplyLB)
-importFrom(parallel,stopCluster)
+importFrom(parallel,
+  makeCluster,
+  parLapplyLB,
+  stopCluster
+)
 importFrom(parallelly,makeClusterPSOCK)
-importFrom(qs2,qs_read)
-importFrom(qs2,qs_save)
-importFrom(stats,as.formula)
-importFrom(stats,loess)
-importFrom(stats,na.omit)
-importFrom(stats,predict)
-importFrom(stats,qbinom)
-importFrom(stats,quantile)
-importFrom(stats,qunif)
-importFrom(stats,rbinom)
-importFrom(stats,rpois)
-importFrom(stats,runif)
-importFrom(stats,sigma)
-importFrom(stats,var)
-importFrom(stats,weighted.mean)
-importFrom(utils,tail)
+importFrom(qs2,
+  qs_read,
+  qs_save
+)
+importFrom(stats,
+  approx,
+  as.formula,
+  coef,
+  lm,
+  loess,
+  median,
+  na.omit,
+  predict,
+  qbeta,
+  qbinom,
+  qnorm,
+  quantile,
+  qunif,
+  rbinom,
+  relevel,
+  rpois,
+  runif,
+  setNames,
+  sigma,
+  uniroot,
+  var,
+  weighted.mean
+)
+importFrom(utils,
+  changedFiles,
+  fileSnapshot,
+  removeSource,
+  sessionInfo,
+  tail
+)
 importFrom(wrswoR,sample_int_expj)
-importFrom(yaml,read_yaml)
-importFrom(yaml,write_yaml)
+importFrom(yaml,
+  read_yaml,
+  write_yaml
+)
 useDynLib(IMPACTncdJapan)

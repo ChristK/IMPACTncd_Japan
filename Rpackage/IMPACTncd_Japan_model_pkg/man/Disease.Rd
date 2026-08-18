@@ -88,7 +88,7 @@ incidence, diagnosis, and mortality.}
     \preformatted{Disease$gen_parf_files(
   design_ = design,
   diseases_ = diseases,
-  popsize = 100,
+  popsize = design_$sim_prm$parf_popsize,
   check = design_$sim_prm$logs,
   keep_intermediate_file = TRUE,
   bUpdateExistingDiseaseSnapshot = TRUE
@@ -100,7 +100,8 @@ incidence, diagnosis, and mortality.}
     \describe{
       \item{\code{design_}}{A design object with the simulation parameters.}
       \item{\code{diseases_}}{A list of Disease objects.}
-      \item{\code{popsize}}{The population size for each stratum.}
+      \item{\code{popsize}}{Simulants per age x sex stratum used to estimate PARF.
+Defaults to the design's `parf_popsize` (yaml, default 100)..}
       \item{\code{check}}{Check for NAs in parf_dt.}
       \item{\code{keep_intermediate_file}}{Whether to keep the intermediate synthpop file.}
       \item{\code{bUpdateExistingDiseaseSnapshot}}{bool, update existing disease PARF and snapshot files as necessary.}
@@ -124,7 +125,7 @@ incidence, diagnosis, and mortality.}
   sp = sp,
   design_ = design,
   diseases_ = diseases,
-  popsize = 100,
+  popsize = design_$sim_prm$parf_popsize,
   check = design_$sim_prm$logs,
   keep_intermediate_file = TRUE
 )}
@@ -136,7 +137,8 @@ incidence, diagnosis, and mortality.}
       \item{\code{sp}}{A synthpop object}
       \item{\code{design_}}{A design object with the simulation parameters.}
       \item{\code{diseases_}}{A list of Disease objects}
-      \item{\code{popsize}}{The population size for each stratum}
+      \item{\code{popsize}}{Simulants per age x sex stratum used to estimate PARF.
+Defaults to the design's `parf_popsize` (yaml, default 100).}
       \item{\code{check}}{Check for NAs in parf_dt.}
       \item{\code{keep_intermediate_file}}{Whether to keep the intermediate synthpop file}
     }

@@ -6,6 +6,18 @@ export_xps: yes
 export_PARF: no
 'n': 100000 # The number of simulants in each chunk. A Monte Carlo iteration consists of 1 to 10 chunks.
 num_chunks: 2 # number of chunks (num_chunks is clearer than chunk_number)
+parf_popsize: 2000 # Simulants per age x sex stratum used to estimate PARF
+# (1 - 1/mean(prod(RR)) within each age x sex cell, no smoothing across age).
+# Independent of 'n' above: the PARF population is a cartesian age x sex grid,
+# not a sample of the synthetic population. Must be a positive multiple of 10.
+#
+# The model uses PARF only as p0 = mu * (1 - parf), so the error that matters is
+# on (1 - parf) (~0.22), not on parf (~0.78). Measured on chd, relative error
+# of p0 per age x sex cell:  100 -> 9.6% median / 27.4% worst;
+# 1000 -> 3.0% / 8.7%;  2000 -> 2.2% / 6.1%. Error falls as 1/sqrt(parf_popsize),
+# cost rises linearly (~36 min, ~21 MB for chd + stroke at 2000), and that cost is
+# paid ONCE per PARF cache key then reused across all MC iterations and scenarios.
+# Lower it to 100 only to reproduce pre-2026-08 results.
 init_year_long: 2001  # Change-for-IMPACT-NCD-Japan Put the oldest year for observed exposures PLUS 10 (In 2003, most of our exposure variables were observed in NHNS except for LDL-c. LDL-c were collected after 2007. Need to be <= 2016 for costs to work.
 sim_horizon_max: 2040 # population projections do not support longer horizon corresponding to CJ function
 ageL: 30 # Simulated agents should be developed at least 10 years, and then developed in the next 5 years pass

@@ -40,7 +40,6 @@ design <- Design$new("./validation/design_for_trends_validation.yaml")
   \itemize{
     \item \href{#method-Design-initialize}{\code{Design$new()}}
     \item \href{#method-Design-save_to_disk}{\code{Design$save_to_disk()}}
-    \item \href{#method-Design-update_fromGUI}{\code{Design$update_fromGUI()}}
     \item \href{#method-Design-print}{\code{Design$print()}}
     \item \href{#method-Design-clone}{\code{Design$clone()}}
   }
@@ -126,30 +125,6 @@ The parameters must include the following keys:
     \describe{
       \item{\code{path}}{A character string specifying the file path (including file name and extension)
 where the YAML file will be saved.}
-    }
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Returns}{
-    The `Design` object (invisibly) for method chaining.
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Design-update_fromGUI"></a>}}
-\if{latex}{\out{\hypertarget{method-Design-update_fromGUI}{}}}
-\subsection{\code{Design$update_fromGUI()}}{
-  Update the simulation parameters from a GUI input object.
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{Design$update_fromGUI(GUI_prm)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{GUI_prm}}{A list or object containing parameters from the GUI.
-Expected fields include `national_qimd_checkbox`, `locality_select`,
-`iteration_n_gui`, `n_gui`, etc.}
     }
     \if{html}{\out{</div>}}
   }

@@ -600,11 +600,45 @@ steps away to include neighbors. Use Inf for all possible orders.}
 \if{html}{\out{<a id="method-Simulation-del_parfs"></a>}}
 \if{latex}{\out{\hypertarget{method-Simulation-del_parfs}{}}}
 \subsection{\code{Simulation$del_parfs()}}{
-  Delete all files in the ./simulation/parf folder.
+  Delete cached PARF files from the ./simulation/parf
+  folder.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{Simulation$del_parfs()}
+    \preformatted{Simulation$del_parfs(all_years = FALSE)}
     \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{all_years}}{If `TRUE`, delete PARF caches for every baseline year
+rather than only this simulation's `init_year_long`. Defaults to
+`FALSE`.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    PARF caches are named
+  `PARF_<disease>_iy<init_year_long>_<key>.fst` (the PARF table) and
+  `PARF_<disease>_iy<init_year_long>_<key>.qs` (the PARF population).
+  Caches for different baseline years legitimately coexist --
+  `calibrate.R` runs at `init_year_long` 2001 while
+  `testing/simulate_testing.R` runs at 2019 -- so by default only the
+  caches for *this* simulation's baseline year are removed. Wiping
+  every year would force a full PARF regeneration for every other
+  design, which is the thrashing `gen_parf_files()` was changed to
+  avoid.
+
+  Both extensions are always removed together. Dropping the `.fst`
+  while keeping the `.qs` would leave `gen_parf_files()` rebuilding the
+  PARF table from a cached population, which is rarely what is wanted
+  when the cache is being cleared deliberately.
+
+  Orphaned atomic-write staging files (`....fst.tmp<pid>`) are swept
+  too, in whichever mode matches their baseline year.
+
+  Legacy caches written before the baseline year was added to the
+  filename carry no `_iy<year>_` token and so cannot be attributed to a
+  year. They are removed only by `all_years = TRUE`.
   }
   \subsection{Returns}{
     The invisible self for chaining.

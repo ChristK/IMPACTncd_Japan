@@ -1761,7 +1761,7 @@ SynthPop <-
           dt <- dt[between(
             year - 2000L,
             private$design$sim_prm$init_year - private$design$sim_prm$maxlag,
-            private$design$sim_prm$init_year + private$design$sim_prm$sim_horizon_fromGUI
+            private$design$sim_prm$init_year + private$design$sim_prm$sim_horizon_max
           ) &
             between(
               age,

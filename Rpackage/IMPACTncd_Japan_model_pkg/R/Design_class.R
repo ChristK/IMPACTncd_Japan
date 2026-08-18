@@ -146,14 +146,57 @@ Design <-
         )
 
 
+        # parf_popsize -- simulants per age x sex stratum used to estimate PARF.
+        #
+        # OPTIONAL, not in required_params, so design files written before this
+        # parameter existed keep working. NOTE the default is 2000, NOT the 100
+        # that was hard-coded previously: a design file that omits the key gets
+        # the more accurate setting, and its PARF caches will regenerate.
+        #
+        # PARF is estimated as 1 - 1/mean(prod(RR)) independently within each
+        # age x sex cell, from a cartesian grid of simulants -- it does NOT
+        # depend on sim_prm$n. The model consumes it only as
+        # p0 = mu * (1 - parf), so the error that matters is on (1 - parf)
+        # (~0.22), not on parf (~0.78) -- roughly 4.5x larger in relative terms.
+        #
+        # Measured on chd (2026-08-14), relative Monte Carlo error of p0:
+        #   parf_popsize  100 -> median 9.6%, p90 16.5%, worst cell 27.4%
+        #   parf_popsize 1000 -> median 3.0%, p90  5.2%, worst cell  8.7%
+        #   parf_popsize 2000 -> median 2.2%, p90  3.7%, worst cell  6.1%
+        # Error falls as 1/sqrt(parf_popsize); cost rises linearly (~36 min and
+        # ~21 MB for chd + stroke at 2000). That cost is paid ONCE per cache
+        # key and reused across every Monte Carlo iteration and scenario.
+        #
+        # Smoothing PARF across age was tested as a cheaper alternative and is
+        # strictly harmful -- the age gradient is real and steep (0.19 to 0.96
+        # over ages 30-99), so every loess span raised RMSE against a
+        # 10-replicate truth proxy.
+        #
+        # Must be a positive multiple of 10: gen_parf_files() clones the
+        # age x sex grid 10 times and then iterates seq(1, parf_popsize / 10),
+        # so a non-multiple would be silently truncated.
+        if (is.null(sim_prm$parf_popsize)) {
+          sim_prm$parf_popsize <- 2000L
+        }
+        sim_prm$parf_popsize <- as.integer(sim_prm$parf_popsize)
+        if (
+          is.na(sim_prm$parf_popsize) ||
+            sim_prm$parf_popsize < 10L ||
+            sim_prm$parf_popsize %% 10L != 0L
+        ) {
+          stop(
+            "parf_popsize must be a positive multiple of 10 (got ",
+            sim_prm$parf_popsize,
+            "). It is the number of simulants per age x sex stratum used to ",
+            "estimate PARF; gen_parf_files() iterates seq(1, parf_popsize/10)."
+          )
+        }
+
         sim_prm$sim_horizon_max <- sim_prm$sim_horizon_max - sim_prm$init_year_long
         sim_prm$init_year <- sim_prm$init_year_long - 2000L
-        # place holders to be updated from self$update_fromGUI(parameters)
-
-        sim_prm$national_qimd       <- TRUE
-        sim_prm$init_year_fromGUI   <- sim_prm$init_year
-        sim_prm$sim_horizon_fromGUI <- sim_prm$sim_horizon_max
-        sim_prm$locality            <- "Japan"
+        # Defaults retained from the GUI-driven variant of the model
+        sim_prm$national_qimd <- TRUE
+        sim_prm$locality <- "Japan"
 
         
 
@@ -232,42 +275,6 @@ Design <-
       #' @return The `Design` object (invisibly) for method chaining.
       save_to_disk = function(path) {
         write_yaml(self$sim_prm, base::normalizePath(path, mustWork = FALSE))
-
-        invisible(self)
-      },
-
-      #' @description
-      #' Update the simulation parameters from a GUI input object.
-      #'
-      #' @param GUI_prm A list or object containing parameters from the GUI.
-      #'   Expected fields include `national_qimd_checkbox`, `locality_select`,
-      #'   `iteration_n_gui`, `n_gui`, etc.
-      #'
-      #' @return The `Design` object (invisibly) for method chaining.
-      update_fromGUI = function(GUI_prm) {
-        self$sim_prm$national_qimd       <- GUI_prm$national_qimd_checkbox
-        # T = use national qimd, F = use local qimd
-        self$sim_prm$init_year_fromGUI   <-
-          fromGUI_timeframe(GUI_prm)["init year"] - 2000L
-        self$sim_prm$sim_horizon_fromGUI <-
-          fromGUI_timeframe(GUI_prm)["horizon"]
-        self$sim_prm$locality <- GUI_prm$locality_select
-        if (!GUI_prm$national_qimd_checkbox) {
-          self$sim_prm$cols_for_output <-
-            c(setdiff(self$sim_prm$cols_for_output, "lqimd"), "nqimd")
-        }
-        self$sim_prm$iteration_n            <- GUI_prm$iteration_n_gui
-        # self$sim_prm$iteration_n_final      <- GUI_prm$iteration_n_final_gui
-        # self$sim_prm$n_cpus                 <- GUI_prm$n_cpus_gui
-        self$sim_prm$n                      <- GUI_prm$n_gui
-        self$sim_prm$num_chunks <- GUI_prm$num_chunks_gui
-        self$sim_prm$n_primers              <- GUI_prm$n_primers_gui
-        self$sim_prm$cancer_cure            <- GUI_prm$cancer_cure_gui
-        self$sim_prm$jumpiness              <- GUI_prm$jumpiness_gui
-        self$sim_prm$statin_adherence       <- GUI_prm$statin_adherence_gui
-        self$sim_prm$bpmed_adherence        <- GUI_prm$bpmed_adherence_gui
-        self$sim_prm$decision_aid           <- GUI_prm$decision_aid_gui
-        self$sim_prm$logs                   <- GUI_prm$logs_gui
 
         invisible(self)
       },

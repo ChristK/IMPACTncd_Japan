@@ -160,9 +160,22 @@ Disease <-
         if (!dir.exists(private$parf_dir)) {
           dir.create(private$parf_dir)
         }
+        # The init year is carried in the filename, not just folded into the
+        # hash, so that a directory listing is readable: caches for different
+        # baseline years legitimately coexist (calibrate.R runs at 2001,
+        # testing/simulate_testing.R at 2019), and without the year in the name
+        # they are indistinguishable strings of hex.
         private$parf_filenam <- file.path(
           private$parf_dir,
-          paste0("PARF_", self$name, "_", private$chksum, ".fst")
+          paste0(
+            "PARF_",
+            self$name,
+            "_iy",
+            design_$sim_prm$init_year_long,
+            "_",
+            private$chksum,
+            ".fst"
+          )
         )
 
         keys <- sapply(
@@ -218,7 +231,8 @@ Disease <-
       #'   exists already.
       #' @param design_ A design object with the simulation parameters.
       #' @param diseases_ A list of Disease objects.
-      #' @param popsize The population size for each stratum.
+      #' @param popsize Simulants per age x sex stratum used to estimate PARF.
+      #'   Defaults to the design's `parf_popsize` (yaml, default 100)..
       #' @param check Check for NAs in parf_dt.
       #' @param keep_intermediate_file Whether to keep the intermediate synthpop file.
       #' @param bUpdateExistingDiseaseSnapshot bool, update existing disease PARF and snapshot files as necessary.
@@ -228,7 +242,7 @@ Disease <-
       gen_parf_files = function(
         design_ = design,
         diseases_ = diseases,
-        popsize = 100,
+        popsize = design_$sim_prm$parf_popsize,
         check = design_$sim_prm$logs,
         keep_intermediate_file = TRUE,
         bUpdateExistingDiseaseSnapshot = TRUE
@@ -260,24 +274,24 @@ Disease <-
           return(NULL)
         } # nothing to do
 
+        # NOTE the key covers the generator's source, the exposure inputs it
+        # reads and the design parameters -- not just the RR inputs. See
+        # private$parf_sp_cache_key() for why. Caches written before this
+        # change use the old (narrower) key and will simply be regenerated
+        # under the new name rather than silently reused.
         tmpfile <- file.path(
           private$parf_dir,
           paste0(
             "PARF_",
             self$name,
+            "_iy",
+            design_$sim_prm$init_year_long,
             "_",
-            digest(
-              list(
-                lapply(private$rr, function(x) {
-                  x$get_input_rr()
-                }),
-                lapply(private$rr, `[[`, "lag"),
-                lapply(private$rr, `[[`, "distribution")
-              )
-            ),
+            private$parf_sp_cache_key(design_, popsize),
             ".qs"
           )
         )
+        private$parf_sp_filenam <- tmpfile
 
         if (file.exists(tmpfile)) {
           if (design_$sim_prm$logs) {
@@ -290,7 +304,20 @@ Disease <-
             message("No available cached file.")
           }
 
-          self$del_parf_file(invert = TRUE) # Delete old versions
+          # NOTE deliberately NOT calling del_parf_file(invert = TRUE) here.
+          #
+          # That sweep globs "^PARF_<disease>_.*" and removes everything whose
+          # hash is not the one currently in use. It cannot distinguish a
+          # SUPERSEDED cache from one that legitimately belongs to a DIFFERENT
+          # DESIGN, so with several design files in play (e.g. calibrate.R at
+          # init_year_long 2001 and testing/simulate_testing.R at 2019) each run
+          # deleted the other's caches and paid a full regeneration on every
+          # alternation. Multiple PARF caches for multiple init years are
+          # correct and should coexist.
+          #
+          # Caches are therefore left to accumulate. The bound is small --
+          # distinct designs x PARF diseases -- and del_parfs() remains for
+          # explicit cleanup when it is actually wanted.
 
           # start if file not exist
           if (sum(dim(private$incd_indx)) > 0) {
@@ -553,7 +580,8 @@ Disease <-
       #' @param sp A synthpop object
       #' @param design_ A design object with the simulation parameters.
       #' @param diseases_ A list of Disease objects
-      #' @param popsize The population size for each stratum
+      #' @param popsize Simulants per age x sex stratum used to estimate PARF.
+      #'   Defaults to the design's `parf_popsize` (yaml, default 100).
       #' @param check Check for NAs in parf_dt.
       #' @param keep_intermediate_file Whether to keep the intermediate synthpop file
       #' @return The invisible self for chaining.
@@ -562,7 +590,7 @@ Disease <-
         sp = sp,
         design_ = design,
         diseases_ = diseases,
-        popsize = 100,
+        popsize = design_$sim_prm$parf_popsize,
         check = design_$sim_prm$logs,
         keep_intermediate_file = TRUE
       ) {
@@ -1475,14 +1503,33 @@ Disease <-
         stopifnot(is.logical(invert))
 
         if (invert) {
+          # MANUAL CLEANUP ONLY -- gen_parf_files() no longer calls this.
+          #
+          # It removes every PARF file for this disease except the pair in use,
+          # covering .fst (the PARF table, keyed on private$chksum) and .qs (the
+          # PARF population, keyed on parf_sp_cache_key()). It cannot tell a
+          # superseded cache from one belonging to a DIFFERENT DESIGN, so
+          # calling it automatically made designs with different init_year_long
+          # delete each other's caches. Invoke it only when you actually want
+          # everything but the current key gone.
+          #
+          # parf_sp_filenam is NA until gen_parf_files() has computed the key.
+          # Only sweep .qs once it is known, so we can never delete the cache
+          # currently in use.
+          keep <- private$parf_filenam
+          pattern <- paste0("^PARF_", self$name, ".*\\.fst$")
+          if (!is.na(private$parf_sp_filenam)) {
+            keep <- c(keep, private$parf_sp_filenam)
+            pattern <- paste0("^PARF_", self$name, ".*\\.(fst|qs)$")
+          }
+
           parf_filenam2 <- list.files(
             private$parf_dir,
-            pattern = paste0("^PARF_", self$name, ".*\\.fst$"),
+            pattern = pattern,
             full.names = TRUE
           )
 
-          parf_filenam <-
-            setdiff(parf_filenam2, private$parf_filenam)
+          parf_filenam <- setdiff(parf_filenam2, keep)
 
           if (any(file.exists(parf_filenam))) file.remove(parf_filenam)
         } else {
@@ -2255,6 +2302,10 @@ Disease <-
       chksum = NA,
       parf_dir = NA,
       parf_filenam = NA,
+      # Path of the current PARF synthetic-population cache (.qs). Recorded so
+      # del_parf_file(invert = TRUE) can sweep superseded .qs files without
+      # deleting the one in use. NA until gen_parf_files() computes the key.
+      parf_sp_filenam = NA,
       parf = data.table(NULL),
       sDiseaseBurdenDirPath = NA,
       rr = list(), # holds the list of relevant RR
@@ -2271,6 +2322,81 @@ Disease <-
           # copy of s3.
           value
         }
+      },
+
+      # parf_sp_cache_key ----
+      # Fingerprint of everything the cached PARF synthetic population depends
+      # on, used to key the .qs cache written by gen_parf_files().
+      #
+      # WHY THIS IS NOT JUST THE RR INPUTS
+      # That .qs file caches a SYNTHETIC POPULATION, but the key originally
+      # covered only the RR values, lags and distributions. It was therefore
+      # blind to the three things that actually shape that population: the
+      # generator's own code, the exposure-distribution files it reads, and the
+      # design parameters. A population built under one configuration was
+      # silently reused under another, with no warning.
+      #
+      # That is not hypothetical. a199040 corrected the smoking rank-tail
+      # convention in SynthPop_class.R, but cached PARF populations carrying the
+      # old inverted copula stayed valid under this key and kept being reused.
+      #
+      # Components:
+      #   1. RR inputs, lags, distributions   (as before)
+      #   2. a hash of gen_sp_forPARF()'s own source. removeSource() strips
+      #      srcrefs so the value does not depend on keep.source -- otherwise
+      #      every reinstall would spuriously invalidate the cache.
+      #   3. content hashes of every ./inputs/ file the generator reads. The
+      #      paths are discovered FROM ITS OWN SOURCE, so adding a read_fst()
+      #      is covered automatically and this key never goes stale.
+      #   4. the parameters that change the population's shape. NOTE the PARF
+      #      population is a cartesian grid, not a sample:
+      #        CJ(age = ageL:ageH, sex, year = init_year_long) cloned 10x,
+      #        generated popsize/10 times.
+      #      So it depends on ageL, ageH, init_year and popsize -- and on
+      #      NOTHING else in the design.
+      #
+      #      Deliberately EXCLUDED:
+      #        sim_prm$n        - the grid is cartesian, not a sample of the
+      #                           synthetic population, so a cache built under
+      #                           n = 10000 is valid under n = 100000.
+      #        sim_horizon_max  - gen_sp_forPARF() never reads it (verified: it
+      #                           appears nowhere in that method's body). The
+      #                           horizon only sets the YEAR SPAN of the derived
+      #                           .fst table, not the population. Keeping it out
+      #                           here lets one expensive .qs population serve
+      #                           every horizon; the cheap .fst still re-derives
+      #                           per horizon via private$chksum.
+      #
+      # Sorting the paths keeps the hash order-independent.
+      parf_sp_cache_key = function(design_, popsize) {
+        src <- deparse(removeSource(body(private$gen_sp_forPARF)))
+
+        input_paths <- regmatches(src, gregexpr('"\\./inputs/[^"]+"', src))
+        input_paths <- sort(unique(gsub('"', '', unlist(input_paths))))
+        input_paths <- input_paths[file.exists(input_paths)]
+        input_hashes <- vapply(
+          input_paths,
+          function(p) digest(p, algo = "md5", file = TRUE),
+          character(1L),
+          USE.NAMES = FALSE
+        )
+
+        digest(list(
+          lapply(private$rr, function(x) {
+            x$get_input_rr()
+          }),
+          lapply(private$rr, `[[`, "lag"),
+          lapply(private$rr, `[[`, "distribution"),
+          digest(src),
+          input_paths,
+          input_hashes,
+          design_$sim_prm[c(
+            "init_year",
+            "ageL",
+            "ageH"
+          )],
+          popsize
+        ))
       },
 
       # gen_sp_forPARF ----
@@ -2474,7 +2600,14 @@ Disease <-
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
           absorb_dt(ff, tbl)
-          ff[, Smoking_curr_xps := as.integer(rank_Smoking_act < mu) * 2L] # 0 = never smoker or ex, 2 = current
+          # NOTE mu = P(current smoker). Use > (1 - mu) so current smokers occupy the HIGH
+          # rank tail, matching how Smoking_act_r was built in exposure_corr_mean.fst
+          # (pBI(Smoking_act, mu): current smoker = 1 = high rank) and how the Med_* vars
+          # are generated below via qbinom(rank, 1, mu), which also places the event in the
+          # high tail. This mirrors a199040 in SynthPop_class.R; the PARF population is
+          # drawn from the SAME correlation matrix, so it must use the same convention or
+          # the PARF is calibrated against an inverted copula (marginals unaffected).
+          ff[, Smoking_curr_xps := as.integer(rank_Smoking_act > (1 - mu)) * 2L] # 0 = never smoker or ex, 2 = current
           ff[, c(col_nam) := NULL]
 
           tbl <-
@@ -2494,9 +2627,11 @@ Disease <-
           #     x
           #   }
           # }
+          # > (1 - mu) so ex-smokers occupy the HIGH rank tail, matching Smoking_ex_r in
+          # exposure_corr_mean.fst (pBI(Smoking_ex, mu): ex = 1 = high rank). See note above.
           ff[
             Smoking_curr_xps == 0L,
-            Smoking_curr_xps := as.integer(rank_Smoking_ex < mu),
+            Smoking_curr_xps := as.integer(rank_Smoking_ex > (1 - mu)),
             by = .(year)
           ] # 0 = never smoker, 1=ex, 2=current
 

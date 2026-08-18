@@ -49,3 +49,11 @@ auxil/cpp_testing/test_data/tmp_spfor_test.qs
 
 # Claude Code process/diagnostic scripts (not part of the model)
 claude_process/
+
+# PARF caches: keep the .fst tables, never the .qs populations.
+# The .fst is the deliverable the model reads; gen_parf_files() returns early
+# as soon as it exists, so a fresh clone/Docker build never needs the .qs.
+# The .qs is only the build-time synthetic population used to derive the .fst
+# -- ~8 MB each at parf_popsize 2000, regenerable, and invalidated whenever
+# the generator source or its ./inputs/ files change.
+simulation/parf/*.qs

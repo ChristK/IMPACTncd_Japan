@@ -36,7 +36,12 @@ Imports: Rcpp (>= 1.0.2),
          wrswoR,
          gamlss.dist,
          doParallel,
-         scales
+         scales,
+         ggplot2,
+         stats,
+         utils,
+         graphics,
+         grDevices
 Suggests: roxygen2,
           knitr,
           rmarkdown
@@ -48,4 +53,4 @@ LinkingTo: Rcpp,
            CKutils
 SystemRequirements: C++17
 VignetteBuilder: knitr
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0

@@ -30,22 +30,32 @@
 #' @author Chris Kypridemos
 #' @import Rcpp R6 data.table CKutils
 #' @importFrom fst read_fst metadata_fst write_fst
-#' @importFrom dqrng dqrunif dqsample dqRNGkind dqset.seed
+#' @importFrom dqrng dqrunif dqsample dqRNGkind dqset.seed dqrng_get_state
+#' @importFrom dqrng dqrng_set_state
 #' @importFrom mc2d qpert
 #' @importFrom cowplot ggsave2
 #' @importFrom gamlss fitDist fitDistPred predictAll
+#' @importFrom gamlss.dist qBCPE qBCTo pBCPE pBCT pBCTo
+#' @importFrom ggplot2 ggplot aes geom_line facet_wrap ggtitle theme theme_bw
+#' @importFrom ggplot2 element_text ggsave
 #' @importFrom stats as.formula na.omit qunif var weighted.mean loess predict qbinom
 #' @importFrom stats quantile rbinom rpois runif sigma
-#' @importFrom utils tail
+#' @importFrom stats approx coef lm median qbeta qnorm relevel setNames uniroot
+#' @importFrom utils tail sessionInfo removeSource fileSnapshot changedFiles
+#' @importFrom graphics layout points
+#' @importFrom grDevices rgb
 #' @importFrom digest digest2int digest
 #' @importFrom yaml read_yaml write_yaml
 #' @importFrom foreach foreach %dopar%
 #' @importFrom doParallel registerDoParallel
 #' @importFrom parallelly makeClusterPSOCK
-#' @importFrom parallel parLapplyLB stopCluster
+#' @importFrom parallel parLapplyLB stopCluster makeCluster
 #' @importFrom igraph make_graph is_dag V neighbors all_simple_paths topo_sort
-#' @importFrom DBI dbConnect dbDisconnect dbGetQuery dbExecute
-#' @importFrom arrow write_dataset open_dataset
+#' @importFrom igraph as_adjacency_matrix diameter make_ego_graph vcount
+#' @importFrom igraph get.all.shortest.paths layout_components
+#' @importFrom DBI dbConnect dbDisconnect dbGetQuery dbExecute dbListFields
+#' @importFrom DBI dbWriteTable
+#' @importFrom arrow write_dataset open_dataset Expression
 #' @importFrom qs2 qs_read qs_save
 #' @importFrom wrswoR sample_int_expj
 #' @useDynLib IMPACTncdJapan
@@ -63,9 +73,15 @@
 .datatable.aware = TRUE
 
 # Prevent R CMD check from complaining about the use of pipe expressions
-# standard data.table variables
+# standard data.table variables.
+# `shell` is base R but Windows-only, so it cannot be imported. Every call site
+# is guarded by .Platform$OS.type == "windows" and is therefore unreachable on
+# the platforms where the symbol does not exist.
 if (getRversion() >= "2.15.1")
-  utils::globalVariables(c(".", ".I", ".N", ".SD"), utils::packageName())
+  utils::globalVariables(
+    c(".", ".I", ".N", ".SD", "shell"),
+    utils::packageName()
+  )
 
 NULL
 

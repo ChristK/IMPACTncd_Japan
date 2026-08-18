@@ -665,13 +665,14 @@ Simulation <-
 
           # Incidence calibration
           # load the uncalibrated results
-          unclbr <- open_dataset(file.path(
-            self$design$sim_prm$output_dir,
-            "summaries",
-            "incd_scaled_up"
-          )) %>%
-            filter(age == age_) %>%
-            select(
+          unclbr <- private$read_arrow_dt(
+            file.path(
+              self$design$sim_prm$output_dir,
+              "summaries",
+              "incd_scaled_up"
+            ),
+            filter_expr = Expression$field_ref("age") == age_,
+            columns = c(
               "year",
               "age",
               "sex",
@@ -679,9 +680,8 @@ Simulation <-
               "popsize",
               "chd_incd",
               "stroke_incd"
-            ) %>%
-            collect()
-          setDT(unclbr)
+            )
+          )
 
           unclbr <- unclbr[,
             .(
@@ -816,13 +816,14 @@ Simulation <-
           # calibration, before we proceed with the case fatality calibration.
           # Note that the calibration factor (multiplier) is 1/prvl as we
           # currently have mortality rates in the ftlt files.
-          prvl <- open_dataset(file.path(
-            self$design$sim_prm$output_dir,
-            "summaries",
-            "prvl_scaled_up"
-          )) %>%
-            filter(age == age_) %>%
-            select(
+          prvl <- private$read_arrow_dt(
+            file.path(
+              self$design$sim_prm$output_dir,
+              "summaries",
+              "prvl_scaled_up"
+            ),
+            filter_expr = Expression$field_ref("age") == age_,
+            columns = c(
               "year",
               "age",
               "sex",
@@ -830,9 +831,8 @@ Simulation <-
               "popsize",
               "chd_prvl",
               "stroke_prvl"
-            ) %>%
-            collect()
-          setDT(prvl)
+            )
+          )
 
           # prvl <- prvl[, `:=` (
           #   chd_ftlt_clbr_fctr = (chd_prvl - chd_prvl*((stroke_mrtl + nonmodelled_mrtl)/popsize) + chd_prvl_correction * popsize)/chd_mrtl,
@@ -895,13 +895,14 @@ Simulation <-
           # Fix the calibration factors for the ages that have been calibrated
           if (age_ > age_start) {
             # NOTE here age is age - 1L
-            mrtl <- open_dataset(file.path(
-              self$design$sim_prm$output_dir,
-              "summaries",
-              "dis_mrtl_scaled_up"
-            )) %>%
-              filter(age == age_ - 1L) %>%
-              select(
+            mrtl <- private$read_arrow_dt(
+              file.path(
+                self$design$sim_prm$output_dir,
+                "summaries",
+                "dis_mrtl_scaled_up"
+              ),
+              filter_expr = Expression$field_ref("age") == (age_ - 1L),
+              columns = c(
                 "year",
                 "age",
                 "sex",
@@ -910,9 +911,8 @@ Simulation <-
                 "chd_deaths",
                 "stroke_deaths",
                 "nonmodelled_deaths"
-              ) %>%
-              collect()
-            setDT(mrtl)
+              )
+            )
 
             mrtl <- mrtl[, .(
               chd_mrtl = chd_deaths / popsize,
@@ -1622,15 +1622,86 @@ Simulation <-
       },
 
       # del_parfs ----
-      #' @description Delete all files in the ./simulation/parf folder.
+      #' @description Delete cached PARF files from the ./simulation/parf
+      #'   folder.
+      #' @details PARF caches are named
+      #'   `PARF_<disease>_iy<init_year_long>_<key>.fst` (the PARF table) and
+      #'   `PARF_<disease>_iy<init_year_long>_<key>.qs` (the PARF population).
+      #'   Caches for different baseline years legitimately coexist --
+      #'   `calibrate.R` runs at `init_year_long` 2001 while
+      #'   `testing/simulate_testing.R` runs at 2019 -- so by default only the
+      #'   caches for *this* simulation's baseline year are removed. Wiping
+      #'   every year would force a full PARF regeneration for every other
+      #'   design, which is the thrashing `gen_parf_files()` was changed to
+      #'   avoid.
+      #'
+      #'   Both extensions are always removed together. Dropping the `.fst`
+      #'   while keeping the `.qs` would leave `gen_parf_files()` rebuilding the
+      #'   PARF table from a cached population, which is rarely what is wanted
+      #'   when the cache is being cleared deliberately.
+      #'
+      #'   Orphaned atomic-write staging files (`....fst.tmp<pid>`) are swept
+      #'   too, in whichever mode matches their baseline year.
+      #'
+      #'   Legacy caches written before the baseline year was added to the
+      #'   filename carry no `_iy<year>_` token and so cannot be attributed to a
+      #'   year. They are removed only by `all_years = TRUE`.
+      #' @param all_years If `TRUE`, delete PARF caches for every baseline year
+      #'   rather than only this simulation's `init_year_long`. Defaults to
+      #'   `FALSE`.
       #' @return The invisible self for chaining.
-      del_parfs = function() {
-        fl <- list.files("./simulation/parf", full.names = TRUE)
+      del_parfs = function(all_years = FALSE) {
+        stopifnot(
+          is.logical(all_years),
+          length(all_years) == 1L,
+          !is.na(all_years)
+        )
 
-        file.remove(fl)
+        init_year <- self$design$sim_prm$init_year_long
 
-        if (length(fl) > 0 && self$design$sim_prm$logs) {
-          message("Parf files deleted.")
+        # The trailing (\\.tmp[0-9]+)? also sweeps orphaned atomic-write staging
+        # files. atomic_write_fst()/atomic_qs_save() stage at
+        # "<final name>.tmp<pid>" and remove it on.exit, but a hard kill leaves
+        # one behind. Those orphans keep the baseline year in their name, so the
+        # year-scoped branch still matches only this design's own leftovers.
+        if (all_years) {
+          pattern <- "^PARF_.*\\.(fst|qs)(\\.tmp[0-9]+)?$"
+        } else {
+          if (length(init_year) != 1L || is.na(init_year)) {
+            stop(
+              "del_parfs() needs a single non-NA design$sim_prm$init_year_long ",
+              "to select the year to delete. Use all_years = TRUE to delete ",
+              "every baseline year."
+            )
+          }
+          # sprintf("%d") rather than paste0() so that a non-integer year can
+          # never inject a regex metacharacter (e.g. ".") into the pattern.
+          pattern <- sprintf(
+            "^PARF_.*_iy%d_.*\\.(fst|qs)(\\.tmp[0-9]+)?$",
+            as.integer(init_year)
+          )
+        }
+
+        fl <- list.files(
+          "./simulation/parf",
+          pattern = pattern,
+          full.names = TRUE
+        )
+
+        if (length(fl) > 0) {
+          file.remove(fl)
+
+          if (self$design$sim_prm$logs) {
+            message(
+              length(fl),
+              " parf file(s) deleted ",
+              if (all_years) {
+                "(all baseline years)."
+              } else {
+                paste0("for baseline year ", as.integer(init_year), ".")
+              }
+            )
+          }
         }
 
         invisible(self)
@@ -1704,14 +1775,14 @@ Simulation <-
         ]
 
         # MRTL
-        mdd <- open_dataset(file.path(
-          self$design$sim_prm$output_dir,
-          "summaries",
-          "dis_mrtl_scaled_up"
-        )) %>%
-          filter(scenario == "sc0") %>%
-          collect()
-        setDT(mdd)
+        mdd <- private$read_arrow_dt(
+          file.path(
+            self$design$sim_prm$output_dir,
+            "summaries",
+            "dis_mrtl_scaled_up"
+          ),
+          filter_expr = Expression$field_ref("scenario") == "sc0"
+        )
         mdd[, `:=`(
           nonmodelled_mrtl_rate = nonmodelled_deaths / popsize,
           chd_mrtl_rate = chd_deaths / popsize,
@@ -2057,13 +2128,14 @@ Simulation <-
         )
 
         # INCD
-        mdd <- open_dataset(file.path(
-          self$design$sim_prm$output_dir,
-          "summaries",
-          "incd_scaled_up"
-        )) %>%
-          filter(scenario == "sc0") %>%
-          select(
+        mdd <- private$read_arrow_dt(
+          file.path(
+            self$design$sim_prm$output_dir,
+            "summaries",
+            "incd_scaled_up"
+          ),
+          filter_expr = Expression$field_ref("scenario") == "sc0",
+          columns = c(
             "mc",
             "scenario",
             "year",
@@ -2072,9 +2144,8 @@ Simulation <-
             "popsize",
             "chd_incd",
             "stroke_incd"
-          ) %>%
-          collect()
-        setDT(mdd)
+          )
+        )
         mdd[, `:=`(
           chd_incd_rate = chd_incd / popsize,
           stroke_incd_rate = stroke_incd / popsize
@@ -2305,13 +2376,14 @@ Simulation <-
         )
 
         # PRVL
-        mdd <- open_dataset(file.path(
-          self$design$sim_prm$output_dir,
-          "summaries",
-          "prvl_scaled_up"
-        )) %>%
-          filter(scenario == "sc0") %>%
-          select(
+        mdd <- private$read_arrow_dt(
+          file.path(
+            self$design$sim_prm$output_dir,
+            "summaries",
+            "prvl_scaled_up"
+          ),
+          filter_expr = Expression$field_ref("scenario") == "sc0",
+          columns = c(
             "mc",
             "scenario",
             "year",
@@ -2320,9 +2392,8 @@ Simulation <-
             "popsize",
             "chd_prvl",
             "stroke_prvl"
-          ) %>%
-          collect()
-        setDT(mdd)
+          )
+        )
 
         mdd[, `:=`(
           chd_prvl_rate = chd_prvl / popsize,
@@ -2332,7 +2403,7 @@ Simulation <-
           .(
             chd_prvl_rate = quantile(chd_prvl_rate, p = 0.500),
             chd_prvl_rate_low = quantile(chd_prvl_rate, p = 0.025),
-            chd_prvl_rate_upp = quantile(chd_prvl_rate, p = 0.957),
+            chd_prvl_rate_upp = quantile(chd_prvl_rate, p = 0.975),
             stroke_prvl_rate = quantile(stroke_prvl_rate, p = 0.500),
             stroke_prvl_rate_low = quantile(stroke_prvl_rate, p = 0.025),
             stroke_prvl_rate_upp = quantile(stroke_prvl_rate, p = 0.975),
@@ -2999,6 +3070,39 @@ Simulation <-
         }
 
         return(invisible(TRUE))
+      },
+
+      # Helper to read a slice of an Arrow dataset as a data.table
+      # read_arrow_dt ----
+      # Replaces the dplyr chain
+      #   open_dataset(path) %>% filter(<pred>) %>% select(<cols>) %>% collect()
+      # with Arrow's own Scanner API. The package must not depend on dplyr or
+      # magrittr: `%>%`, filter(), select() and collect() are not in its
+      # NAMESPACE, so those chains only ever resolved when the *caller's*
+      # session happened to have dplyr attached, and failed outright under a
+      # plain Rscript run.
+      #
+      # Filtering and column selection are still pushed down into the Arrow
+      # scan, so only the requested slice is materialised. The filter column
+      # need not appear in `columns`; the Scanner applies Filter before Project.
+      #
+      # Row order is unspecified (it follows fragment/scan order rather than
+      # the dplyr collect order). Every caller aggregates with `keyby=` before
+      # using the result, so this is immaterial.
+      #
+      # @param path Directory of the (hive-partitioned) parquet dataset.
+      # @param filter_expr An arrow `Expression`, or NULL for no row filter.
+      # @param columns Character vector of columns to keep, or NULL for all.
+      # @return A data.table.
+      read_arrow_dt = function(path, filter_expr = NULL, columns = NULL) {
+        scan <- open_dataset(path)$NewScan()
+        if (!is.null(filter_expr)) {
+          scan$Filter(filter_expr)
+        }
+        if (!is.null(columns)) {
+          scan$Project(columns)
+        }
+        setDT(as.data.frame(scan$Finish()$ToTable()))[]
       },
 
       # Helper function to execute SQL, with error reporting

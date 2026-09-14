@@ -235,9 +235,12 @@ cost-effectiveness tables. It therefore has an effect only when
 \code{cea = TRUE}; the \code{costs} and \code{net_costs} tables are unaffected.
 
 A \emph{user-defined} cost column is any \verb{_costs}-suffixed column of the
-\code{costs} summary other than the 15 built-in \code{chd_}/\code{stroke_}/\code{cvd_} ones
-(\code{direct}, \code{productivity}, \code{informal}, \code{indirect}, \code{total}) - in
-practice, a column your scenario code created.
+\code{costs} summary that the model's own cost machinery did not generate for
+this run - in practice, a column your scenario code created. The built-in
+set is \verb{<disease>_<component>_costs} for every disease of this run with at
+least one cost component available (today \code{chd}, \code{stroke} and their \code{cvd}
+aggregate) crossed with the components \code{direct}, \code{productivity},
+\code{informal}, \code{indirect} and \code{total}.
 
 The two perspectives are asymmetric. The societal perspective is
 \code{cvd_total_costs} plus \strong{every} user-defined cost column,

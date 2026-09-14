@@ -313,26 +313,37 @@ cost_view_builtin_shape <- function() {
 #' @return `TRUE`, invisibly. Errors otherwise.
 #' @noRd
 assert_cost_view_matches_registry <- function(view_cols, expected, context) {
+  # Raise the diagnostic to stderr BEFORE stop(). This runs with a live DuckDB
+  # connection, and an error unwinding past one terminates the R session
+  # outright rather than surfacing as a normal condition - so a bare stop()
+  # aborts the run with no explanation at all. message() reaches the user
+  # either way; stop() is what actually halts the export.
+  halt <- function(...) {
+    msg <- paste0(...)
+    message(msg)
+    stop(msg, call. = FALSE)
+  }
+
   missing_cols <- setdiff(expected, view_cols)
   if (length(missing_cols) > 0L) {
-    stop(context, ": the cost registry claims ",
+    halt(context, ": the cost registry claims ",
          paste(missing_cols, collapse = ", "),
          " but calc_costs() did not produce ",
          if (length(missing_cols) == 1L) "it" else "them",
          ". .cost_registry (R/cost_columns.R) and calc_costs() have diverged; ",
-         "fix one of them.", call. = FALSE)
+         "fix one of them.")
   }
   unclaimed <- setdiff(
     grep(cost_view_builtin_shape(), view_cols, value = TRUE),
     expected
   )
   if (length(unclaimed) > 0L) {
-    stop(context, ": calc_costs() produced built-in-shaped cost column(s) ",
+    halt(context, ": calc_costs() produced built-in-shaped cost column(s) ",
          paste(unclaimed, collapse = ", "),
          " that .cost_registry does not claim for this run. Exporting them ",
          "would let export_cea_tables() classify them as user-defined and ",
          "double count them into the societal perspective. Register them in ",
-         "R/cost_columns.R, or stop emitting them.", call. = FALSE)
+         "R/cost_columns.R, or stop emitting them.")
   }
   invisible(TRUE)
 }

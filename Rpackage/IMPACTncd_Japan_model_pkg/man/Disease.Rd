@@ -73,7 +73,7 @@ incidence, diagnosis, and mortality.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A new `Disease` object.
+    A new \code{Disease} object.
   }
 }
 
@@ -82,7 +82,7 @@ incidence, diagnosis, and mortality.}
 \if{latex}{\out{\hypertarget{method-Disease-gen_parf_files}{}}}
 \subsection{\code{Disease$gen_parf_files()}}{
   Generates PARF and stores it to disk if one doesn not
-  exists already.
+exists already.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Disease$gen_parf_files(
@@ -101,7 +101,7 @@ incidence, diagnosis, and mortality.}
       \item{\code{design_}}{A design object with the simulation parameters.}
       \item{\code{diseases_}}{A list of Disease objects.}
       \item{\code{popsize}}{Simulants per age x sex stratum used to estimate PARF.
-Defaults to the design's `parf_popsize` (yaml, default 100)..}
+Defaults to the design's \code{parf_popsize} (yaml, default 100)..}
       \item{\code{check}}{Check for NAs in parf_dt.}
       \item{\code{keep_intermediate_file}}{Whether to keep the intermediate synthpop file.}
       \item{\code{bUpdateExistingDiseaseSnapshot}}{bool, update existing disease PARF and snapshot files as necessary.}
@@ -109,7 +109,7 @@ Defaults to the design's `parf_popsize` (yaml, default 100)..}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The PARF data.table if it was created, otherwise `NULL`.
+    The PARF data.table if it was created, otherwise \code{NULL}.
   }
 }
 
@@ -118,7 +118,7 @@ Defaults to the design's `parf_popsize` (yaml, default 100)..}
 \if{latex}{\out{\hypertarget{method-Disease-gen_parf}{}}}
 \subsection{\code{Disease$gen_parf()}}{
   Read PARF file from disk. If missing, generates PARF and
-  writes it to disk.
+writes it to disk.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Disease$gen_parf(
@@ -138,7 +138,7 @@ Defaults to the design's `parf_popsize` (yaml, default 100)..}
       \item{\code{design_}}{A design object with the simulation parameters.}
       \item{\code{diseases_}}{A list of Disease objects}
       \item{\code{popsize}}{Simulants per age x sex stratum used to estimate PARF.
-Defaults to the design's `parf_popsize` (yaml, default 100).}
+Defaults to the design's \code{parf_popsize} (yaml, default 100).}
       \item{\code{check}}{Check for NAs in parf_dt.}
       \item{\code{keep_intermediate_file}}{Whether to keep the intermediate synthpop file}
     }
@@ -192,7 +192,7 @@ Defaults to the design's `parf_popsize` (yaml, default 100).}
     \describe{
       \item{\code{sp}}{A synthetic population.}
       \item{\code{design_}}{A design object with the simulation parameters.}
-      \item{\code{checkNAs}}{If `TRUE`, prints the table of NAs before they get
+      \item{\code{checkNAs}}{If \code{TRUE}, prints the table of NAs before they get
 overwritten with 1. Note that for some exposures, NAs are expected
 for certain levels of exposure (i.e. for active days).}
       \item{\code{forPARF}}{Set TRUE when applied on the specialised forPARF
@@ -256,7 +256,7 @@ SynthPop}
 \if{latex}{\out{\hypertarget{method-Disease-set_mrtl_prb}{}}}
 \subsection{\code{Disease$set_mrtl_prb()}}{
   Set disease case fatality when relevant, in a new col in
-  sp$pop.
+sp$pop.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Disease$set_mrtl_prb(sp, design_ = design)}
@@ -319,7 +319,7 @@ that are associated to the current settings.}
   }
   \subsection{Returns}{
     A data.table with disease incident probabilities unless
-  incidence type: Universal when it returns data.table(NULL).
+incidence type: Universal when it returns data.table(NULL).
   }
 }
 
@@ -342,7 +342,7 @@ that are associated to the current settings.}
   }
   \subsection{Returns}{
     A data.table with duration distribution parameters. unless
-  incidence type: Universal when it returns data.table(NULL).
+incidence type: Universal when it returns data.table(NULL).
   }
 }
 
@@ -367,7 +367,7 @@ that are associated to the current settings.}
   }
   \subsection{Returns}{
     A data.table with disease prevalent probabilities unless
-  incidence type: Universal when it returns data.table(NULL).
+incidence type: Universal when it returns data.table(NULL).
   }
 }
 
@@ -408,7 +408,7 @@ mortality type: Non-fatal when it returns data.table(NULL).
   }
   \subsection{Returns}{
     A seed for the RNG that is produced by the digest of disease
-  name and outcome.
+name and outcome.
   }
 }
 
@@ -432,7 +432,7 @@ mortality type: Non-fatal when it returns data.table(NULL).
 \if{latex}{\out{\hypertarget{method-Disease-del_stochastic_effect}{}}}
 \subsection{\code{Disease$del_stochastic_effect()}}{
   Deletes the stochastic effect files and indices from disk
-  for all relevant RR.
+for all relevant RR.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Disease$del_stochastic_effect()}
@@ -485,8 +485,8 @@ mortality type: Non-fatal when it returns data.table(NULL).
 \if{latex}{\out{\hypertarget{method-Disease-harmonise_epi_tables}{}}}
 \subsection{\code{Disease$harmonise_epi_tables()}}{
   Harmonises classes and levels between the synthetic
-  population and the incidence/prevalence/fatality tables. It saves the
-  harmonised table to disk, overwriting the existing one.
+population and the incidence/prevalence/fatality tables. It saves the
+harmonised table to disk, overwriting the existing one.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Disease$harmonise_epi_tables(sp, verbose = FALSE, design_ = NULL)}

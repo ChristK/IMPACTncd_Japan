@@ -54,3 +54,4 @@ LinkingTo: Rcpp,
 SystemRequirements: C++17
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0
+Roxygen: list(markdown = TRUE)

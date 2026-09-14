@@ -10,38 +10,38 @@ A simulation environment.
 To be completed...
 }
 \note{
-The calibration parameters are stored in `./simulation/calibration_prms.csv`
-  and are automatically applied in subsequent simulations.
+The calibration parameters are stored in \code{./simulation/calibration_prms.csv}
+and are automatically applied in subsequent simulations.
 }
 \section{Calibration Process}{
 
 
 The calibration operates over a specific time period defined by two key parameters:
 \itemize{
-  \item **Start year**: The initial year for in the designated sim_design yaml file
-  \item **End year**: The latest year as defined by the sim_horizon in sim_design yaml file
+\item \strong{Start year}: The initial year for in the designated sim_design yaml file
+\item \strong{End year}: The latest year as defined by the sim_horizon in sim_design yaml file
 }
 
-The calibration process follows these steps for each age from `ageL` to `ageH`:
+The calibration process follows these steps for each age from \code{ageL} to \code{ageH}:
 
 \subsection{1. Incidence Calibration}{
-  For both CHD and stroke:
-  \itemize{
-    \item Runs simulation and extracts uncalibrated incidence rates
-    \item Fits log-log linear models to both benchmark and simulated data over the calibration period
-    \item Calculates calibration factors to align simulated trends with benchmark trends
-    \item Updates prevalence estimates based on incidence corrections
-  }
+For both CHD and stroke:
+\itemize{
+\item Runs simulation and extracts uncalibrated incidence rates
+\item Fits log-log linear models to both benchmark and simulated data over the calibration period
+\item Calculates calibration factors to align simulated trends with benchmark trends
+\item Updates prevalence estimates based on incidence corrections
+}
 }
 
 \subsection{2. Case Fatality Calibration}{
-  For CHD, stroke, and non-modeled causes:
-  \itemize{
-    \item Incorporates incidence-corrected prevalence estimates
-    \item Calculates calibration factors for case fatality rates
-    \item Ensures mortality rates align with benchmark data
-    \item Applies competing risk adjustments for previous ages
-  }
+For CHD, stroke, and non-modeled causes:
+\itemize{
+\item Incorporates incidence-corrected prevalence estimates
+\item Calculates calibration factors for case fatality rates
+\item Ensures mortality rates align with benchmark data
+\item Applies competing risk adjustments for previous ages
+}
 }
 }
 
@@ -49,12 +49,12 @@ The calibration process follows these steps for each age from `ageL` to `ageH`:
 
 
 \itemize{
-  \item **Sequential Processing**: Ages are processed sequentially to ensure proper
-    prevalence carryover between age groups
-  \item **Trend Modeling**: Uses log-log linear regression to capture temporal trends
-    in the calibration period
-  \item **Robust Estimation**: Employs median-based estimators to handle
-    rare events and reduce Monte Carlo variability
+\item \strong{Sequential Processing}: Ages are processed sequentially to ensure proper
+prevalence carryover between age groups
+\item \strong{Trend Modeling}: Uses log-log linear regression to capture temporal trends
+in the calibration period
+\item \strong{Robust Estimation}: Employs median-based estimators to handle
+rare events and reduce Monte Carlo variability
 }
 }
 
@@ -128,10 +128,10 @@ IMPACTncd$export_tables(strata = list(
 
 Builds main, all-cause mortality, disease-characteristics, and exposure
 tables from the per-summary parquet datasets produced by
-`$export_summaries()`. Outputs are written to `output_dir/tables/`
-(or `output_dir/tables2agegrps/` when `two_agegrps = TRUE`).
+\verb{$export_summaries()}. Outputs are written to \verb{output_dir/tables/}
+(or \verb{output_dir/tables2agegrps/} when \code{two_agegrps = TRUE}).
 
-This method replaces the standalone `auxil/process_out.R` script.
+This method replaces the standalone \code{auxil/process_out.R} script.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Simulation$export_tables(
@@ -159,105 +159,104 @@ This method replaces the standalone `auxil/process_out.R` script.
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{baseline_year_for_change_outputs}}{Integer. Reference year used for
-computing change-from-baseline columns. Default `2001L`. Two-digit
-values (e.g. `1`) are auto-promoted by adding 2000.}
+computing change-from-baseline columns. Default \code{2001L}. Two-digit
+values (e.g. \code{1}) are auto-promoted by adding 2000.}
       \item{\code{prbl}}{Numeric vector of probability levels for output quantiles
 (median plus uncertainty bounds). Default
-`c(0.5, 0.025, 0.975, 0.1, 0.9)`.}
+\code{c(0.5, 0.025, 0.975, 0.1, 0.9)}.}
       \item{\code{comparator_scenario}}{Character. Name of the scenario used as the
 comparator when computing differences between scenarios (cypp, cpp, dpp,
-net_qalys, net_costs). Default `"sc0"`.}
-      \item{\code{two_agegrps}}{Logical. If `TRUE`, collapses age into two groups
-(30-64 and 65-99) and writes to `tables2agegrps/`; otherwise uses the
-standard 5-year age groups and writes to `tables/`.}
+net_qalys, net_costs). Default \code{"sc0"}.}
+      \item{\code{two_agegrps}}{Logical. If \code{TRUE}, collapses age into two groups
+(30-64 and 65-99) and writes to \verb{tables2agegrps/}; otherwise uses the
+standard 5-year age groups and writes to \verb{tables/}.}
       \item{\code{strata}}{Named list giving the stratification configuration. Recognised
-names: `ons`, `esp`, `mrtl_ons`, `mrtl_esp`, `disease_char`, `xps_ons`,
-`xps_esp`. Each is a list of character vectors (e.g.
-`list("year", c("year", "sex"))`). Valid stratification variables: `year`
-(always required), `sex`, `agegrp`, `agegrp20` (xps only). Defaults to the
+names: \code{ons}, \code{esp}, \code{mrtl_ons}, \code{mrtl_esp}, \code{disease_char}, \code{xps_ons},
+\code{xps_esp}. Each is a list of character vectors (e.g.
+\code{list("year", c("year", "sex"))}). Valid stratification variables: \code{year}
+(always required), \code{sex}, \code{agegrp}, \code{agegrp20} (xps only). Defaults to the
 full standard configuration shown in the signature, so the defaults are
 visible at the call site. A partial list overrides only the named entries
-and keeps the defaults for the rest (e.g. `list(ons = list("year"))`).
-When `two_agegrps = TRUE`, the default `ons` and `mrtl_ons` strata are
+and keeps the defaults for the rest (e.g. \code{list(ons = list("year"))}).
+When \code{two_agegrps = TRUE}, the default \code{ons} and \code{mrtl_ons} strata are
 restricted to their age-group combinations; explicitly supplied strata are
 used verbatim.}
-      \item{\code{multicore}}{Logical. If `TRUE`, runs the table-building task
+      \item{\code{multicore}}{Logical. If \code{TRUE}, runs the table-building task
 groups in parallel with single-threaded workers; otherwise runs
 sequentially with implicit (within-task) parallelism.}
-      \item{\code{cea}}{Logical. If `TRUE` (default), additionally export
+      \item{\code{cea}}{Logical. If \code{TRUE} (default), additionally export
 cost-effectiveness tables (incremental cost-effectiveness ratio, ICER, and
 net monetary benefit, NMB) from the societal and healthcare perspectives.
-These are built from the `qalys` and `costs` summaries for the actual
-(`scaled_up`) population only.}
+These are built from the \code{qalys} and \code{costs} summaries for the actual
+(\code{scaled_up}) population only.}
       \item{\code{wtp}}{Numeric vector of willingness-to-pay thresholds (monetary units
-  per QALY, i.e. the same currency as the cost columns) at which NMB is
-  computed. Default `c(5e6, 7.5e6, 1e7)`. Each threshold becomes its own
-  `type` value in the CEA tables (`NMB_at_wtp_5000000`, ...).
+per QALY, i.e. the same currency as the cost columns) at which NMB is
+computed. Default \code{c(5e6, 7.5e6, 1e7)}. Each threshold becomes its own
+\code{type} value in the CEA tables (\code{NMB_at_wtp_5000000}, ...).
 
-  `wtp` and the discount levels are **crossed**: every threshold is evaluated
-  at every discount level, so a CEA table holds
-  `length(wtp)` x (number of discount levels) NMB rows per stratum cell.
-  (Contrast the two discount-rate vectors, which are *paired* with each
-  other - see `qaly_discount_rate`.) Filter on both `discount` and `type` to
-  isolate one series.
+\code{wtp} and the discount levels are \strong{crossed}: every threshold is evaluated
+at every discount level, so a CEA table holds
+\code{length(wtp)} x (number of discount levels) NMB rows per stratum cell.
+(Contrast the two discount-rate vectors, which are \emph{paired} with each
+other - see \code{qaly_discount_rate}.) Filter on both \code{discount} and \code{type} to
+isolate one series.
 
-  A threshold is a ratio of present values (currency per QALY), so it is
-  *not* itself discounted: it multiplies the already-discounted
-  `dQALYs_cuml`, making `NMB = wtp * dQALYs_cuml - dCosts_cuml` a present
-  value at that level's rates. When a level's QALY and cost rates differ, a
-  single NMB figure therefore combines both (QALYs at one rate, costs at the
-  other) - which is what the spelled-out `discount` label records.
+A threshold is a ratio of present values (currency per QALY), so it is
+\emph{not} itself discounted: it multiplies the already-discounted
+\code{dQALYs_cuml}, making \code{NMB = wtp * dQALYs_cuml - dCosts_cuml} a present
+value at that level's rates. When a level's QALY and cost rates differ, a
+single NMB figure therefore combines both (QALYs at one rate, costs at the
+other) - which is what the spelled-out \code{discount} label records.
 
-  `ICER` does not depend on `wtp` (it is `dCosts_cuml / dQALYs_cuml`), so it
-  appears once per discount level rather than once per threshold, and its
-  rows are absent wherever `dQALYs_cuml` is 0 (the ratio is undefined).}
-      \item{\code{qaly_discount_rate}}{Numeric *vector*. Annual discount rate(s) (percent)
-applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2\%.}
-      \item{\code{cost_discount_rate}}{Numeric *vector*. Annual discount rate(s) (percent)
-  applied to costs. Default `c(0, 2)`.
+\code{ICER} does not depend on \code{wtp} (it is \code{dCosts_cuml / dQALYs_cuml}), so it
+appears once per discount level rather than once per threshold, and its
+rows are absent wherever \code{dQALYs_cuml} is 0 (the ratio is undefined).}
+      \item{\code{qaly_discount_rate}}{Numeric \emph{vector}. Annual discount rate(s) (percent)
+applied to QALYs. Default \code{c(0, 2)}, i.e. undiscounted and 2\%.}
+      \item{\code{cost_discount_rate}}{Numeric \emph{vector}. Annual discount rate(s) (percent)
+applied to costs. Default \code{c(0, 2)}.
 
-  The two vectors are paired **element-wise** into discount *levels* (a
-  length-1 rate is recycled against a longer one), so the defaults give two
-  levels: undiscounted, and 2\% on QALYs and costs alike. Differential rates
-  are set by passing equal-length vectors, e.g. `qaly_discount_rate =
-  c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
+The two vectors are paired \strong{element-wise} into discount \emph{levels} (a
+length-1 rate is recycled against a longer one), so the defaults give two
+levels: undiscounted, and 2\% on QALYs and costs alike. Differential rates
+are set by passing equal-length vectors, e.g. \code{qaly_discount_rate = c(0, 1.5)} with \code{cost_discount_rate = c(0, 4)}.
 
-  Every level appears in the `qalys`, `net_qalys`, `costs`, `net_costs` and
-  cost-effectiveness tables, tagged in a `discount` column (`"0\%"`, `"2\%"`,
-  or `"QALYs 1.5\%/costs 4\%"` when a level's two rates differ). The `0\%` level
-  reproduces the undiscounted figures, so nothing is lost by adding
-  discounted ones.}
-      \item{\code{discount_from_year}}{Integer or `NULL`. First year from which present
-values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
-When `NULL` (default) it is set to `baseline_year_for_change_outputs`.}
+Every level appears in the \code{qalys}, \code{net_qalys}, \code{costs}, \code{net_costs} and
+cost-effectiveness tables, tagged in a \code{discount} column (\code{"0\%"}, \code{"2\%"},
+or \code{"QALYs 1.5\%/costs 4\%"} when a level's two rates differ). The \verb{0\%} level
+reproduces the undiscounted figures, so nothing is lost by adding
+discounted ones.}
+      \item{\code{discount_from_year}}{Integer or \code{NULL}. First year from which present
+values are discounted (\code{PV = FV / (1 + rate/100)^max(0, year - base)}).
+When \code{NULL} (default) it is set to \code{baseline_year_for_change_outputs}.}
       \item{\code{custom_costs_in_healthcare}}{Character vector of user-defined cost
-  column names to also include in the healthcare perspective of the
-  cost-effectiveness tables. It therefore has an effect only when
-  `cea = TRUE`; the `costs` and `net_costs` tables are unaffected.
+column names to also include in the healthcare perspective of the
+cost-effectiveness tables. It therefore has an effect only when
+\code{cea = TRUE}; the \code{costs} and \code{net_costs} tables are unaffected.
 
-  A *user-defined* cost column is any `_costs`-suffixed column of the
-  `costs` summary other than the 15 built-in `chd_`/`stroke_`/`cvd_` ones
-  (`direct`, `productivity`, `informal`, `indirect`, `total`) - in
-  practice, a column your scenario code created.
+A \emph{user-defined} cost column is any \verb{_costs}-suffixed column of the
+\code{costs} summary other than the 15 built-in \code{chd_}/\code{stroke_}/\code{cvd_} ones
+(\code{direct}, \code{productivity}, \code{informal}, \code{indirect}, \code{total}) - in
+practice, a column your scenario code created.
 
-  The two perspectives are asymmetric. The societal perspective is
-  `cvd_total_costs` plus **every** user-defined cost column,
-  unconditionally - this argument cannot remove one. The healthcare
-  perspective is `cvd_direct_costs` plus **only** the columns named here.
+The two perspectives are asymmetric. The societal perspective is
+\code{cvd_total_costs} plus \strong{every} user-defined cost column,
+unconditionally - this argument cannot remove one. The healthcare
+perspective is \code{cvd_direct_costs} plus \strong{only} the columns named here.
 
-  Under the default `NULL` the healthcare perspective is `cvd_direct_costs`
-  alone, so pass the subset of your cost columns that a health-system payer
-  bears, e.g. `c("screening_costs", "drug_costs")`. Matching is by exact
-  name; names that are not user-defined cost columns (built-in cost columns
-  included) are dropped, and listed in a message when `logs` is on. For
-  backward compatibility a length-1 logical is also accepted: `FALSE` (like
-  `NULL`) means none, `TRUE` means all user-defined cost columns. Default
-  `NULL`.}
+Under the default \code{NULL} the healthcare perspective is \code{cvd_direct_costs}
+alone, so pass the subset of your cost columns that a health-system payer
+bears, e.g. \code{c("screening_costs", "drug_costs")}. Matching is by exact
+name; names that are not user-defined cost columns (built-in cost columns
+included) are dropped, and listed in a message when \code{logs} is on. For
+backward compatibility a length-1 logical is also accepted: \code{FALSE} (like
+\code{NULL}) means none, \code{TRUE} means all user-defined cost columns. Default
+\code{NULL}.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The `Simulation` object, invisibly.
+    The \code{Simulation} object, invisibly.
   }
   \subsection{Examples}{
     \if{html}{\out{<div class="r example copy">}}
@@ -292,7 +291,7 @@ IMPACTncd$export_tables(strata = list(
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A new `Simulation` object.
+    A new \code{Simulation} object.
   }
 }
 
@@ -446,13 +445,13 @@ starts from scratch. If FALSE, continues from the last uncalibrated age.}
       \item{\code{multicore}}{If TRUE run the simulation in parallel.}
       \item{\code{type}}{The type of summary to extract. Built-in types include
 "le", "hle", "dis_char", "prvl", "incd", "dis_mrtl", "mrtl",
-"all_cause_mrtl_by_dis", "cms", "qalys", "costs". Add `"contd"` to
-also aggregate scenario-created columns named with the `_contd$`
-suffix (weighted mean). A custom column named with the `_prvl`
+"all_cause_mrtl_by_dis", "cms", "qalys", "costs". Add \code{"contd"} to
+also aggregate scenario-created columns named with the \verb{_contd$}
+suffix (weighted mean). A custom column named with the \verb{_prvl}
 suffix is picked up automatically by both the prvl exporter
 (prevalence, col > 0) and the incd exporter (incidence, col = 1),
-and a `_costs` column by the costs exporter, as long as the column
-is listed in `cols_for_output` of the design YAML.}
+and a \verb{_costs} column by the costs exporter, as long as the column
+is listed in \code{cols_for_output} of the design YAML.}
       \item{\code{single_year_of_age}}{Export summaries by single year of age. Useful for the calibration proccess.}
     }
     \if{html}{\out{</div>}}
@@ -467,7 +466,7 @@ is listed in `cols_for_output` of the design YAML.}
 \if{latex}{\out{\hypertarget{method-Simulation-get_causal_structure}{}}}
 \subsection{\code{Simulation$get_causal_structure()}}{
   Returns the causality matrix and optionally plots the
-  causality structure.
+causality structure.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Simulation$get_causal_structure(
@@ -482,9 +481,9 @@ is listed in `cols_for_output` of the design YAML.}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{processed}}{If `TRUE` generates the causality matrix from the
+      \item{\code{processed}}{If \code{TRUE} generates the causality matrix from the
 graph.}
-      \item{\code{print_plot}}{If `TRUE` prints the causal structure graph.}
+      \item{\code{print_plot}}{If \code{TRUE} prints the causal structure graph.}
       \item{\code{focus}}{If missing the whole causal structure is returned.
 Otherwise, if a named node only the subgraph of the 1st order
 neighbours that point to the given vertrice is returned.}
@@ -497,8 +496,8 @@ steps away to include neighbors. Use Inf for all possible orders.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The processed causality matrix if `processed = TRUE` or the
-  graph otherwise.
+    The processed causality matrix if \code{processed = TRUE} or the
+graph otherwise.
   }
 }
 
@@ -530,8 +529,8 @@ steps away to include neighbors. Use Inf for all possible orders.}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{from}}{the beginning of the path (an exposure) as a string. Use `get_node_names` for available nodes.}
-      \item{\code{to}}{the end of the path (a disease) as a string. Use `get_node_names` for available nodes.}
+      \item{\code{from}}{the beginning of the path (an exposure) as a string. Use \code{get_node_names} for available nodes.}
+      \item{\code{to}}{the end of the path (a disease) as a string. Use \code{get_node_names} for available nodes.}
       \item{\code{shortest_paths}}{Boolean. If true, only returns the paths with the smallest number of nodes. Else, all possible paths (excluding multiple and loop edges) are returned.}
     }
     \if{html}{\out{</div>}}
@@ -546,7 +545,7 @@ steps away to include neighbors. Use Inf for all possible orders.}
 \if{latex}{\out{\hypertarget{method-Simulation-update_design}{}}}
 \subsection{\code{Simulation$update_design()}}{
   Updates the Design object that is stored in the Simulation
-  object.
+object.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Simulation$update_design(new_design)}
@@ -614,7 +613,7 @@ steps away to include neighbors. Use Inf for all possible orders.}
 \if{latex}{\out{\hypertarget{method-Simulation-del_parfs}{}}}
 \subsection{\code{Simulation$del_parfs()}}{
   Delete cached PARF files from the ./simulation/parf
-  folder.
+folder.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Simulation$del_parfs(all_years = FALSE)}
@@ -623,35 +622,35 @@ steps away to include neighbors. Use Inf for all possible orders.}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{all_years}}{If `TRUE`, delete PARF caches for every baseline year
-rather than only this simulation's `init_year_long`. Defaults to
-`FALSE`.}
+      \item{\code{all_years}}{If \code{TRUE}, delete PARF caches for every baseline year
+rather than only this simulation's \code{init_year_long}. Defaults to
+\code{FALSE}.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Details}{
     PARF caches are named
-  `PARF_<disease>_iy<init_year_long>_<key>.fst` (the PARF table) and
-  `PARF_<disease>_iy<init_year_long>_<key>.qs` (the PARF population).
-  Caches for different baseline years legitimately coexist --
-  `calibrate.R` runs at `init_year_long` 2001 while
-  `testing/simulate_testing.R` runs at 2019 -- so by default only the
-  caches for *this* simulation's baseline year are removed. Wiping
-  every year would force a full PARF regeneration for every other
-  design, which is the thrashing `gen_parf_files()` was changed to
-  avoid.
+\verb{PARF_<disease>_iy<init_year_long>_<key>.fst} (the PARF table) and
+\verb{PARF_<disease>_iy<init_year_long>_<key>.qs} (the PARF population).
+Caches for different baseline years legitimately coexist --
+\code{calibrate.R} runs at \code{init_year_long} 2001 while
+\code{testing/simulate_testing.R} runs at 2019 -- so by default only the
+caches for \emph{this} simulation's baseline year are removed. Wiping
+every year would force a full PARF regeneration for every other
+design, which is the thrashing \code{gen_parf_files()} was changed to
+avoid.
 
-  Both extensions are always removed together. Dropping the `.fst`
-  while keeping the `.qs` would leave `gen_parf_files()` rebuilding the
-  PARF table from a cached population, which is rarely what is wanted
-  when the cache is being cleared deliberately.
+Both extensions are always removed together. Dropping the \code{.fst}
+while keeping the \code{.qs} would leave \code{gen_parf_files()} rebuilding the
+PARF table from a cached population, which is rarely what is wanted
+when the cache is being cleared deliberately.
 
-  Orphaned atomic-write staging files (`....fst.tmp<pid>`) are swept
-  too, in whichever mode matches their baseline year.
+Orphaned atomic-write staging files (\verb{....fst.tmp<pid>}) are swept
+too, in whichever mode matches their baseline year.
 
-  Legacy caches written before the baseline year was added to the
-  filename carry no `_iy<year>_` token and so cannot be attributed to a
-  year. They are removed only by `all_years = TRUE`.
+Legacy caches written before the baseline year was added to the
+filename carry no \verb{_iy<year>_} token and so cannot be attributed to a
+year. They are removed only by \code{all_years = TRUE}.
   }
   \subsection{Returns}{
     The invisible self for chaining.
@@ -693,7 +692,7 @@ rather than only this simulation's `init_year_long`. Defaults to
 \if{latex}{\out{\hypertarget{method-Simulation-get_esp}{}}}
 \subsection{\code{Simulation$get_esp()}}{
   Get the European Standardised Population 2013 by sex and
-  dimd.
+dimd.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Simulation$get_esp()}
@@ -709,7 +708,7 @@ rather than only this simulation's `init_year_long`. Defaults to
 \if{latex}{\out{\hypertarget{method-Simulation-get_mm_weights}{}}}
 \subsection{\code{Simulation$get_mm_weights()}}{
   Get the disease multimorbidity weights (i.e. Cambridge
-  Morbidity Score weights).
+Morbidity Score weights).
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Simulation$get_mm_weights()}
@@ -749,11 +748,11 @@ rather than only this simulation's `init_year_long`. Defaults to
     The function splits files larger than 50Mb into chunks of 49Mb
 so they can be tracked by GitHub. The large files are deleted and an
 index is created at "./simulation/large_files_indx.csv" so they can be
-reconstructed. The function also adds the large files to `.gitignore`.
+reconstructed. The function also adds the large files to \code{.gitignore}.
 It works on Linux and Windows. Untested on Mac.
   }
   \subsection{Returns}{
-    The invisible `Simulation` object.
+    The invisible \code{Simulation} object.
   }
 }
 
@@ -773,7 +772,7 @@ the files are stored in "./simulation/large_files_indx.csv". It works
 on Linux and Windows. Untested on Mac.
   }
   \subsection{Returns}{
-    The invisible `Simulation` object.
+    The invisible \code{Simulation} object.
   }
 }
 
@@ -793,7 +792,7 @@ The path of the files are stored in
 "./simulation/large_files_indx.csv".
   }
   \subsection{Returns}{
-    The invisible `Simulation` object.
+    The invisible \code{Simulation} object.
   }
 }
 
@@ -808,7 +807,7 @@ The path of the files are stored in
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `Simulation` object.
+    The invisible \code{Simulation} object.
   }
 }
 

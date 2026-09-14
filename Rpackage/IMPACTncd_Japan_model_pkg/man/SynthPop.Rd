@@ -4,8 +4,8 @@
 \alias{SynthPop}
 \title{R6 Class representing a synthetic population}
 \description{
-A synthpop has a `pop` field that contains the life course of simulants in a
-`data.table`.
+A synthpop has a \code{pop} field that contains the life course of simulants in a
+\code{data.table}.
 }
 \details{
 To be completed...
@@ -76,7 +76,7 @@ first generated, then saved to disk, and then loaded from disk.}
   Create a new SynthPop object.
 If a synthpop file in \code{\link[fst]{fst-package}} format already
 exists, then the synthpop is loaded from there. Otherwise it is
-generated from scratch and then saved as `filename` in
+generated from scratch and then saved as \code{filename} in
 \code{\link[fst]{fst-package}} format. Two additional files are saved
 for each 'synthpop'. A metadata file, and an index file.
   \subsection{Usage}{
@@ -88,20 +88,20 @@ for each 'synthpop'. A metadata file, and an index file.
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{mc_}}{The Monte Carlo iteration of the synthetic population. Each
-integer generates a unique synthetic population. If `mc = 0` an
+integer generates a unique synthetic population. If \code{mc = 0} an
 object with an empty synthpop is initiated.}
       \item{\code{design_}}{A \code{\link[IMPACTncdJapan]{Design}} object.}
       \item{\code{synthpop_dir_}}{The directory where 'SynthPop' objects are stored.
 The synthpop file in \code{\link[fst]{fst-package}} format. If
-`filename` already exists, then the synthpop is loaded from there.
-Otherwise it is generated from scratch and then saved as `filename`
+\code{filename} already exists, then the synthpop is loaded from there.
+Otherwise it is generated from scratch and then saved as \code{filename}
 in \code{\link[fst]{fst-package}} format. Two additional files are
 saved for each 'synthpop'. A metadata file, and an index file.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A new `SynthPop` object.
+    A new \code{SynthPop} object.
   }
   \subsection{Examples}{
     \if{html}{\out{<div class="r example copy">}}
@@ -176,19 +176,19 @@ POP$get_filename()
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{mc_}}{If `mc_ = NULL`, delete all files in the synthpop directory.
-If `mc_` is an integer vector delete the specific synthpop files
+      \item{\code{mc_}}{If \code{mc_ = NULL}, delete all files in the synthpop directory.
+If \code{mc_} is an integer vector delete the specific synthpop files
 including the metadata and index files.}
-      \item{\code{check_checksum}}{If  `TRUE` only delete files with the same
-checksum as the synthpop. Only relevant when `mc_ = NULL`.}
-      \item{\code{invert}}{If `TRUE` (default is `FALSE`) keeps files with the same
+      \item{\code{check_checksum}}{If  \code{TRUE} only delete files with the same
+checksum as the synthpop. Only relevant when \code{mc_ = NULL}.}
+      \item{\code{invert}}{If \code{TRUE} (default is \code{FALSE}) keeps files with the same
 checksum as the synthpop and deletes all other synthpops. Only
-relevant when `mc_ = NULL` and `check_checksum = TRUE`.}
+relevant when \code{mc_ = NULL} and \code{check_checksum = TRUE}.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -206,13 +206,13 @@ any orphan files.
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{check_checksum}}{If  `TRUE` only delete incomplete group files
+      \item{\code{check_checksum}}{If  \code{TRUE} only delete incomplete group files
 with the same checksum as the synthpop.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -230,15 +230,15 @@ their metadata are readable.
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{remove_malformed}}{If `TRUE`, delete all malformed .fst files and
+      \item{\code{remove_malformed}}{If \code{TRUE}, delete all malformed .fst files and
 their associated files.}
-      \item{\code{check_checksum}}{If  `TRUE` only check files with the same
+      \item{\code{check_checksum}}{If  \code{TRUE} only check files with the same
 checksum as the synthpop.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -254,7 +254,7 @@ metafiles and index files.
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -269,7 +269,7 @@ metafiles and index files.
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -291,7 +291,7 @@ metafiles and index files.
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -306,7 +306,7 @@ metafiles and index files.
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -321,7 +321,7 @@ metafiles and index files.
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -345,7 +345,7 @@ population estimates.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    An invisible `data.table` with sociodemographic information.
+    An invisible \code{data.table} with sociodemographic information.
   }
 }
 
@@ -372,7 +372,7 @@ population.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 
@@ -381,7 +381,7 @@ population.}
 \if{latex}{\out{\hypertarget{method-SynthPop-get_risks}{}}}
 \subsection{\code{SynthPop$get_risks()}}{
   Get the risks for all individuals in a synthetic
-  population for a disease.
+population for a disease.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{SynthPop$get_risks(disease_nam)}
@@ -396,8 +396,8 @@ population.}
   }
   \subsection{Returns}{
     A data.table with columns for pid, year, and all associated
-  risks if disease_nam is specified. Else a list of data.tables for all
-  diseases.
+risks if disease_nam is specified. Else a list of data.tables for all
+diseases.
   }
 }
 
@@ -406,7 +406,7 @@ population.}
 \if{latex}{\out{\hypertarget{method-SynthPop-store_risks}{}}}
 \subsection{\code{SynthPop$store_risks()}}{
   Stores the disease risks for all individuals in a synthetic
-  population in a private list.
+population in a private list.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{SynthPop$store_risks(disease_nam)}
@@ -435,7 +435,7 @@ population.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The invisible `SynthPop` object.
+    The invisible \code{SynthPop} object.
   }
 }
 

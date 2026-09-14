@@ -218,19 +218,19 @@ expand_discount_levels <- function(d, value_cols, levels, from_year,
 #'   appears once per discount level rather than once per threshold, and its
 #'   rows are absent wherever `dQALYs_cuml` is 0 (the ratio is undefined).
 #' @param qaly_discount_rate Numeric *vector*. Annual discount rate(s) (percent)
-#'   applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2\%.
+#'   applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2%.
 #' @param cost_discount_rate Numeric *vector*. Annual discount rate(s) (percent)
 #'   applied to costs. Default `c(0, 2)`.
 #'
 #'   The two vectors are paired **element-wise** into discount *levels* (a
 #'   length-1 rate is recycled against a longer one), so the defaults give two
-#'   levels: undiscounted, and 2\% on QALYs and costs alike. Differential rates
+#'   levels: undiscounted, and 2% on QALYs and costs alike. Differential rates
 #'   are set by passing equal-length vectors, e.g. `qaly_discount_rate =
 #'   c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
 #'
 #'   Every level appears in the `qalys`, `net_qalys`, `costs`, `net_costs` and
-#'   cost-effectiveness tables, tagged in a `discount` column (`"0\%"`, `"2\%"`,
-#'   or `"QALYs 1.5\%/costs 4\%"` when a level's two rates differ). The `0\%` level
+#'   cost-effectiveness tables, tagged in a `discount` column (`"0%"`, `"2%"`,
+#'   or `"QALYs 1.5%/costs 4%"` when a level's two rates differ). The `0%` level
 #'   reproduces the undiscounted figures, so nothing is lost by adding
 #'   discounted ones.
 #' @param discount_from_year Integer or `NULL`. First year from which present

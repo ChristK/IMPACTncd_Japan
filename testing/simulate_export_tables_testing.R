@@ -346,14 +346,21 @@ CEA_TYPES <- c("dCosts_cuml", "dQALYs_cuml", "ICER", NMB_LABELS)
 # (strata, perspective, scale), returning the quantiled table.
 recompute_cea <- function(s, persp, scale, qaly_rate, cost_rate,
                           base = BASELINE_YEAR, comparator = "sc0",
-                          prbl = c(0.5, 0.025, 0.975, 0.1, 0.9)) {
+                          prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
+                          hc_custom = character(0)) {
   q <- CKutils::read_parquet_dt(file.path(output_dir, "summaries", "qalys_scaled_up"))
   cst <- CKutils::read_parquet_dt(file.path(output_dir, "summaries", "costs_scaled_up"))
   all_cc <- grep("_costs$", names(cst), value = TRUE)
   builtin <- grep("^(chd|stroke|cvd)_(direct|productivity|informal|indirect|total)_costs$",
                   all_cc, value = TRUE)
   custom <- setdiff(all_cc, builtin)
-  pcols <- if (persp == "societal") c("cvd_total_costs", custom) else "cvd_direct_costs"
+  # Societal always takes every custom cost column; healthcare takes only the
+  # ones requested via custom_costs_in_healthcare (and never a built-in name).
+  pcols <- if (persp == "societal") {
+    c("cvd_total_costs", custom)
+  } else {
+    c("cvd_direct_costs", intersect(hc_custom, custom))
+  }
   pcols <- intersect(pcols, names(cst))
   x <- c("mc", "scenario", s)
   disc <- function(v, year, rate) v / (1 + rate / 100)^pmax(0, year - base)
@@ -452,6 +459,113 @@ IMPACTncd$export_tables(
 file.rename(tables_dir, nocea_dir)
 check(length(list.files(nocea_dir, pattern = "^cost-effectiveness by ")) == 0L,
       "cea = FALSE produces no CEA files")
+
+# ---------------------------------------------------------------------------
+# 7. Validate non-default custom_costs_in_healthcare
+# ---------------------------------------------------------------------------
+# Everything above exercises only the default (NULL), under which the
+# healthcare perspective is cvd_direct_costs alone. This simulation creates one
+# user-defined cost column (sbp_intervention_costs: 500/person-year in sc1 from
+# INTERVENTION_YEAR, 0 in sc0), so every documented branch of the argument can
+# be driven and checked against the independent recompute.
+message("\n--- Validating custom_costs_in_healthcare ---")
+
+CUSTOM_COST_COL <- "sbp_intervention_costs"
+CEA_YEAR_FILE <- "cost-effectiveness by year (%s-EQ5D5L) (not standardised).csv"
+DISCOUNT_LEVELS <- list(list(label = UNDISCOUNTED_LEVEL, rate = 0),
+                        list(label = DISCOUNTED_LEVEL, rate = 2))
+
+# Guard: without a custom cost column in the costs summary this whole section
+# would pass vacuously.
+check(CUSTOM_COST_COL %in%
+        names(CKutils::read_parquet_dt(
+          file.path(output_dir, "summaries", "costs_scaled_up"))),
+      sprintf("custom cost column '%s' reached the costs summary", CUSTOM_COST_COL))
+
+# Export tables under one value of the argument and return the `year`-stratum
+# CEA table of each perspective. Only the `ons` strata drive the CEA files, so
+# narrowing them to "year" keeps each extra export cheap.
+export_with <- function(tag, value) {
+  dir <- file.path(output_dir, paste0("tables_cch_", tag))
+  unlink(c(tables_dir, dir), recursive = TRUE, force = TRUE)
+  args <- list(
+    baseline_year_for_change_outputs = BASELINE_YEAR,
+    two_agegrps = FALSE,
+    multicore = FALSE,
+    strata = list(ons = list("year"))
+  )
+  # Single-bracket assignment so that value = NULL is *passed* as NULL rather
+  # than dropping the element from the argument list.
+  args["custom_costs_in_healthcare"] <- list(value)
+  do.call(IMPACTncd$export_tables, args)
+  file.rename(tables_dir, dir)
+  setNames(
+    lapply(c("healthcare", "societal"),
+           function(p) fread(file.path(dir, sprintf(CEA_YEAR_FILE, p)))),
+    c("healthcare", "societal")
+  )
+}
+
+# Do two CEA tables agree on every key and every quantile column?
+same_cea <- function(a, b, tol = 1e-9) {
+  k <- c("type", "scenario", "year", "discount")
+  a <- copy(a); b <- copy(b)
+  setkeyv(a, k); setkeyv(b, k)
+  qcols <- grep("^value_", names(a), value = TRUE)
+  identical(nrow(a), nrow(b)) &&
+    isTRUE(all.equal(a[, ..k], b[, ..k])) &&
+    all(vapply(qcols,
+               function(q) isTRUE(all.equal(a[[q]], b[[q]], tolerance = tol)),
+               logical(1)))
+}
+
+default_t <- export_with("null", NULL)
+named_t <- export_with("named", CUSTOM_COST_COL)
+true_t <- export_with("true", TRUE)
+unknown_t <- export_with("unknown", "no_such_costs")
+builtin_t <- export_with("builtin", "cvd_productivity_costs")
+
+# (a) The argument must actually change the healthcare perspective. Without
+#     this check a regression that silently ignored the argument would still
+#     pass every other check in this section.
+check(!same_cea(default_t$healthcare, named_t$healthcare),
+      sprintf("naming '%s' changes the healthcare perspective", CUSTOM_COST_COL))
+
+# (b) ... and must leave the societal perspective untouched.
+check(same_cea(default_t$societal, named_t$societal),
+      "custom_costs_in_healthcare does not alter the societal perspective")
+
+# (c) The changed healthcare figures must equal an independent recompute that
+#     adds the same column, at both default discount levels.
+for (lvl in DISCOUNT_LEVELS) {
+  csv <- named_t$healthcare[discount == lvl$label][, discount := NULL]
+  rc <- recompute_cea("year", "healthcare", "EQ5D5L", lvl$rate, lvl$rate,
+                      hc_custom = CUSTOM_COST_COL)
+  keys <- c("type", "scenario", "year")
+  qcols <- grep("^value_", names(csv), value = TRUE)
+  m <- merge(csv, rc, by = keys, suffixes = c(".csv", ".rc"))
+  ok <- nrow(m) == nrow(csv) && nrow(m) > 0L
+  for (qc in qcols) {
+    ok <- ok && isTRUE(all.equal(m[[paste0(qc, ".csv")]], m[[paste0(qc, ".rc")]],
+                                 tolerance = 1e-6))
+  }
+  check(ok, sprintf(
+    "healthcare CEA with custom_costs_in_healthcare = '%s' (%s) matches independent recompute",
+    CUSTOM_COST_COL, lvl$label))
+}
+
+# (d) TRUE means "all user-defined cost columns"; this simulation has exactly
+#     one, so TRUE must reproduce the explicitly named run.
+check(same_cea(true_t$healthcare, named_t$healthcare),
+      "custom_costs_in_healthcare = TRUE equals naming every custom cost column")
+
+# (e) A name that is not a user-defined cost column is dropped, leaving the
+#     default output. Checked for both an unknown name and a built-in cost
+#     column name - the latter must NOT be added on top of cvd_direct_costs.
+check(same_cea(unknown_t$healthcare, default_t$healthcare),
+      "an unknown cost column name is ignored (output identical to NULL)")
+check(same_cea(builtin_t$healthcare, default_t$healthcare),
+      "a built-in cost column name is ignored (output identical to NULL)")
 
 # ---------------------------------------------------------------------------
 # Report

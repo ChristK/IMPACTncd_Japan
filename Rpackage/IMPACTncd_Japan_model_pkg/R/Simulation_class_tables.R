@@ -218,34 +218,47 @@ expand_discount_levels <- function(d, value_cols, levels, from_year,
 #'   appears once per discount level rather than once per threshold, and its
 #'   rows are absent wherever `dQALYs_cuml` is 0 (the ratio is undefined).
 #' @param qaly_discount_rate Numeric *vector*. Annual discount rate(s) (percent)
-#'   applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2%.
+#'   applied to QALYs. Default `c(0, 2)`, i.e. undiscounted and 2\%.
 #' @param cost_discount_rate Numeric *vector*. Annual discount rate(s) (percent)
 #'   applied to costs. Default `c(0, 2)`.
 #'
 #'   The two vectors are paired **element-wise** into discount *levels* (a
 #'   length-1 rate is recycled against a longer one), so the defaults give two
-#'   levels: undiscounted, and 2% on QALYs and costs alike. Differential rates
+#'   levels: undiscounted, and 2\% on QALYs and costs alike. Differential rates
 #'   are set by passing equal-length vectors, e.g. `qaly_discount_rate =
 #'   c(0, 1.5)` with `cost_discount_rate = c(0, 4)`.
 #'
 #'   Every level appears in the `qalys`, `net_qalys`, `costs`, `net_costs` and
-#'   cost-effectiveness tables, tagged in a `discount` column (`"0%"`, `"2%"`,
-#'   or `"QALYs 1.5%/costs 4%"` when a level's two rates differ). The `0%` level
+#'   cost-effectiveness tables, tagged in a `discount` column (`"0\%"`, `"2\%"`,
+#'   or `"QALYs 1.5\%/costs 4\%"` when a level's two rates differ). The `0\%` level
 #'   reproduces the undiscounted figures, so nothing is lost by adding
 #'   discounted ones.
 #' @param discount_from_year Integer or `NULL`. First year from which present
 #'   values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
 #'   When `NULL` (default) it is set to `baseline_year_for_change_outputs`.
-#' @param custom_costs_in_healthcare Character vector of user-defined `*_costs`
-#'   column names to additionally include in the healthcare perspective.
-#'   User-defined `*_costs` columns are *always* included in the societal
-#'   perspective; by default (`NULL`) none of them are added to the healthcare
-#'   perspective (which captures direct treatment costs only). Pass the subset
-#'   of custom cost columns that represent healthcare costs, e.g.
-#'   `c("screening_costs", "drug_costs")`. Names not matching a user-defined
-#'   cost column are ignored (with a message when `logs` is on). For backward
-#'   compatibility a logical is also accepted: `FALSE`/`NULL` means none and
-#'   `TRUE` means all user-defined cost columns. Default `NULL`.
+#' @param custom_costs_in_healthcare Character vector of user-defined cost
+#'   column names to also include in the healthcare perspective of the
+#'   cost-effectiveness tables. It therefore has an effect only when
+#'   `cea = TRUE`; the `costs` and `net_costs` tables are unaffected.
+#'
+#'   A *user-defined* cost column is any `_costs`-suffixed column of the
+#'   `costs` summary other than the 15 built-in `chd_`/`stroke_`/`cvd_` ones
+#'   (`direct`, `productivity`, `informal`, `indirect`, `total`) - in
+#'   practice, a column your scenario code created.
+#'
+#'   The two perspectives are asymmetric. The societal perspective is
+#'   `cvd_total_costs` plus **every** user-defined cost column,
+#'   unconditionally - this argument cannot remove one. The healthcare
+#'   perspective is `cvd_direct_costs` plus **only** the columns named here.
+#'
+#'   Under the default `NULL` the healthcare perspective is `cvd_direct_costs`
+#'   alone, so pass the subset of your cost columns that a health-system payer
+#'   bears, e.g. `c("screening_costs", "drug_costs")`. Matching is by exact
+#'   name; names that are not user-defined cost columns (built-in cost columns
+#'   included) are dropped, and listed in a message when `logs` is on. For
+#'   backward compatibility a length-1 logical is also accepted: `FALSE` (like
+#'   `NULL`) means none, `TRUE` means all user-defined cost columns. Default
+#'   `NULL`.
 #' @return The `Simulation` object, invisibly.
 #' @examples
 #' \dontrun{
@@ -1479,8 +1492,11 @@ Simulation$set("private", "export_cea_tables", function(
   # Resolve which custom cost columns to add to the healthcare perspective.
   # `custom_costs_in_healthcare` accepts a character vector of (custom) cost
   # column names to include there, in addition to the always-present
-  # cvd_direct_costs. For backward compatibility a logical is also honoured:
-  # NULL/FALSE -> none (default), TRUE -> all user-defined custom cost columns.
+  # cvd_direct_costs. For backward compatibility a length-1 logical is also
+  # honoured: NULL/FALSE -> none (default), TRUE -> all user-defined custom
+  # cost columns. Degenerate logicals (NA, logical(0), length > 1) miss both
+  # isTRUE/isFALSE and fall through to the character branch, where they match
+  # nothing and so resolve to the default (none).
   if (is.null(custom_costs_in_healthcare) ||
       isFALSE(custom_costs_in_healthcare)) {
     healthcare_custom_cols <- character(0)

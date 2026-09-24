@@ -3218,7 +3218,10 @@ Simulation <-
 
         private$primary_prevention_scn(sp) # apply primary prevention scenario
         # message("scenario finished")
-        set.seed(rs)
+        # Not set.seed(rs): set.seed() reads only rs[1], the RNG-kind code
+        # (10403), so it would reset to the same state every time. Restoring
+        # the saved state means writing the whole vector back to globalenv.
+        assign(".Random.seed", rs, envir = globalenv())
         dqrng_set_state(dqrs)
 
         lapply(self$diseases, function(x) {
@@ -3243,7 +3246,7 @@ Simulation <-
         private$secondary_prevention_scn(sp) # apply secondary pevention scenario
         # message("2nd scenario finished")
         # message("scenario finished")
-        set.seed(rs)
+        assign(".Random.seed", rs, envir = globalenv()) # see note above
         dqrng_set_state(dqrs)
 
         # ds <- copy(self$diseases) # Necessary for parallelisation

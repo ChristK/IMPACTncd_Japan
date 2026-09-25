@@ -64,20 +64,6 @@ inputs/exposure_distributions/Table_TG.fst
 inputs/exposure_distributions/Table_Waist.fst
 
 
-inputs/exposure_distributions/Table_HbA1c.fst.chunkaj
-inputs/exposure_distributions/Table_HbA1c.fst.chunkai
-inputs/exposure_distributions/Table_HbA1c.fst.chunkah
-inputs/exposure_distributions/Table_HbA1c.fst.chunkag
-inputs/exposure_distributions/Table_HbA1c.fst.chunkaf
-inputs/exposure_distributions/Table_HbA1c.fst.chunkae
-inputs/exposure_distributions/Table_HbA1c.fst.chunkad
-inputs/exposure_distributions/Table_HbA1c.fst.chunkac
-inputs/exposure_distributions/Table_HbA1c.fst.chunkab
-inputs/exposure_distributions/Table_HbA1c.fst.chunkaa
-inputs/exposure_distributions/Table_n_teeth.fst
-inputs/exposure_distributions/Table_BMI.fst
-inputs/exposure_distributions/Table_PA_days.fst
-inputs/exposure_distributions/Table_Med_DM.fst
 inputs/exposure_distributions/Table_Med_HL.fst
 inputs/exposure_distributions/Table_Med_HT.fst
 inputs/exposure_distributions/Table_Smoking_number.fst

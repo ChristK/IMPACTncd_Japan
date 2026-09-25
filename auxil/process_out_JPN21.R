@@ -9,7 +9,8 @@ library(IMPACTncdJapan)
 
 
 prbl <- c(0.5, 0.025, 0.975, 0.1, 0.9)
-baseline_year_for_change_outputs <- 2001L
+baseline_year_for_change_outputs <- 2024L
+baseline_year_for_comparison_outputs <- 2001L
 theme_set(new = theme_economist())
 theme_update(axis.text.x = element_text(size = 9), plot.title = element_text(hjust = 0.5))
 
@@ -39,9 +40,9 @@ tbl_smmrs <- function(
     strata,
     output_dir = output_dir,
     prbl = c(0.5, 0.025, 0.975, 0.1, 0.9),
-    baseline_year = 2001L, # only used for prvl_change etc.
+    baseline_year = baseline_year_for_change_outputs, # only used for prvl_change etc.
     comparator_scenario = "sc0",
-    comparison_starting_year = baseline_year,
+    comparison_starting_year = baseline_year_for_comparison_outputs, #baseline_year,
     two_agegrps = FALSE # if TRUE, agegrp is 30-64 and 65-99
     ) {
         strata <- lapply(strata, function(x) {
@@ -443,7 +444,7 @@ for (i in seq_len(nrow(outperm))) {
         tbl_smmrs(what = what, population = population, strata = strata, output_dir = output_dir,
                 prbl = prbl, baseline_year = baseline_year_for_change_outputs,
                 comparator_scenario = "sc0",
-                comparison_starting_year = baseline_year_for_change_outputs
+                comparison_starting_year = baseline_year_for_comparison_outputs
         )
 }
 
@@ -454,7 +455,7 @@ tbl_smmrs(what = "pop", population = "ons", list(
         c("year", "agegrp", "sex")
 ), output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs,
    comparator_scenario = "sc0",
-   comparison_starting_year = baseline_year_for_change_outputs,
+   comparison_starting_year = baseline_year_for_comparison_outputs,
    two_agegrps = FALSE)
 
 # 2 agegroups ----
@@ -501,7 +502,7 @@ for (i in seq_len(nrow(outperm))) {
         tbl_smmrs(what = what, population = population, strata = strata, output_dir = output_dir,
                 prbl = prbl, baseline_year = baseline_year_for_change_outputs,
                 comparator_scenario = "sc0",
-                comparison_starting_year = baseline_year_for_change_outputs,
+                comparison_starting_year = baseline_year_for_comparison_outputs,
                 two_agegrps = TRUE
         )
 }
@@ -513,7 +514,7 @@ tbl_smmrs(what = "pop", population = "ons", list(
         c("year", "agegrp", "sex")
 ), output_dir, prbl = prbl, baseline_year = baseline_year_for_change_outputs,
    comparator_scenario = "sc0",
-   comparison_starting_year = baseline_year_for_change_outputs,
+   comparison_starting_year = baseline_year_for_comparison_outputs,
    two_agegrps = TRUE)
 
 
@@ -801,8 +802,8 @@ xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps"
 
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
 
-outstrata <- c("mc", "year", "agegrp20", "sex", "scenario")
-d <- xps_tab[sex != "All" & agegrp20 != "All"] # This should depend on outstrata
+outstrata <- c("mc", "year", "agegrp10", "sex", "scenario")
+d <- xps_tab[sex != "All" & agegrp10 != "All"] # This should depend on outstrata
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
@@ -812,7 +813,7 @@ setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year-agegroup-sex (not standardised).csv"))
 
 outstrata <- c("mc", "year", "scenario")
-d <- xps_tab[sex == "All" & agegrp20 == "All"] # This should depend on outstrata
+d <- xps_tab[sex == "All" & agegrp10 == "All"] # This should depend on outstrata
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
@@ -821,8 +822,8 @@ setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year (not standardised).csv"))
 
-outstrata <- c("mc", "year", "agegrp20", "scenario")
-d <- xps_tab[sex == "All" & agegrp20 != "All"] # This should depend on outstrata
+outstrata <- c("mc", "year", "agegrp10", "scenario")
+d <- xps_tab[sex == "All" & agegrp10 != "All"] # This should depend on outstrata
 d <- d[, lapply(.SD, mean), .SDcols = patterns("_curr_xps$"), keyby = eval(outstrata)]
 d <- melt(d, id.vars = outstrata)
 setkey(d, "variable")
@@ -867,6 +868,12 @@ setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_
 setkeyv(d, setdiff(outstrata, "mc"))
 fwrite(d, file.path(sTablesSubDirPath, "exposures by year (age-sex standardised).csv"))
 
+
+
+
+
+
+#----- aggregating data for HJ21 
 # XPS - SBP 40+ standardised ----
 xps_tab <- as.data.table(open_dataset(file.path(design$sim_prm$output_dir, "xps", "xpsJPN21")))
 xps_names <- grep("_curr_xps$", names(xps_tab), value = TRUE)
@@ -879,7 +886,7 @@ setkey(d, "variable")
 d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
-fwrite(d, file.path(sTablesSubDirPath, "exposure SBP by year-sex (age standardised 40+).csv"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 exposure SBP by year-sex (age standardised 40+).csv"))
 
 outstrata <- c("mc", "year", "scenario")
 d <- xps_tab[sex == "All"] # This should depend on outstrata
@@ -889,7 +896,7 @@ setkey(d, "variable")
 d <- d[, fquantile_byid(value, prbl, id = as.character(variable)), keyby = eval(setdiff(outstrata, "mc"))]
 setnames(d, c(setdiff(outstrata, "mc"), "exposure", percent(prbl, prefix = "xps_mean_")))
 setkeyv(d, setdiff(outstrata, "mc"))
-fwrite(d, file.path(sTablesSubDirPath, "exposure SBP by year (age-sex standardised 40+).csv"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 exposure SBP by year (age-sex standardised 40+).csv"))
 
 # obesity prevalence ----
 fpth <- file.path(
@@ -907,11 +914,11 @@ d <- t1[
 d <- d[, sum(obesity_prvl) / sum(popsize), keyby = .(mc, year, scenario, sex)
   ][, as.list(quantile(V1, prbl)), keyby = .(year, scenario, sex)]
 setnames(d, paste0(prbl * 100, "%"), paste0("obesity_prvl_", prbl * 100, "%"))
-fwrite(d, file.path(sTablesSubDirPath, "obesity by year-sex (age standardised 30-69 men, 40-69 women).csv"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 obesity by year-sex (age standardised 30-69 men, 40-69 women).csv"))
 
 # LDLcOver160  prevalence ----
 d <- t1[
-  (agegrp %in% agegrp_name(40 99, 5))
+  (agegrp %in% agegrp_name(40, 99, 5))
 ]
 d <- d[,
   sum(LDLcOver160_prvl) / sum(popsize),
@@ -922,6 +929,113 @@ fwrite(
   d,
   file.path(
     sTablesSubDirPath,
-    "LDLcOver160 by year (age-sex standardised 40-99).csv"
+    "HJ21 LDLcOver160 by year (age-sex standardised 40-99).csv"
   )
 )
+
+
+
+
+
+
+# suggestive diabetes (HbA1c >= 6.5%) prevalence
+fpth <- file.path(
+  output_dir,
+  "summaries",
+  paste0("prvl", "_scaled_up")
+)
+if (!file.exists(fpth)) stop(fpth, " doesn't exist")
+
+t1 <- as.data.table(open_dataset(fpth)) 
+d <- t1[
+  (agegrp %in% agegrp_name(30, 99, 5))
+]
+d[, agegrp_HbA1c := 
+	fifelse(agegrp %in% agegrp_name(20, 29, 5), agegrp_name(20, 29, 10),
+	fifelse(agegrp %in% agegrp_name(30, 39, 5), agegrp_name(30, 39, 10),
+	fifelse(agegrp %in% agegrp_name(40, 49, 5), agegrp_name(40, 49, 10),
+	fifelse(agegrp %in% agegrp_name(50, 59, 5), agegrp_name(50, 59, 10),
+	fifelse(agegrp %in% agegrp_name(60, 69, 5), agegrp_name(60, 69, 10),
+	fifelse(agegrp %in% agegrp_name(70, 99, 5), "70+",
+	NA)))))), ]
+#d[, table(agegrp, agegrp_HbA1c), ]
+d <- d[, sum(HbA1cOver65_prvl) / sum(popsize), keyby = .(mc, year, scenario, sex, agegrp_HbA1c)
+  ][, as.list(quantile(V1, prbl)), keyby = .(year, scenario, sex, agegrp_HbA1c)]
+  
+setnames(d, paste0(prbl * 100, "%"), paste0("sggstvDM_prvl_", prbl * 100, "%"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 sggstvDM_prvl by year-agegroup-sex (not standardised).csv"))
+
+
+
+
+
+
+# suggestive diabetes (HbA1c >= 6.5%) prevalence 
+fpth <- file.path(
+  output_dir,
+  "summaries",
+  paste0("prvl", "_scaled_up")
+)
+if (!file.exists(fpth)) stop(fpth, " doesn't exist")
+t1 <- as.data.table(open_dataset(fpth)) 
+d <- t1[
+  (agegrp %in% agegrp_name(30, 99, 5))
+]	
+d <- d[, sum(HbA1cOver65_prvl) / sum(popsize), keyby = .(mc, year, scenario, sex)
+  ][, as.list(quantile(V1, prbl)), keyby = .(year, scenario, sex)]
+setnames(d, paste0(prbl * 100, "%"), paste0("sggstvDM_prvl_", prbl * 100, "%"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 sggstvDM_prvl by year-sex (not standardised).csv"))
+
+
+
+
+
+
+
+# suggestive diabetes (HbA1c >= 6.5%) prevalence
+fpth <- file.path(
+  output_dir,
+  "summaries",
+  paste0("prvl", "_scaled_up")
+)
+if (!file.exists(fpth)) stop(fpth, " doesn't exist")
+
+t1 <- as.data.table(open_dataset(fpth)) 
+d <- t1[
+  (agegrp %in% agegrp_name(30, 99, 5))
+]
+d[, agegrp_HbA1c := 
+	fifelse(agegrp %in% agegrp_name(20, 29, 5), agegrp_name(20, 29, 10),
+	fifelse(agegrp %in% agegrp_name(30, 39, 5), agegrp_name(30, 39, 10),
+	fifelse(agegrp %in% agegrp_name(40, 49, 5), agegrp_name(40, 49, 10),
+	fifelse(agegrp %in% agegrp_name(50, 59, 5), agegrp_name(50, 59, 10),
+	fifelse(agegrp %in% agegrp_name(60, 69, 5), agegrp_name(60, 69, 10),
+	fifelse(agegrp %in% agegrp_name(70, 99, 5), "70+",
+	NA)))))), ]
+#d[, table(agegrp, agegrp_HbA1c), ]
+d <- d[, sum(HbA1cOver65_prvl) / sum(popsize), keyby = .(mc, year, scenario, agegrp_HbA1c)
+  ][, as.list(quantile(V1, prbl)), keyby = .(year, scenario, agegrp_HbA1c)]
+  
+setnames(d, paste0(prbl * 100, "%"), paste0("sggstvDM_prvl_", prbl * 100, "%"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 sggstvDM_prvl by year-agegroup (not standardised).csv"))
+
+
+
+# suggestive diabetes (HbA1c >= 6.5%) prevalence 
+fpth <- file.path(
+  output_dir,
+  "summaries",
+  paste0("prvl", "_scaled_up")
+)
+if (!file.exists(fpth)) stop(fpth, " doesn't exist")
+t1 <- as.data.table(open_dataset(fpth)) 
+d <- t1[
+  (agegrp %in% agegrp_name(30, 99, 5))
+]	
+d <- d[, sum(HbA1cOver65_prvl) / sum(popsize), keyby = .(mc, year, scenario)
+  ][, as.list(quantile(V1, prbl)), keyby = .(year, scenario)]
+setnames(d, paste0(prbl * 100, "%"), paste0("sggstvDM_prvl_", prbl * 100, "%"))
+fwrite(d, file.path(sTablesSubDirPath, "HJ21 sggstvDM_prvl by year (not standardised).csv"))
+
+
+

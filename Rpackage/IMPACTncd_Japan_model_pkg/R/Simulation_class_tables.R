@@ -236,32 +236,16 @@ expand_discount_levels <- function(d, value_cols, levels, from_year,
 #' @param discount_from_year Integer or `NULL`. First year from which present
 #'   values are discounted (`PV = FV / (1 + rate/100)^max(0, year - base)`).
 #'   When `NULL` (default) it is set to `baseline_year_for_change_outputs`.
-#' @param custom_costs_in_healthcare Character vector of user-defined cost
-#'   column names to also include in the healthcare perspective of the
-#'   cost-effectiveness tables. It therefore has an effect only when
-#'   `cea = TRUE`; the `costs` and `net_costs` tables are unaffected.
-#'
-#'   A *user-defined* cost column is any `_costs`-suffixed column of the
-#'   `costs` summary that the model's own cost machinery did not generate for
-#'   this run - in practice, a column your scenario code created. The built-in
-#'   set is `<disease>_<component>_costs` for every disease of this run with at
-#'   least one cost component available (today `chd`, `stroke` and their `cvd`
-#'   aggregate) crossed with the components `direct`, `productivity`,
-#'   `informal`, `indirect` and `total`.
-#'
-#'   The two perspectives are asymmetric. The societal perspective is
-#'   `cvd_total_costs` plus **every** user-defined cost column,
-#'   unconditionally - this argument cannot remove one. The healthcare
-#'   perspective is `cvd_direct_costs` plus **only** the columns named here.
-#'
-#'   Under the default `NULL` the healthcare perspective is `cvd_direct_costs`
-#'   alone, so pass the subset of your cost columns that a health-system payer
-#'   bears, e.g. `c("screening_costs", "drug_costs")`. Matching is by exact
-#'   name; names that are not user-defined cost columns (built-in cost columns
-#'   included) are dropped, and listed in a message when `logs` is on. For
-#'   backward compatibility a length-1 logical is also accepted: `FALSE` (like
-#'   `NULL`) means none, `TRUE` means all user-defined cost columns. Default
-#'   `NULL`.
+#' @param custom_costs_in_healthcare Character vector of user-defined `*_costs`
+#'   column names to additionally include in the healthcare perspective.
+#'   User-defined `*_costs` columns are *always* included in the societal
+#'   perspective; by default (`NULL`) none of them are added to the healthcare
+#'   perspective (which captures direct treatment costs only). Pass the subset
+#'   of custom cost columns that represent healthcare costs, e.g.
+#'   `c("screening_costs", "drug_costs")`. Names not matching a user-defined
+#'   cost column are ignored (with a message when `logs` is on). For backward
+#'   compatibility a logical is also accepted: `FALSE`/`NULL` means none and
+#'   `TRUE` means all user-defined cost columns. Default `NULL`.
 #' @return The `Simulation` object, invisibly.
 #' @examples
 #' \dontrun{
@@ -396,10 +380,6 @@ Simulation$set("public", "export_tables", function(
       discount_levels = discount_levels,
       discount_from_year = discount_from_year,
       custom_costs_in_healthcare = custom_costs_in_healthcare,
-      # Diseases of this run with at least one cost component available.
-      # Evaluated once here in the parent and carried as data, like every
-      # other datum this task needs, rather than read off `self` in a worker.
-      cost_diseases = costed_diseases(names(self$diseases)),
       strata = strata_cfg$ons
     )
   }
@@ -529,7 +509,6 @@ Simulation$set("private", "export_tables_hlpr", function(task, implicit_parallel
       discount_levels = task$discount_levels,
       discount_from_year = task$discount_from_year,
       custom_costs_in_healthcare = task$custom_costs_in_healthcare,
-      cost_diseases = task$cost_diseases,
       strata = task$strata
     )
   )
@@ -1452,7 +1431,6 @@ Simulation$set("private", "export_cea_tables", function(
     discount_levels = NULL,
     discount_from_year = NULL,
     custom_costs_in_healthcare = NULL,
-    cost_diseases = NULL,
     strata = NULL
 ) {
   if (self$design$sim_prm$logs) {
@@ -1490,70 +1468,19 @@ Simulation$set("private", "export_cea_tables", function(
     return(invisible(NULL))
   }
 
-  # Identify built-in vs user-defined cost columns.
-  #
-  # `cost_diseases` is auto-populated by costed_diseases() in export_tables()
-  # and carried in the task - the same vector export_costs_summaries() used to
-  # WRITE these columns, so writer and reader cannot state the set differently.
-  #
-  # Classification is deliberately ASYMMETRIC, because the two errors are not
-  # equally bad. Misclassifying a built-in as user-defined adds it to the
-  # societal perspective on top of cvd_total_costs, which already contains it -
-  # a silent inflation of cost, ICER and NMB. Misclassifying a user-defined
-  # column as built-in merely omits it from that perspective; it still appears
-  # in the costs and net_costs tables, which melt patterns("_costs$")
-  # unconditionally, so a reader can still see it. So the built-in set is a
-  # SUPERSET - this run's generated set UNION anything in the data matching the
-  # built-in name shape for a REGISTERED disease - and every tie breaks toward
-  # built-in. Shrinking the design can therefore never reclassify a column, and
-  # the shape stays anchored to registered disease names so it cannot swallow a
-  # user column such as `statin_direct_costs`.
+  # Identify built-in vs user-defined cost columns
   all_cost_cols <- grep("_costs$", names(costs), value = TRUE)
-
-  if (is.null(cost_diseases)) {
-    cost_diseases <- costed_diseases(names(self$diseases))
-  }
-  run_builtin_cols <- builtin_cost_cols(cost_diseases)
-  builtin_cols <- union(
-    run_builtin_cols,
-    grep(builtin_cost_col_regex(), all_cost_cols, value = TRUE)
+  builtin_cost_cols <- grep(
+    "^(chd|stroke|cvd)_(direct|productivity|informal|indirect|total)_costs$",
+    all_cost_cols, value = TRUE
   )
-  custom_cost_cols <- setdiff(all_cost_cols, builtin_cols)
-
-  # A summaries directory can legitimately have been written by a run whose
-  # design declared different costed diseases (export_tables() can be pointed
-  # at an existing output_dir, and the entry scripts use several design files).
-  # Say so in both directions, unconditionally: unlike the message() calls
-  # around them these report wrong numbers, not progress.
-  rescued <- setdiff(intersect(builtin_cols, all_cost_cols), run_builtin_cols)
-  if (length(rescued) > 0L) {
-    warning("export_cea_tables(): cost column(s) ",
-            paste(rescued, collapse = ", "),
-            " are present in the costs summary and are BUILT-IN, but this ",
-            "run's diseases do not generate them. Counting them as built-in, ",
-            "to avoid double counting them into the societal perspective on ",
-            "top of cvd_total_costs. The summaries were written under a ",
-            "different set of diseases than the design loaded now.",
-            call. = FALSE)
-  }
-  absent <- setdiff(run_builtin_cols, all_cost_cols)
-  if (length(absent) > 0L) {
-    warning("export_cea_tables(): built-in cost column(s) ",
-            paste(absent, collapse = ", "),
-            " are expected from this run's diseases but are absent from the ",
-            "costs summary. The summaries were written by a different design ",
-            "or by a partial re-run; the affected costs are treated as zero.",
-            call. = FALSE)
-  }
+  custom_cost_cols <- setdiff(all_cost_cols, builtin_cost_cols)
 
   # Resolve which custom cost columns to add to the healthcare perspective.
   # `custom_costs_in_healthcare` accepts a character vector of (custom) cost
   # column names to include there, in addition to the always-present
-  # cvd_direct_costs. For backward compatibility a length-1 logical is also
-  # honoured: NULL/FALSE -> none (default), TRUE -> all user-defined custom
-  # cost columns. Degenerate logicals (NA, logical(0), length > 1) miss both
-  # isTRUE/isFALSE and fall through to the character branch, where they match
-  # nothing and so resolve to the default (none).
+  # cvd_direct_costs. For backward compatibility a logical is also honoured:
+  # NULL/FALSE -> none (default), TRUE -> all user-defined custom cost columns.
   if (is.null(custom_costs_in_healthcare) ||
       isFALSE(custom_costs_in_healthcare)) {
     healthcare_custom_cols <- character(0)

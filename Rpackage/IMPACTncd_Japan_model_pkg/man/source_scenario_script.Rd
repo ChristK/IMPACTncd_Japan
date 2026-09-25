@@ -17,7 +17,7 @@ script's directory while evaluating, like \code{source(chdir = TRUE)}.}
 }
 \value{
 Invisibly, the value of the last evaluated expression. Top-level
-visible values are not auto-printed (the same default as \code{source()}).
+  visible values are not auto-printed (the same default as \code{source()}).
 }
 \description{
 A drop-in replacement for \code{\link[base]{source}} intended for scenario

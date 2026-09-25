@@ -62,12 +62,3 @@ inputs/exposure_distributions/Table_SBP.fst
 inputs/exposure_distributions/Table_HDLc.fst
 inputs/exposure_distributions/Table_TG.fst
 inputs/exposure_distributions/Table_Waist.fst
-
-
-inputs/exposure_distributions/Table_Med_HL.fst
-inputs/exposure_distributions/Table_Med_HT.fst
-inputs/exposure_distributions/Table_Smoking_number.fst
-inputs/exposure_distributions/Table_Smoking_never_vs_ex.fst
-inputs/exposure_distributions/Table_Smoking_NevEx_vs_current.fst
-inputs/exposure_distributions/Table_Smoking.fst
-inputs/exposure_distributions/Table_Fruit_vege.fst

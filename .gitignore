@@ -63,19 +63,7 @@ inputs/exposure_distributions/Table_HDLc.fst
 inputs/exposure_distributions/Table_TG.fst
 inputs/exposure_distributions/Table_Waist.fst
 
-inputs/exposure_distributions/Table_Waist.fst
-inputs/exposure_distributions/Table_TG.fst
-inputs/exposure_distributions/Table_SBP.fst
-inputs/exposure_distributions/Table_LDLc.fst
-inputs/exposure_distributions/Table_HDLc.fst
-inputs/exposure_distributions/Table_HbA1c.fst
-inputs/exposure_distributions/Table_Waist.fst.chunkad
-inputs/exposure_distributions/Table_Waist.fst.chunkac
-inputs/exposure_distributions/Table_Waist.fst.chunkab
-inputs/exposure_distributions/Table_Waist.fst.chunkaa
-inputs/exposure_distributions/Table_TG.fst.chunkac
-inputs/exposure_distributions/Table_TG.fst.chunkab
-inputs/exposure_distributions/Table_TG.fst.chunkaa
+
 inputs/exposure_distributions/Table_SBP.fst.chunkau
 inputs/exposure_distributions/Table_SBP.fst.chunkat
 inputs/exposure_distributions/Table_SBP.fst.chunkas

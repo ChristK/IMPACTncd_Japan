@@ -35,9 +35,6 @@ validation_internal
 /synthpop
 /outputs
 IMPACTncd_Japan.code-workspace
-inputs/exposure_distributions/Table_HbA1c.fst
-inputs/exposure_distributions/Table_LDLc.fst
-inputs/exposure_distributions/Table_SBP.fst
 inputs/sim_design_test.yaml
 simulate2.R
 simulation/calibration_prms_10.csv
@@ -57,3 +54,11 @@ claude_process/
 # -- ~8 MB each at parf_popsize 2000, regenerable, and invalidated whenever
 # the generator source or its ./inputs/ files change.
 simulation/parf/*.qs
+scenarios/JCS_JSS_2026.R
+logs/
+inputs/exposure_distributions/Table_HbA1c.fst
+inputs/exposure_distributions/Table_LDLc.fst
+inputs/exposure_distributions/Table_SBP.fst
+inputs/exposure_distributions/Table_HDLc.fst
+inputs/exposure_distributions/Table_TG.fst
+inputs/exposure_distributions/Table_Waist.fst

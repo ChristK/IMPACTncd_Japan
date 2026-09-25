@@ -214,8 +214,13 @@ SynthPop <-
               "rank_HbA1c",
               "rank_LDLc",
               "rank_SBP",
-              "rankstat_Smoking_number"
-            )
+              "rankstat_Smoking_number",
+              # 20260925 new risk factors			
+			  "rank_waist",
+			  "rank_HDLc",
+			  "rank_TG",
+			  "rankstat_teeth_number"
+			)
           }
           self$pop <- private$get_synthpop(exclude_cols = exclude_cols_)
           self$metadata <- yaml::read_yaml(private$filename$metafile)
@@ -1050,12 +1055,23 @@ SynthPop <-
           # ????? 20230206 NOT RW variables to change the variable name for rankstat
           # add non-correlated RNs
           # Change-for-IMPACT-NCD-Japan
-          rank_cols <- c("rankstat_Smoking_number")
-
+		  
+		  # 20260925 new risk factors
+          dt[, rank_waist := copy(rank_BMI), ] #"waist"  this is the same rank as BMI-assigned RW 
+		  
+		  rank_cols <- c(
+			"rankstat_Smoking_number",
+			# 20260925 new risk factors
+			"rank_HDLc",
+			"rank_TG",
+			"rankstat_teeth_number"
+			)
 
           for (nam in rank_cols) {
             set(dt, NULL, nam, dqrunif(new_n))
           } # NOTE do not replace with generate_rns function.
+
+          
 
           # Project forward for simulation and back project for lags  ----
           if (design_$sim_prm$logs) message("Project forward and back project")
@@ -1123,8 +1139,8 @@ SynthPop <-
 
           # Change-for-IMPACT-NCD-Japan
           # Set limit age ranges
-          # Temp <- read_fst("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/HSE_ts.fst", as.data.table = TRUE)[between(Age, 20L, max(dt$age))]
-          # limit_age <- Temp[, .(min = min(Age), max = max(Age))]
+          # Temp <- read_fst("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/HSE_ts.fst", as.data.table = TRUE)[between(age, 20L, max(dt$age))]
+          # limit_age <- Temp[, .(min = min(age), max = max(age))]
           # rm(Temp)
           limit_age <- data.table(min = min(dt$age), max = max(dt$age))
 
@@ -1144,12 +1160,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Fruit_vege.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-          # unnecessary comment 
-
-
+            )[between(age, limit_age$min, limit_age$max)]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1194,9 +1205,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Smoking_NevEx_vs_current.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+            )[between(age, limit_age$min, limit_age$max)]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1222,9 +1231,8 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Smoking_never_vs_ex.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+            )[between(age, limit_age$min, limit_age$max)]
+
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
           absorb_dt(dt, tbl)
@@ -1262,12 +1270,8 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Smoking_number.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-
-
-
+            )[between(age, limit_age$min, limit_age$max)]
+ 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
           # if (.Platform$OS.type == "unix") {
@@ -1337,12 +1341,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Med_HT.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-
-
-
+            )[between(age, limit_age$min, limit_age$max)]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1380,11 +1379,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Med_HL.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-
-
+            )[between(age, limit_age$min, limit_age$max)]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1421,11 +1416,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_Med_DM.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-
-
+            )[between(age, limit_age$min, limit_age$max)]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1459,11 +1450,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_PA_days.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
-
-
+            )[between(age, limit_age$min, limit_age$max)]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1517,9 +1504,7 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_BMI.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+            )[between(age, limit_age$min, limit_age$max)]
 
           ### Make PA days category 
           dt[, pa_3cat := fifelse(
@@ -1536,8 +1521,8 @@ SynthPop <-
           # table(dt$PA_3cat, useNA = "always")
          
           # simulate trancated distribution
-          tbl[, maxq := (pBCTo(rep(70, .N), mu, sigma, nu, tau))]
-          tbl[, minq := (pBCTo(rep(14, .N), mu, sigma, nu, tau))]
+          # tbl[, maxq := (pBCTo(rep(70, .N), mu, sigma, nu, tau))]
+          # tbl[, minq := (pBCTo(rep(14, .N), mu, sigma, nu, tau))]
 
           col_nam <-
             setdiff(names(tbl), intersect(names(dt), names(tbl)))
@@ -1572,19 +1557,15 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_HbA1c.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-
-
-          setnames(tbl, c("Age", "Sex", "Year", "BMI"), c("age", "sex", "year", "BMI_round"))
-          tbl[, sex := factor(sex, 0:1, c("men", "women"))]
-
+            )[between(age, limit_age$min, limit_age$max)]
+		  
           tbl[, BMI_round := as.integer(10 * BMI_round)]
           dt[, BMI_round := as.integer(round(10 * BMI, 0))]
 
 
           # simulate trancated distribution
-          tbl[, maxq := (pBCT(rep(18, .N), mu, sigma, nu, tau))]
-          tbl[, minq := (pBCT(rep(0.04, .N), mu, sigma, nu, tau))]
+          # tbl[, maxq := (pBCT(rep(18, .N), mu, sigma, nu, tau))]
+          # tbl[, minq := (pBCT(rep(0.04, .N), mu, sigma, nu, tau))]
 
 
           col_nam <-
@@ -1620,17 +1601,15 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_LDLc.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, c("Age", "Sex", "Year", "BMI"), c("age", "sex", "year", "BMI_round"))
-          tbl[, sex := factor(sex, 0:1, c("men", "women"))]
+            )[between(age, limit_age$min, limit_age$max)]
 
           tbl[, BMI_round := as.integer(10 * BMI_round)]
           # dt[, BMI_round := as.integer(round(10 * BMI, 0))] # Created above in HbA1c
 
 
           # simulate trancated distribution
-          tbl[, maxq := (pBCT(rep(350, .N), mu, sigma, nu, tau))]
-          tbl[, minq := (pBCT(rep(15, .N), mu, sigma, nu, tau))]
+          # tbl[, maxq := (pBCT(rep(350, .N), mu, sigma, nu, tau))]
+          # tbl[, minq := (pBCT(rep(15, .N), mu, sigma, nu, tau))]
 
 
           col_nam <-
@@ -1650,6 +1629,9 @@ SynthPop <-
           dt[, c(col_nam, "BMI_round") := NULL] # del BMI_round because SBP rounds at different precision
 
 
+
+
+
           # Generate SBP ----
           # Change-for-IMPACT-NCD-Japan
           # Model_gamlss <- qread(paste0("/home/rstudio/IMPACT_NCD_data/NHNS_data/Output_data_organized/GAMLSS_created/GAMLSS_model_", "SBP", ".qs"))
@@ -1663,10 +1645,9 @@ SynthPop <-
           tbl <-
             read_fst("./inputs/exposure_distributions/Table_SBP.fst",
               as.data.table = TRUE
-            )[between(Age, limit_age$min, limit_age$max)]
-          setnames(tbl, c("Age", "Sex", "Year", "BMI", "Smoking"), c("age", "sex", "year", "BMI_round", "smoking_tmp"))
+            )[between(age, limit_age$min, limit_age$max)]
+
           tbl[, `:=`(
-            sex = factor(sex, 0:1, c("men", "women")),
             smoking_tmp = as.integer(smoking_tmp),
             BMI_round = as.integer(BMI_round)
           )] # TODO update the saved file so we don't have to do these slow conversions every time
@@ -1677,9 +1658,9 @@ SynthPop <-
             smoking_tmp = as.integer(Smoking == "3")
           )] # 1 = smoker
 
-                    # simulate trancated distribution
-          tbl[, maxq := (pBCPE(rep(250, .N), mu, sigma, nu, tau))]
-          tbl[, minq := (pBCPE(rep(75, .N), mu, sigma, nu, tau))]
+          # simulate trancated distribution
+          # tbl[, maxq := (pBCPE(rep(250, .N), mu, sigma, nu, tau))]
+          # tbl[, minq := (pBCPE(rep(75, .N), mu, sigma, nu, tau))]
 
 
           col_nam <-
@@ -1697,6 +1678,176 @@ SynthPop <-
           dt[, SBP := qBCPE(minq + rank_SBP * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
           if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_SBP")
           dt[, c(col_nam, "BMI_round", "smoking_tmp") := NULL]
+
+
+
+
+
+
+
+
+		  #-----#-----#-----#-----#-----#-----
+          # Generate HDLc ----
+		  #-----#-----#-----#-----#-----#-----
+          if (design_$sim_prm$logs) message("Generate HDLc")
+
+          tbl <-
+            read_fst("./inputs/exposure_distributions/Table_HDLc.fst",
+              as.data.table = TRUE
+            )[between(age, limit_age$min, limit_age$max)]
+
+          tbl[, `:=`(LDLc_round_HDLc = as.integer(round(LDLc_round_HDLc * 10, 0)))] 
+
+          dt[, `:=`(
+            LDLc_round_HDLc = as.integer(round(LDLc * 10, 0)) # TODO consider Rfast::Round to speedup
+          )] 
+
+          col_nam <-
+            setdiff(names(tbl), intersect(names(dt), names(tbl)))
+          absorb_dt(dt, tbl)
+
+          # See Model_gamlss$parameters
+          # See Model_gamlss$family
+          dt[, HDLc := qBCPEo(minq + rank_HDLc * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
+		  if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_HDLc")
+		  dt[, c(col_nam, "LDLc_round_HDLc") := NULL]
+
+
+
+
+
+
+
+		  #-----#-----#-----#-----#-----#-----
+          # Generate TG ----
+		  #-----#-----#-----#-----#-----#-----
+          if (design_$sim_prm$logs) message("Generate TG")
+
+          tbl <-
+            read_fst("./inputs/exposure_distributions/Table_TG.fst",
+              as.data.table = TRUE
+            )[between(age, limit_age$min, limit_age$max)]
+
+		  tbl[, `:=`(
+			LDLc_round_TG = as.integer(LDLc_round_TG)
+          )] # TODO update the saved file so we don't have to do these slow conversions every time
+
+
+          dt[, `:=`(
+            LDLc_round_TG = as.integer(round(LDLc, 0)) # TODO consider Rfast::Round to speedup
+          )] 
+
+
+          col_nam <-
+            setdiff(names(tbl), intersect(names(dt), names(tbl)))
+          absorb_dt(dt, tbl)
+
+          # See Model_gamlss$parameters
+          # See Model_gamlss$family
+          dt[, TG := qGG(minq + rank_TG * (maxq - minq), mu, sigma, nu)]
+		  if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_TG")
+		  dt[, c(col_nam, "LDLc_round_TG") := NULL]
+
+
+
+
+		  #-----#-----#-----#-----#-----#-----
+          # Generate waist ----
+		  #-----#-----#-----#-----#-----#-----
+          if (design_$sim_prm$logs) message("Generate waist")
+
+          tbl <-
+            read_fst("./inputs/exposure_distributions/Table_Waist.fst",
+              as.data.table = TRUE
+            )[between(age, limit_age$min, limit_age$max)]
+
+		  tbl[, `:=`(
+            BMI_round = as.integer(round(10 * BMI_round, 0))
+          )] # TODO update the saved file so we don't have to do these slow conversions every time
+
+
+          dt[, BMI_round := as.integer(round(10 * BMI, 0)), ] 
+
+          col_nam <-
+            setdiff(names(tbl), intersect(names(dt), names(tbl)))
+
+          absorb_dt(dt, tbl)
+
+          # See Model_gamlss$parameters
+          # See Model_gamlss$family
+          dt[, waist := qGB2(minq + rank_waist * (maxq - minq), mu, sigma, nu, tau)] 
+          if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rank_waist")
+          dt[, c(col_nam, "BMI_round") := NULL]
+		  
+
+
+
+
+
+		  #-----#-----#-----#-----#-----#-----
+          # Generate n_teeth ----
+		  #-----#-----#-----#-----#-----#-----
+          if (design_$sim_prm$logs) message("Generate n_teeth")
+
+          tbl <-
+            read_fst("./inputs/exposure_distributions/Table_n_teeth.fst",
+              as.data.table = TRUE
+            )[between(age, limit_age$min, limit_age$max)]
+
+          col_nam <-
+            setdiff(names(tbl), intersect(names(dt), names(tbl)))
+          absorb_dt(dt, tbl)
+
+
+          dt[
+            ,
+            teeth_number := factor(
+                (rankstat_teeth_number > pa1) +
+                (rankstat_teeth_number > pa2) +
+                (rankstat_teeth_number > pa3) +
+                (rankstat_teeth_number > pa4) +
+                (rankstat_teeth_number > pa5) +
+                (rankstat_teeth_number > pa6) +
+                (rankstat_teeth_number > pa7) +
+                (rankstat_teeth_number > pa8) +
+                (rankstat_teeth_number > pa9) +
+                (rankstat_teeth_number > pa10) +
+                (rankstat_teeth_number > pa11) +
+                (rankstat_teeth_number > pa12) +
+                (rankstat_teeth_number > pa13) +
+                (rankstat_teeth_number > pa14) +
+                (rankstat_teeth_number > pa15) +
+                (rankstat_teeth_number > pa16) +
+                (rankstat_teeth_number > pa17) +
+                (rankstat_teeth_number > pa18) +
+                (rankstat_teeth_number > pa19) +
+                (rankstat_teeth_number > pa20) +
+                (rankstat_teeth_number > pa21) +
+                (rankstat_teeth_number > pa22) +
+                (rankstat_teeth_number > pa23) +
+                (rankstat_teeth_number > pa24) +
+                (rankstat_teeth_number > pa25) +
+                (rankstat_teeth_number > pa26) +
+                (rankstat_teeth_number > pa27) +
+                (rankstat_teeth_number > pa28) +
+                (rankstat_teeth_number > pa29) +
+                (rankstat_teeth_number > pa30) +
+                (rankstat_teeth_number > pa31) +
+                (rankstat_teeth_number > pa32) +
+                (rankstat_teeth_number > pa33),
+              levels = 0:32, labels = 0:32, ordered = TRUE
+            )
+          ]
+
+
+
+          # See Model_gamlss$parameters
+          # See Model_gamlss$family
+		  if (!design_$sim_prm$keep_simulants_rn) col_nam <- c(col_nam, "rankstat_teeth_number")
+		  dt[, c(col_nam) := NULL]
+		  
+		  
+		  
 
 
 
@@ -1721,8 +1872,14 @@ SynthPop <-
             "LDLc",
             "HbA1c",
             "Fruit_vege",
-            "BMI"
-          )
+            "BMI",
+			# add risk factors on 20260925
+			"HDLc",
+			"TG",
+			"waist",
+			"teeth_number"
+			)
+			
           xps_nam <- paste0(xps_tolag, "_curr_xps")
           setnames(dt, xps_tolag, xps_nam)
 

@@ -4,18 +4,18 @@
 \alias{Design}
 \title{R6 Class representing a simulation design}
 \description{
-The \code{Design} class is responsible for managing the configuration and parameters of the simulation.
+The `Design` class is responsible for managing the configuration and parameters of the simulation.
 It handles the loading of parameters from a YAML file or a list, validates them, and performs
 necessary preprocessing such as topological sorting of diseases based on their dependencies.
 }
 \details{
-The \code{Design} class ensures that the simulation is set up correctly before execution.
+The `Design` class ensures that the simulation is set up correctly before execution.
 It performs the following key tasks:
 \itemize{
-\item \strong{Parameter Loading:} Reads simulation parameters from a YAML file or a list.
-\item \strong{Validation:} Checks for the existence of required parameters and validates their values (e.g., non-negative numbers).
-\item \strong{Environment Configuration:} Detects if the simulation is running inside a Docker container and adjusts output directories accordingly.
-\item \strong{Dependency Management:} Reorders the list of diseases based on their dependencies (topological sort) to ensure correct initialization order.
+  \item **Parameter Loading:** Reads simulation parameters from a YAML file or a list.
+  \item **Validation:** Checks for the existence of required parameters and validates their values (e.g., non-negative numbers).
+  \item **Environment Configuration:** Detects if the simulation is running inside a Docker container and adjusts output directories accordingly.
+  \item **Dependency Management:** Reorders the list of diseases based on their dependencies (topological sort) to ensure correct initialization order.
 }
 }
 \examples{
@@ -48,7 +48,7 @@ design <- Design$new("./validation/design_for_trends_validation.yaml")
 \if{html}{\out{<a id="method-Design-initialize"></a>}}
 \if{latex}{\out{\hypertarget{method-Design-initialize}{}}}
 \subsection{\code{Design$new()}}{
-  Create a new \code{Design} object.
+  Create a new `Design` object.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{Design$new(sim_prm)}
@@ -60,47 +60,47 @@ design <- Design$new("./validation/design_for_trends_validation.yaml")
       \item{\code{sim_prm}}{Either a path to a YAML configuration file or a list containing the simulation parameters.
 The parameters must include the following keys:
 \itemize{
-\item \code{iteration_n}: Integer. Number of Monte Carlo iterations for the simulation.
-\item \code{clusternumber}: Integer. Number of CPU cores/clusters to use for parallel processing.
-\item \code{clusternumber_export}: Integer. Number of CPU cores/clusters to use for exporting summaries.
-\item \code{logs}: Logical. If TRUE, enables verbose logging of simulation progress.
-\item \code{export_xps}: Logical. If TRUE, exports cross-sectional population states (xps) to disk.
-\item \code{export_PARF}: Logical. If TRUE, exports Population Attributable Risk Fraction (PARF) files.
-\item \code{n}: Integer. Size of the synthetic population to generate or simulate.
-\item \code{num_chunks}: Integer. Number of chunks to split the simulation into for memory management.
-\item \code{init_year_long}: Integer. The starting year of the simulation (e.g., 2015).
-\item \code{sim_horizon_max}: Integer. The final year of the simulation horizon.
-\item \code{ageL}: Integer. Lower bound of the age range for the simulation.
-\item \code{ageH}: Integer. Upper bound of the age range for the simulation.
-\item \code{apply_RR_to_mrtl2}: Logical. If TRUE, disease mortality is influenced by exposures like incidence.
-\item \code{calibrate_to_incd_trends}: Logical. If TRUE, use incidence calibration multipliers.
-\item \code{calibrate_to_ftlt_trends}: Logical. If TRUE, use fatality calibration multipliers.
-\item \code{init_year_incd_calibration}: Logical. Indicates whether parf*p0 is calibrated to incd for the initial year.
-\item \code{incd_uncertainty_distr}: String. Distribution of incidence uncertainty ("beta" or "uniform").
-\item \code{prvl_uncertainty_distr}: String. Distribution of prevalence uncertainty ("beta" or "uniform").
-\item \code{ftlt_uncertainty_distr}: String. Distribution of case fatality uncertainty ("beta" or "uniform").
-\item \code{output_dir}: String. Path to the directory where simulation outputs will be saved.
-\item \code{synthpop_dir}: String. Path to the directory containing or saving synthetic population files.
-\item \code{diseases}: List. Definitions of diseases, including incidence, mortality, and disability weights.
-\item \code{maxlag}: Integer. Maximum lag period (in years) for exposure effects.
-\item \code{jumpiness}: Numeric. Parameter controlling the volatility or "jumpiness" of time-variant trends.
-\item \code{keep_simulants_rn}: Logical. If TRUE, keep random numbers used for exposure generation.
-\item \code{load_simulants_rn}: Logical. If TRUE, load random numbers used for exposure generation.
-\item \code{decision_aid}: Logical. If TRUE, enables features related to decision aid outputs.
-\item \code{stochastic}: Logical. If TRUE, enables stochastic uncertainty in the model parameters.
-\item \code{kismet}: Logical. If TRUE, enables "kismet" (fate/randomness) in individual life courses.
-\item \code{max_prvl_for_outputs}: Numeric. Threshold for maximum prevalence to report in outputs (to filter rare conditions).
-\item \code{iteration_n_max}: Integer. Maximum number of iterations allowed (safety limit).
-\item \code{scenarios}: List. Definitions of different simulation scenarios (e.g., baseline, interventions).
-\item \code{cols_for_output}: Character vector. Names of columns to include in the output files.
-\item \code{strata_for_output}: Character vector. Variables to stratify the output by (e.g., "sex", "age_group").
-\item \code{exposures}: List. Definitions of risk factor exposures included in the model.
+  \item `iteration_n`: Integer. Number of Monte Carlo iterations for the simulation.
+  \item `clusternumber`: Integer. Number of CPU cores/clusters to use for parallel processing.
+  \item `clusternumber_export`: Integer. Number of CPU cores/clusters to use for exporting summaries.
+  \item `logs`: Logical. If TRUE, enables verbose logging of simulation progress.
+  \item `export_xps`: Logical. If TRUE, exports cross-sectional population states (xps) to disk.
+  \item `export_PARF`: Logical. If TRUE, exports Population Attributable Risk Fraction (PARF) files.
+  \item `n`: Integer. Size of the synthetic population to generate or simulate.
+  \item `num_chunks`: Integer. Number of chunks to split the simulation into for memory management.
+  \item `init_year_long`: Integer. The starting year of the simulation (e.g., 2015).
+  \item `sim_horizon_max`: Integer. The final year of the simulation horizon.
+  \item `ageL`: Integer. Lower bound of the age range for the simulation.
+  \item `ageH`: Integer. Upper bound of the age range for the simulation.
+  \item `apply_RR_to_mrtl2`: Logical. If TRUE, disease mortality is influenced by exposures like incidence.
+  \item `calibrate_to_incd_trends`: Logical. If TRUE, use incidence calibration multipliers.
+  \item `calibrate_to_ftlt_trends`: Logical. If TRUE, use fatality calibration multipliers.
+  \item `init_year_incd_calibration`: Logical. Indicates whether parf*p0 is calibrated to incd for the initial year.
+  \item `incd_uncertainty_distr`: String. Distribution of incidence uncertainty ("beta" or "uniform").
+  \item `prvl_uncertainty_distr`: String. Distribution of prevalence uncertainty ("beta" or "uniform").
+  \item `ftlt_uncertainty_distr`: String. Distribution of case fatality uncertainty ("beta" or "uniform").
+  \item `output_dir`: String. Path to the directory where simulation outputs will be saved.
+  \item `synthpop_dir`: String. Path to the directory containing or saving synthetic population files.
+  \item `diseases`: List. Definitions of diseases, including incidence, mortality, and disability weights.
+  \item `maxlag`: Integer. Maximum lag period (in years) for exposure effects.
+  \item `jumpiness`: Numeric. Parameter controlling the volatility or "jumpiness" of time-variant trends.
+  \item `keep_simulants_rn`: Logical. If TRUE, keep random numbers used for exposure generation.
+  \item `load_simulants_rn`: Logical. If TRUE, load random numbers used for exposure generation.
+  \item `decision_aid`: Logical. If TRUE, enables features related to decision aid outputs.
+  \item `stochastic`: Logical. If TRUE, enables stochastic uncertainty in the model parameters.
+  \item `kismet`: Logical. If TRUE, enables "kismet" (fate/randomness) in individual life courses.
+  \item `max_prvl_for_outputs`: Numeric. Threshold for maximum prevalence to report in outputs (to filter rare conditions).
+  \item `iteration_n_max`: Integer. Maximum number of iterations allowed (safety limit).
+  \item `scenarios`: List. Definitions of different simulation scenarios (e.g., baseline, interventions).
+  \item `cols_for_output`: Character vector. Names of columns to include in the output files.
+  \item `strata_for_output`: Character vector. Variables to stratify the output by (e.g., "sex", "age_group").
+  \item `exposures`: List. Definitions of risk factor exposures included in the model.
 }}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A new \code{Design} object.
+    A new `Design` object.
   }
   \subsection{Examples}{
     \if{html}{\out{<div class="r example copy">}}
@@ -129,7 +129,7 @@ where the YAML file will be saved.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The \code{Design} object (invisibly) for method chaining.
+    The `Design` object (invisibly) for method chaining.
   }
 }
 
@@ -144,7 +144,7 @@ where the YAML file will be saved.}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    The \code{Design} object (invisibly).
+    The `Design` object (invisibly).
   }
 }
 

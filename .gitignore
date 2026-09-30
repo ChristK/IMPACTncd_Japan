@@ -54,6 +54,7 @@ claude_process/
 # -- ~8 MB each at parf_popsize 2000, regenerable, and invalidated whenever
 # the generator source or its ./inputs/ files change.
 simulation/parf/*.qs
+scenarios/Healthy_Japan_21_revise_20260822_calib.R
 scenarios/JCS_JSS_2026.R
 logs/
 inputs/exposure_distributions/Table_HbA1c.fst

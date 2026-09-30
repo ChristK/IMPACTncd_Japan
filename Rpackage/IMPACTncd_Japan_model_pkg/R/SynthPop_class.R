@@ -1052,16 +1052,15 @@ SynthPop <-
             PA_days_r, BMI_r, HbA1c_r, LDLc_r, SBP_r
           ), ]]
 
-          # ????? 20230206 NOT RW variables to change the variable name for rankstat
+
           # add non-correlated RNs
           # Change-for-IMPACT-NCD-Japan
 		  
-		  # 20260925 new risk factors
-          dt[, rank_waist := copy(rank_BMI), ] #"waist"  this is the same rank as BMI-assigned RW 
 		  
 		  rank_cols <- c(
 			"rankstat_Smoking_number",
 			# 20260925 new risk factors
+			"rank_waist",
 			"rank_HDLc",
 			"rank_TG",
 			"rankstat_teeth_number"

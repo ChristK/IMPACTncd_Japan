@@ -2507,8 +2507,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_PA_days.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
           nam <- intersect(names(ff), names(tbl))
           ff[
             tbl,
@@ -2547,8 +2547,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_Fruit_vege.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
 
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
@@ -2594,8 +2594,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_Smoking_NevEx_vs_current.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, `:=`(sex = factor(sex, 0:1, c("men", "women")))]
+          
+
 
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
@@ -2615,8 +2615,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_Smoking_never_vs_ex.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
           absorb_dt(ff, tbl)
@@ -2665,8 +2665,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_Smoking_number.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
@@ -2693,14 +2693,11 @@ Disease <-
           ff[Smoking_number_grp == 6L, Smoking_number_curr_xps := 35L]
           ff[Smoking_number_grp == 7L, Smoking_number_curr_xps := 40L]
           ff[
-            Smoking_number_grp == 8L,
-            Smoking_number_curr_xps := sample(
-              c(50L, 60L, 80L),
-              .N,
-              TRUE,
-              prob = c(0.4, 0.45, 0.15)
-            )
-          ]
+		    Smoking_number_grp == 8L, 
+			Smoking_number_curr_xps := {
+            			u <- (rank_Smoking_number - pa7) / (1 - pa7)
+            			fcase(u < 0.4, 50L, u < 0.85, 60L, default = 80L)
+            		}]
 
           ff[, c(col_nam, "rank_Smoking_number", "Smoking_number_grp") := NULL]
           ff[, year := year + lag]
@@ -2720,8 +2717,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_BMI.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
 
           ff[,
             PA_3cat := fifelse(
@@ -2743,12 +2740,12 @@ Disease <-
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
           absorb_dt(ff, tbl)
-          ff[, BMI_curr_xps := qBCTo(rank_BMI, mu, sigma, nu, tau), ] #, n_cpu = design_$sim_prm$n_cpu)]
-          ff[BMI_curr_xps < 10, BMI_curr_xps := 10] #Truncate BMI predictions to avoid unrealistic values.
-          ff[BMI_curr_xps > 70, BMI_curr_xps := 70] #Truncate BMI predictions to avoid unrealistic values.
-
+          
+		  
+          ff[, BMI_curr_xps := qBCTo(minq + rank_BMI * (maxq - minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
           ff[, c(col_nam, "rank_BMI", "PA_3cat") := NULL]
           ff[, year := year + lag]
+		  
         }
 
         xps <- c("Med_DM", "HbA1c")
@@ -2765,13 +2762,18 @@ Disease <-
               "./inputs/exposure_distributions/Table_Med_DM.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
 
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
+
+          ff[, trueyear := year]
+          ff[age >= 70 & trueyear > 2045L, year := 2045L]
           absorb_dt(ff, tbl)
-          ff[, Med_DM_curr_xps := qbinom(rank_Med_DM, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+          ff[, `:=`(year = trueyear, trueyear = NULL)]
+
+          ff[, Med_DM_curr_xps := as.integer(rank_Med_DM > (1 - mu))] #, n_cpu = design_$sim_prm$n_cpu)]
           ff[, c(col_nam, "rank_Med_DM") := NULL]
           ff[, year := year + lag]
         }
@@ -2790,20 +2792,16 @@ Disease <-
               "./inputs/exposure_distributions/Table_HbA1c.fst",
               as.data.table = TRUE
             )
-          setnames(
-            tbl,
-            c("Age", "Sex", "Year", "BMI", "Med_DM"),
-            c("age", "sex", "year", "BMI_round", "Med_DM_curr_xps")
-          )
-          tbl[, sex := factor(sex, 0:1, c("men", "women"))]
+
+
           tbl[, BMI_round := as.integer(10 * BMI_round)]
           ff[, BMI_round := as.integer(round(10 * BMI_curr_xps, 0))]
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
           absorb_dt(ff, tbl)
-          ff[, HbA1c_curr_xps := fqBCT(rank_HbA1c, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
-
+          
+		  ff[, HbA1c_curr_xps := fqBCT(minq + rank_HbA1c * (maxq - minq), mu, sigma, nu, tau), ] # , n_cpu = design_$sim_prm$n_cpu)]
           ff[, c(col_nam, "rank_HbA1c", "BMI_round") := NULL]
           ff[, year := year + lag]
         }
@@ -2822,13 +2820,17 @@ Disease <-
               "./inputs/exposure_distributions/Table_Med_HL.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+
 
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
+
+          ff[, trueyear := year]
+          ff[age >= 70 & trueyear > 2045L, year := 2045L]
           absorb_dt(ff, tbl)
-          ff[, Med_HL_curr_xps := qbinom(rank_Med_HL, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+          ff[, `:=`(year = trueyear, trueyear = NULL)]
+
+          ff[, Med_HL_curr_xps := as.integer(rank_Med_HL > (1 - mu))] #, n_cpu = design_$sim_prm$n_cpu)]
           ff[, c(col_nam, "rank_Med_HL") := NULL]
           ff[, year := year + lag]
         }
@@ -2847,19 +2849,16 @@ Disease <-
               "./inputs/exposure_distributions/Table_LDLc.fst",
               as.data.table = TRUE
             )
-          setnames(
-            tbl,
-            c("Age", "Sex", "Year", "BMI", "Med_HL"),
-            c("age", "sex", "year", "BMI_round", "Med_HL_curr_xps")
-          )
-          tbl[, sex := factor(sex, 0:1, c("men", "women"))]
+
+
           tbl[, BMI_round := as.integer(10 * BMI_round)]
           ff[, BMI_round := as.integer(round(10 * BMI_curr_xps, 0))]
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
           absorb_dt(ff, tbl)
-          ff[, LDLc_curr_xps := fqBCT(rank_LDLc, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
+
+          ff[, LDLc_curr_xps := fqBCT(minq + rank_LDLc * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
 
           ff[, c(col_nam, "rank_LDLc", "BMI_round") := NULL]
           ff[, year := year + lag]
@@ -2879,13 +2878,18 @@ Disease <-
               "./inputs/exposure_distributions/Table_Med_HT.fst",
               as.data.table = TRUE
             )
-          setnames(tbl, tolower(names(tbl)))
-          tbl[, sex := factor(sex, 0:1, c("men", "women")), ]
+          
+
 
           col_nam <-
             setdiff(names(tbl), intersect(names(ff), names(tbl)))
+
+          ff[, trueyear := year]
+          ff[age >= 70 & trueyear > 2045L, year := 2045L]
           absorb_dt(ff, tbl)
-          ff[, Med_HT_curr_xps := qbinom(rank_Med_HT, 1L, mu)] #, n_cpu = design_$sim_prm$n_cpu)]
+          ff[, `:=`(year = trueyear, trueyear = NULL)]
+
+          ff[, Med_HT_curr_xps := as.integer(rank_Med_HT > (1 - mu))] # , n_cpu = design_$sim_prm$n_cpu)]
           ff[, c(col_nam, "rank_Med_HT") := NULL]
           ff[, year := year + lag]
         }
@@ -2904,20 +2908,8 @@ Disease <-
               "./inputs/exposure_distributions/Table_SBP.fst",
               as.data.table = TRUE
             )
-          setnames(
-            tbl,
-            c("Age", "Sex", "Year", "BMI", "Smoking", "Med_HT"),
-            c(
-              "age",
-              "sex",
-              "year",
-              "BMI_round",
-              "smoking_tmp",
-              "Med_HT_curr_xps"
-            )
-          )
+
           tbl[, `:=`(
-            sex = factor(sex, 0:1, c("men", "women")),
             smoking_tmp = as.integer(smoking_tmp),
             BMI_round = as.integer(BMI_round)
           )] # TODO update the saved file so we don't have to do these slow conversions every time
@@ -2930,7 +2922,8 @@ Disease <-
           col_nam <- setdiff(names(tbl), intersect(names(ff), names(tbl)))
 
           absorb_dt(ff, tbl)
-          ff[, SBP_curr_xps := qBCPE(rank_SBP, mu, sigma, nu, tau)] #, n_cpu = design_$sim_prm$n_cpu)]
+		  
+          ff[, SBP := qBCPE(minq + rank_SBP * (maxq - minq), mu, sigma, nu, tau)] # , n_cpu = design_$sim_prm$n_cpu)]
 
           ff[, c(col_nam, "rank_SBP", "BMI_round", "smoking_tmp") := NULL]
           ff[, year := year + lag]

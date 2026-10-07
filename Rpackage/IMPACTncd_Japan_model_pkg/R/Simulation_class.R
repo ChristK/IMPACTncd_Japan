@@ -5745,35 +5745,78 @@ Simulation <-
           collapse = ", "
         )
 
-        # Define cost metrics for SELECT statement
-        cost_metrics_select_wt_esp <- paste(
-          'SUM(chd_direct_costs * wt_esp) AS chd_direct_costs',
-          'SUM(stroke_direct_costs * wt_esp) AS stroke_direct_costs',
-          'SUM(cvd_direct_costs * wt_esp) AS cvd_direct_costs',
-          'SUM(chd_productivity_costs * wt_esp) AS chd_productivity_costs',
-          'SUM(stroke_productivity_costs * wt_esp) AS stroke_productivity_costs',
-          'SUM(cvd_productivity_costs * wt_esp) AS cvd_productivity_costs',
-          'SUM(chd_informal_costs * wt_esp) AS chd_informal_costs',
-          'SUM(stroke_informal_costs * wt_esp) AS stroke_informal_costs',
-          'SUM(cvd_informal_costs * wt_esp) AS "cvd_informal_costs"',
-          'SUM(chd_indirect_costs * wt_esp) AS chd_indirect_costs',
-          'SUM(stroke_indirect_costs * wt_esp) AS stroke_indirect_costs',
-          'SUM(cvd_indirect_costs * wt_esp) AS cvd_indirect_costs',
-          'SUM(chd_total_costs * wt_esp) AS chd_total_costs',
-          'SUM(stroke_total_costs * wt_esp) AS stroke_total_costs',
-          'SUM(cvd_total_costs * wt_esp) AS cvd_total_costs',
-          sep = ", "
-        )
+        # Built-in cost metrics for the SELECT statement.
+        #
+        # Auto-populated: the diseases come from this run
+        # (`names(self$diseases)`, filled from `design$sim_prm$diseases`),
+        # narrowed by costed_diseases() to those with at least one cost
+        # component available. This is the SAME source of truth
+        # export_cea_tables() uses to tell built-in from user-defined; if the
+        # two ever disagreed, a built-in column would be treated as
+        # user-defined there and added to the societal perspective on top of
+        # cvd_total_costs, i.e. double counted with no warning.
+        cost_diseases <- costed_diseases(names(self$diseases))
+        builtin_cols <- builtin_cost_cols(cost_diseases)
+        if (length(builtin_cols) == 0L) {
+          stop("export_costs_summaries(): none of this run's diseases (",
+               paste(names(self$diseases), collapse = ", "),
+               ") has a cost component available, so no built-in cost columns ",
+               "can be exported. See .cost_registry in R/cost_columns.R.",
+               call. = FALSE)
+        }
+
+        # Fail loudly, before any cost SQL runs, if the registry and
+        # calc_costs() have drifted apart in EITHER direction. Every scenario
+        # view is built by the same final SELECT, so checking the first is
+        # sufficient.
+        if (length(costs_scn_views) > 0L) {
+          assert_cost_view_matches_registry(
+            view_cols = dbListFields(duckdb_con, costs_scn_views[[1L]]),
+            expected  = builtin_cols,
+            context   = "export_costs_summaries()"
+          )
+        }
+
+        # Built once and parameterised on the weight column, mirroring
+        # build_custom_cost_select() below. This replaces
+        # `gsub("wt_esp", "wt", cost_metrics_select_wt_esp)`, which rewrote the
+        # whole assembled SQL string and only ever worked because no column
+        # name contains the substring "wt_esp" - not an invariant we control
+        # once the names are generated. No COALESCE here, unlike the custom
+        # variant: every built-in column is produced by calc_costs() for every
+        # row of every scenario, so its group sum is never NULL.
+        build_builtin_cost_select <- function(wt_col) {
+          paste(
+            sprintf('SUM("%s" * %s) AS "%s"', builtin_cols, wt_col, builtin_cols),
+            collapse = ", "
+          )
+        }
+        cost_metrics_select_wt_esp <- build_builtin_cost_select("wt_esp")
+        cost_metrics_select_wt <- build_builtin_cost_select("wt")
 
         # User-created custom `_costs$` columns live in `lc_table` (preserved
         # via cols_for_output) but are filtered out by calc_costs's base_filtered
         # CTE. Aggregate them with SUM(col * wt[_esp]) directly from lc_table
         # per (mc, scenario, strata) and merge into the cost outputs below.
+        #
+        # Subtract the built-ins (third consumer of the same truth): a scenario
+        # that creates a column named like a built-in would otherwise be
+        # aggregated twice and then collide in the merge below, which appends
+        # .x/.y suffixes - after which the name no longer ends in `_costs` and
+        # the column is silently dropped by every downstream grep("_costs$").
         custom_cost_cols <- grep(
           "_costs$",
           dbListFields(duckdb_con, lc_table_name),
           value = TRUE
         )
+        shadowed <- intersect(custom_cost_cols, builtin_cols)
+        if (length(shadowed) > 0L) {
+          warning("export_costs_summaries(): scenario-created column(s) ",
+                  paste(shadowed, collapse = ", "),
+                  " shadow built-in cost columns and are being ignored. ",
+                  "Rename them in the scenario script.", call. = FALSE)
+          custom_cost_cols <- setdiff(custom_cost_cols, builtin_cols)
+        }
         # A custom `_costs$` column created inside one scenario's function (e.g.
         # `statin_medical_costs`) does not exist in the parquet of scenarios that
         # never created it. The Arrow dataset unifies the schema across scenario
@@ -5820,12 +5863,8 @@ Simulation <-
             paste("ESP costs for scenario", scnam)
           ))
 
-          # Scaled-up query for current scenario (replace wt_esp with wt)
-          cost_metrics_select_wt <- gsub(
-            "wt_esp",
-            "wt",
-            cost_metrics_select_wt_esp
-          )
+          # Scaled-up query for current scenario (cost_metrics_select_wt is
+          # built once above, from the same generated column list)
           query_scaled_up_scenario <- sprintf(
             "SELECT %s, SUM(wt) AS popsize, %s
              FROM %s

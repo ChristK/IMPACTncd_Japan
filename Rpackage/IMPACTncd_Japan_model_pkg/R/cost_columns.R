@@ -17,6 +17,13 @@
 #' derives everything else from them by addition. These names are internal; they
 #' are never column names in the costs summary.
 #'
+#' `mrtl_prdv` is not a one-off charge on the death row: it is the annual output
+#' lost to a death, booked in every year from the death until the deceased would
+#' have turned 75 (where the employee profile ends) or the horizon ends (see
+#' `R/cost_mrtl_prdv.R`). The years after death are extra rows of the cost view
+#' that carry no population (`in_pop = 0`). In the death year it supersedes
+#' `prvl_prdv`, so a person-year never bears both.
+#'
 #' @noRd
 .cost_primitives <- c("prvl_prdv", "mrtl_prdv", "informal", "direct")
 

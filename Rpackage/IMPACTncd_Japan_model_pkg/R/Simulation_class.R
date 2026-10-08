@@ -3922,6 +3922,31 @@ Simulation <-
         prod_informal_inflation_factor <- 1.025
         direct_costs_inflation_factor <- 99.6 / 99.7
 
+        # --- Mortality productivity: annual lost-output stream ---
+        # A CHD/stroke death costs one year of lost output in every calendar
+        # year from the year of death (counted in full) until the deceased
+        # would have turned `mrtl_prdv_end_age` (last lost year at age
+        # mrtl_prdv_end_age - 1), truncated at the simulation horizon. Deaths
+        # at or after that age cost nothing. 75 is where the employee profile
+        # (employee_params_view) ends, so the stream covers exactly the
+        # lifetime labour value the calibration totals were defined over
+        # (Matsumoto et al. 2017, to life expectancy). Discounting is NOT
+        # applied here: each year's loss lands in its own calendar year and
+        # export_tables() discounts it there. `mrtl_prdv_source_discount_rate`
+        # is only the rate the calibration totals were discounted at in their
+        # source; see R/cost_mrtl_prdv.R.
+        #
+        # In the year of death the mortality loss is a full year of output, so
+        # it supersedes the morbidity productivity loss (prvl_prdv) of that
+        # person-year: rows carrying mortality loss get no prvl_prdv, and are
+        # left out of the prvl_prdv calibration so its totals stay exact.
+        mrtl_prdv_end_age <- 75L
+        mrtl_prdv_source_discount_rate <- 0.03
+        mrtl_prdv_row_sql <- sprintf(
+          "(all_cause_mrtl IN (2, 3) AND age < %d)",
+          mrtl_prdv_end_age
+        )
+
         # --- Step 1: Create baseline aggregation views using SQL only ---
         base_agg_sql <- "
           CREATE OR REPLACE TEMP VIEW %s AS
@@ -3935,6 +3960,18 @@ Simulation <-
           list("chd_prvl_2019_agg_view", "chd_dgns > 0", 2019),
           list("stroke_prvl_2016_agg_view", "stroke_dgns > 0", 2016),
           list("stroke_prvl_2019_agg_view", "stroke_dgns > 0", 2019),
+          # Cases that bear prvl_prdv: not the person-years whose output is
+          # already lost in full to a CHD/stroke death
+          list(
+            "chd_prvl_prdv_2016_agg_view",
+            paste("chd_dgns > 0 AND NOT", mrtl_prdv_row_sql),
+            2016
+          ),
+          list(
+            "stroke_prvl_prdv_2016_agg_view",
+            paste("stroke_dgns > 0 AND NOT", mrtl_prdv_row_sql),
+            2016
+          ),
           list("chd_mrtl_2016_initial_view", "all_cause_mrtl = 2", 2016),
           list("stroke_mrtl_2016_initial_view", "all_cause_mrtl = 3", 2016)
         )
@@ -4227,29 +4264,15 @@ Simulation <-
             "chd_prvl_prdv_cost_param_view",
             "employees",
             "employee_params_view",
-            "chd_prvl_2016_agg_view",
+            "chd_prvl_prdv_2016_agg_view",
             141000000000.00
           ),
           list(
             "stroke_prvl_prdv_cost_param_view",
             "employees",
             "employee_params_view",
-            "stroke_prvl_2016_agg_view",
+            "stroke_prvl_prdv_2016_agg_view",
             322000000000.00
-          ),
-          list(
-            "chd_mrtl_prdv_cost_param_view",
-            "employees",
-            "employee_params_view",
-            "chd_mrtl_2016_agg_view",
-            2257000000000.00
-          ),
-          list(
-            "stroke_mrtl_prdv_cost_param_view",
-            "employees",
-            "employee_params_view",
-            "stroke_mrtl_2016_agg_view",
-            1352000000000.00
           ),
           list(
             "chd_informal_cost_param_view",
@@ -4282,6 +4305,60 @@ Simulation <-
             config[[1]]
           )
         }
+
+        # Mortality productivity: annual lost output per year lost, by
+        # attained agegrp and sex, calibrated to the source's lifetime totals
+        # (see R/cost_mrtl_prdv.R)
+        employees_dt <- as.data.table(private$query_sql(
+          duckdb_con,
+          "SELECT agegrp, sex, employees FROM employee_params_view",
+          "employee_params_view"
+        ))
+        mrtl_prdv_configs <- list(
+          list("chd", "chd_mrtl_2016_agg_view", 2257000000000.00),
+          list("stroke", "stroke_mrtl_2016_agg_view", 1352000000000.00)
+        )
+        for (config in mrtl_prdv_configs) {
+          param_table <- paste0(config[[1]], "_mrtl_prdv_cost_param_table")
+          param_view <- paste0(config[[1]], "_mrtl_prdv_cost_param_view")
+          dbWriteTable(
+            duckdb_con,
+            param_table,
+            mrtl_prdv_annual_cost_param(
+              employees = employees_dt,
+              deaths = private$query_sql(
+                duckdb_con,
+                sprintf("SELECT agegrp, sex, V1 FROM %s", config[[2]]),
+                config[[2]]
+              ),
+              total_cost = config[[3]],
+              inflation_factor = prod_informal_inflation_factor,
+              source_discount_rate = mrtl_prdv_source_discount_rate
+            ),
+            overwrite = TRUE
+          )
+          private$execute_sql(
+            duckdb_con,
+            sprintf(
+              "CREATE OR REPLACE TEMP VIEW %s AS SELECT agegrp, sex, cost_param FROM %s",
+              param_view,
+              param_table
+            ),
+            param_view
+          )
+        }
+
+        # Last simulated year: the lost-output stream of a death is truncated
+        # here. Every scenario shares the horizon.
+        sim_horizon_year <- as.integer(private$query_sql(
+          duckdb_con,
+          sprintf(
+            "SELECT MAX(year) AS y FROM %s WHERE mc = %d",
+            input_table_name,
+            mcaggr
+          ),
+          "simulation horizon"
+        )$y)
 
         # Direct cost parameters with optimised SQL
         direct_cost_sql <- "
@@ -4342,9 +4419,38 @@ Simulation <-
           "
           CREATE OR REPLACE TEMP VIEW %s AS
           WITH base_filtered AS (
-            SELECT mc, scenario, year, age, agegrp, sex, chd_dgns, all_cause_mrtl, stroke_dgns, wt, wt_esp
-            FROM %s 
+            SELECT mc, scenario, year, age, agegrp, sex, chd_dgns, all_cause_mrtl, stroke_dgns, wt, wt_esp,
+              1 AS in_pop
+            FROM %s
             WHERE mc = %d AND scenario = %s
+            ),
+            -- Years of output lost to a CHD/stroke death AFTER its death year
+            -- (the death year is the death row itself): one row per year
+            -- t = 1, 2, ... while the deceased would still be younger than
+            -- mrtl_prdv_end_age and the year is within the horizon. A row sits
+            -- at the age (and agegrp) the deceased would have reached that
+            -- year and carries their death-row weights: wt is the number of
+            -- real deaths it stands for, and wt_esp standardises the death
+            -- event (by its year and agegrp of death), not the attained
+            -- stratum. It adds lost output only (no disease costs), and
+            -- in_pop = 0 keeps it out of popsize.
+            lost_prdv_years AS (
+              SELECT m.mc, m.scenario,
+                CAST(m.year + t.k AS INTEGER) AS year,
+                CAST(m.age + t.k AS INTEGER) AS age,
+                CAST(CAST(FLOOR((m.age + t.k) / 5) * 5 AS INTEGER) AS VARCHAR) || '-' ||
+                  CAST(CAST(FLOOR((m.age + t.k) / 5) * 5 + 4 AS INTEGER) AS VARCHAR) AS agegrp,
+                m.sex, 0 AS chd_dgns, m.all_cause_mrtl, 0 AS stroke_dgns, m.wt, m.wt_esp,
+                0 AS in_pop
+              FROM base_filtered m
+              JOIN range(1, %d) AS t(k)
+                ON m.age + t.k < %d AND m.year + t.k <= %d
+              WHERE m.all_cause_mrtl IN (2, 3)
+            ),
+            person_years AS (
+              SELECT * FROM base_filtered
+              UNION ALL
+              SELECT * FROM lost_prdv_years
             ),
             chd_costs AS (
               SELECT agegrp, sex,
@@ -4371,26 +4477,30 @@ Simulation <-
             basic_costs AS (
               SELECT
                 m.mc, m.scenario, m.year, m.age, m.agegrp, m.sex,
-                m.wt, m.wt_esp,
-              
+                m.wt, m.wt_esp, m.in_pop,
+
                 -- CHD basic cost components
-                CASE WHEN m.chd_dgns > 0 THEN cc.chd_prvl_prdv ELSE 0 END AS chd_prvl_prdv_costs,
-                CASE WHEN m.all_cause_mrtl = 2 THEN cc.chd_mrtl_prdv ELSE 0 END AS chd_mrtl_prdv_costs,
+                -- prvl_prdv: none where a CHD/stroke death already loses the
+                -- whole person-year of output (mortality supersedes morbidity)
+                CASE WHEN m.chd_dgns > 0 AND NOT (m.all_cause_mrtl IN (2, 3) AND m.age < %d)
+                  THEN cc.chd_prvl_prdv ELSE 0 END AS chd_prvl_prdv_costs,
+                CASE WHEN m.all_cause_mrtl = 2 AND m.age < %d THEN cc.chd_mrtl_prdv ELSE 0 END AS chd_mrtl_prdv_costs,
                 CASE WHEN m.chd_dgns > 0 THEN cc.chd_informal ELSE 0 END AS chd_informal_costs,
                 CASE WHEN m.chd_dgns > 0 THEN cc.chd_direct ELSE 0 END AS chd_direct_costs,
               
                 -- Stroke basic cost components
-                CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_prvl_prdv ELSE 0 END AS stroke_prvl_prdv_costs,
-                CASE WHEN m.all_cause_mrtl = 3 THEN sc.stroke_mrtl_prdv ELSE 0 END AS stroke_mrtl_prdv_costs,
+                CASE WHEN m.stroke_dgns > 0 AND NOT (m.all_cause_mrtl IN (2, 3) AND m.age < %d)
+                  THEN sc.stroke_prvl_prdv ELSE 0 END AS stroke_prvl_prdv_costs,
+                CASE WHEN m.all_cause_mrtl = 3 AND m.age < %d THEN sc.stroke_mrtl_prdv ELSE 0 END AS stroke_mrtl_prdv_costs,
                 CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_informal ELSE 0 END AS stroke_informal_costs,
                 CASE WHEN m.stroke_dgns > 0 THEN sc.stroke_direct ELSE 0 END AS stroke_direct_costs
               
-              FROM base_filtered m
+              FROM person_years m
               LEFT JOIN chd_costs cc ON m.agegrp = cc.agegrp AND m.sex = cc.sex
               LEFT JOIN stroke_costs sc ON m.agegrp = sc.agegrp AND m.sex = sc.sex
             )
             SELECT
-              mc, scenario, year, age, agegrp, sex, wt, wt_esp,
+              mc, scenario, year, age, agegrp, sex, wt, wt_esp, in_pop,
             
               -- Basic cost components (already calculated)
               chd_prvl_prdv_costs,
@@ -4428,7 +4538,14 @@ Simulation <-
           paste0(output_view_name, "_", scnams, "_view"),
           input_table_name,
           mcaggr,
-          paste0("'", scnams, "'")
+          paste0("'", scnams, "'"),
+          mrtl_prdv_end_age, # lost_prdv_years: range of t
+          mrtl_prdv_end_age, # lost_prdv_years: still below the end age
+          sim_horizon_year, # lost_prdv_years: within the horizon
+          mrtl_prdv_end_age, # chd_prvl_prdv_costs (superseded by mortality)
+          mrtl_prdv_end_age, # chd_mrtl_prdv_costs
+          mrtl_prdv_end_age, # stroke_prvl_prdv_costs (superseded by mortality)
+          mrtl_prdv_end_age # stroke_mrtl_prdv_costs
         )
 
         sapply(final_view_creation_sql, function(sql) {
@@ -5845,9 +5962,11 @@ Simulation <-
           scnam <- scnams[i]
           view_name <- costs_scn_views[i]
 
-          # ESP query for current scenario
+          # ESP query for current scenario. popsize counts the living only:
+          # the view's post-death lost-output rows (in_pop = 0) add costs but
+          # no population.
           query_esp_scenario <- sprintf(
-            "SELECT %s, SUM(wt_esp) AS popsize, %s
+            "SELECT %s, SUM(wt_esp * in_pop) AS popsize, %s
              FROM %s
              GROUP BY %s",
             quoted_strata_cols_sql,
@@ -5866,7 +5985,7 @@ Simulation <-
           # Scaled-up query for current scenario (cost_metrics_select_wt is
           # built once above, from the same generated column list)
           query_scaled_up_scenario <- sprintf(
-            "SELECT %s, SUM(wt) AS popsize, %s
+            "SELECT %s, SUM(wt * in_pop) AS popsize, %s
              FROM %s
              GROUP BY %s",
             quoted_strata_cols_sql,

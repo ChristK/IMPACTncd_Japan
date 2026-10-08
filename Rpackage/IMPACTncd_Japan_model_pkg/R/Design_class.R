@@ -61,7 +61,7 @@ Design <-
       #'     \item `export_PARF`: Logical. If TRUE, exports Population Attributable Risk Fraction (PARF) files.
       #'     \item `n`: Integer. Size of the synthetic population to generate or simulate.
       #'     \item `num_chunks`: Integer. Number of chunks to split the simulation into for memory management.
-      #'     \item `init_year_long`: Integer. The starting year of the simulation (e.g., 2015).
+      #'     \item `init_year_long`: Integer. The starting year of the simulation (e.g., 2015). Must be 2016 or earlier: costs are calibrated against the simulated year 2016.
       #'     \item `sim_horizon_max`: Integer. The final year of the simulation horizon.
       #'     \item `ageL`: Integer. Lower bound of the age range for the simulation.
       #'     \item `ageH`: Integer. Upper bound of the age range for the simulation.
@@ -189,6 +189,22 @@ Design <-
             sim_prm$parf_popsize,
             "). It is the number of simulants per age x sex stratum used to ",
             "estimate PARF; gen_parf_files() iterates seq(1, parf_popsize/10)."
+          )
+        }
+
+        # The simulation must include year 2016. calc_costs() turns the
+        # national cost totals into per-case values using the simulated 2016
+        # prevalent cases and deaths; without 2016 rows every cost parameter
+        # comes out empty and all disease costs silently export as zero.
+        # Fail here, before hours of simulation, not at export time.
+        if (sim_prm$init_year_long > 2016L || sim_prm$sim_horizon_max < 2016L) {
+          stop(
+            "The simulation must include year 2016 (init_year_long <= 2016 <= ",
+            "sim_horizon_max; got ", sim_prm$init_year_long, "-",
+            sim_prm$sim_horizon_max, "). Disease costs are calibrated against ",
+            "the simulated year 2016, so a later start silently exports zero ",
+            "costs. Start in 2016 or earlier and treat the years before an ",
+            "intervention as burn-in."
           )
         }
 

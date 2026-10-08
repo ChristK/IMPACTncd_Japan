@@ -68,7 +68,7 @@ The parameters must include the following keys:
 \item \code{export_PARF}: Logical. If TRUE, exports Population Attributable Risk Fraction (PARF) files.
 \item \code{n}: Integer. Size of the synthetic population to generate or simulate.
 \item \code{num_chunks}: Integer. Number of chunks to split the simulation into for memory management.
-\item \code{init_year_long}: Integer. The starting year of the simulation (e.g., 2015).
+\item \code{init_year_long}: Integer. The starting year of the simulation (e.g., 2015). Must be 2016 or earlier: costs are calibrated against the simulated year 2016.
 \item \code{sim_horizon_max}: Integer. The final year of the simulation horizon.
 \item \code{ageL}: Integer. Lower bound of the age range for the simulation.
 \item \code{ageH}: Integer. Upper bound of the age range for the simulation.
